@@ -1,0 +1,580 @@
+// C++ / OverlayPersistence.h / MSVC x64 C++17 / include inside namespace HazzureUI
+#pragma once
+#include "ConfigWatcher.h"
+#include <cstdio>
+
+// Simple logging for ValidateNavigationIndices (GSWidgets not available here)
+inline void Persistence_Log(const char* fmt, ...) {
+    char buffer[512];
+    va_list args;
+    va_start(args, fmt);
+    vsprintf_s(buffer, fmt, args);
+    va_end(args);
+    OutputDebugStringA(buffer);
+    OutputDebugStringA("\n");
+}
+
+namespace Persistence {
+using Value = HazzureConfig::Value;
+using Allocator = HazzureConfig::AllocatorType;
+using VarMap = std::map<std::string, std::string>;
+using ContextMap = std::map<std::string, VarMap>;
+struct BoolField { const char* name; bool OverlayConfig::*member; };
+struct IntField { const char* name; int OverlayConfig::*member; int minimum, maximum; };
+struct FloatField { const char* name; float OverlayConfig::*member; float minimum, maximum; };
+struct ColourField { const char* name; float (OverlayConfig::*member)[4]; };
+#define HAZZURE_BOOL(name) {#name, &OverlayConfig::name}
+static const BoolField boolFields[] = {
+    HAZZURE_BOOL(grenadeAreaFill), HAZZURE_BOOL(grenadeAreaGlow), HAZZURE_BOOL(trajectoryGlow), HAZZURE_BOOL(trajectoryShimmer),
+    HAZZURE_BOOL(tracerGlow), HAZZURE_BOOL(impactGlow), HAZZURE_BOOL(impactFill), HAZZURE_BOOL(impactSparks), HAZZURE_BOOL(killEffects), HAZZURE_BOOL(sceneColorEnabled),
+    HAZZURE_BOOL(fireGlowEnabled), HAZZURE_BOOL(smokeGlowEnabled),
+    HAZZURE_BOOL(espWeaponImages), HAZZURE_BOOL(movingAccuracy),
+    HAZZURE_BOOL(customHitSound), HAZZURE_BOOL(customHeadshotSound), HAZZURE_BOOL(customKillSound),
+    HAZZURE_BOOL(hitchanceEnabled), HAZZURE_BOOL(aimMultipoint), HAZZURE_BOOL(aimBodyFallback),
+    HAZZURE_BOOL(aimExtrapolation),
+    HAZZURE_BOOL(shotStop), HAZZURE_BOOL(shotStopEdgeGuard), HAZZURE_BOOL(soundRadar),
+    HAZZURE_BOOL(shotFullStop), HAZZURE_BOOL(autoFire),
+    HAZZURE_BOOL(rageActive), HAZZURE_BOOL(rageAntiAim), HAZZURE_BOOL(rageIgnoreSmoke), HAZZURE_BOOL(rageAntiAimOnGroundOnly),
+    HAZZURE_BOOL(rageAntiAimAtTargets), HAZZURE_BOOL(rageAntiAimDefensive), HAZZURE_BOOL(rageAntiAimMouseOverride), HAZZURE_BOOL(rageAntiAimPitchInvert),
+    HAZZURE_BOOL(fakeDuck),
+    HAZZURE_BOOL(rageAutoStop), HAZZURE_BOOL(rageSilentAim), HAZZURE_BOOL(autowallEnabled),
+    HAZZURE_BOOL(autoScope), HAZZURE_BOOL(strictSmoke), HAZZURE_BOOL(streamProof),
+    HAZZURE_BOOL(lineupHelper),
+    HAZZURE_BOOL(lineupAutoAlign), HAZZURE_BOOL(lineupAutoMap),
+    HAZZURE_BOOL(grenadeZones),
+    HAZZURE_BOOL(poseHistory),
+    HAZZURE_BOOL(autoStrafePhysics), HAZZURE_BOOL(jumpBug), HAZZURE_BOOL(edgeBug), HAZZURE_BOOL(pixelSurf),
+    HAZZURE_BOOL(soundEsp), HAZZURE_BOOL(worldDamage), HAZZURE_BOOL(bulletTracers), HAZZURE_BOOL(impactBoxes), HAZZURE_BOOL(dormantFade),
+    HAZZURE_BOOL(edgeJump), HAZZURE_BOOL(fastLadder),
+    HAZZURE_BOOL(slowWalk), HAZZURE_BOOL(fastStop), HAZZURE_BOOL(slideWalk), HAZZURE_BOOL(antiAfk),
+    HAZZURE_BOOL(crouchJumpAuto), HAZZURE_BOOL(standJumpAuto),
+    HAZZURE_BOOL(autoBuyEnabled), HAZZURE_BOOL(autoBuyUtilities), HAZZURE_BOOL(autoGrenadeRelease),
+    HAZZURE_BOOL(espEnabled), HAZZURE_BOOL(espBoxes), HAZZURE_BOOL(espSkeleton),
+    HAZZURE_BOOL(espHealth), HAZZURE_BOOL(espName), HAZZURE_BOOL(espWeapon), HAZZURE_BOOL(espWeaponIcons), HAZZURE_BOOL(espDistance),
+    HAZZURE_BOOL(espSnaplines), HAZZURE_BOOL(espFovCircle), HAZZURE_BOOL(offScreenArrows),
+    HAZZURE_BOOL(showGrenadeTrajectory), HAZZURE_BOOL(showSpreadCircle), HAZZURE_BOOL(showSpectators),
+    HAZZURE_BOOL(showBombTimer), HAZZURE_BOOL(bombPlantedNotify), HAZZURE_BOOL(noScopeOverlay), HAZZURE_BOOL(showHitmarker), HAZZURE_BOOL(backgroundVignette),
+    HAZZURE_BOOL(aimActive), HAZZURE_BOOL(aimVisibleOnly), HAZZURE_BOOL(noVisualRecoil),
+    HAZZURE_BOOL(aimBezier), HAZZURE_BOOL(aimDistanceFov), HAZZURE_BOOL(aimReactionDelay), HAZZURE_BOOL(aimEase),
+    HAZZURE_BOOL(limitFlash), HAZZURE_BOOL(nativeRadar), HAZZURE_BOOL(cameraFovOverride), HAZZURE_BOOL(customViewmodel),
+    HAZZURE_BOOL(rcsActive), HAZZURE_BOOL(triggerActive), HAZZURE_BOOL(humanizedTrigger), HAZZURE_BOOL(triggerDistanceDelay),
+    HAZZURE_BOOL(glowOutline), HAZZURE_BOOL(chamsVisible), HAZZURE_BOOL(chamsHidden), HAZZURE_BOOL(chamsArms), HAZZURE_BOOL(chamsWeapon), HAZZURE_BOOL(chamsDualLayer),
+    HAZZURE_BOOL(enemyOnly), HAZZURE_BOOL(chamsGradient), HAZZURE_BOOL(removeOriginalWeather),
+    HAZZURE_BOOL(cleanMap), HAZZURE_BOOL(snowParticles), HAZZURE_BOOL(skyActive), HAZZURE_BOOL(darkWorld),
+    HAZZURE_BOOL(agentEnabled), HAZZURE_BOOL(glassBlur), HAZZURE_BOOL(showTelemetryHUD),
+    HAZZURE_BOOL(bhopActive), HAZZURE_BOOL(bhopViewLock), HAZZURE_BOOL(bhopBoost), HAZZURE_BOOL(autoStrafe), HAZZURE_BOOL(showSpeedometer), HAZZURE_BOOL(showMovementGraph),
+    HAZZURE_BOOL(jumpthrowActive), HAZZURE_BOOL(autoPistol), HAZZURE_BOOL(hitSound), HAZZURE_BOOL(killSound),
+    HAZZURE_BOOL(proceduralAudio), HAZZURE_BOOL(bombBeepAudio), HAZZURE_BOOL(showKeybindsOverlay),
+    HAZZURE_BOOL(weather3d), HAZZURE_BOOL(killfeedEnabled), HAZZURE_BOOL(killfeedLocalOnly), HAZZURE_BOOL(thirdpersonEnabled), HAZZURE_BOOL(aspectRatioOverride),
+    HAZZURE_BOOL(crosshairEnabled), HAZZURE_BOOL(hideCustomCrosshairScoped),
+    HAZZURE_BOOL(minimapEnabled), HAZZURE_BOOL(tsukuyomiTheme), HAZZURE_BOOL(vignetteEnabled),
+    HAZZURE_BOOL(secretKnifeAnim)
+};
+#undef HAZZURE_BOOL
+#define HAZZURE_INT(name, low, high) {#name, &OverlayConfig::name, low, high}
+static const IntField intFields[] = {
+    {"hitSoundPreset",&OverlayConfig::hitSoundPreset,0,5},
+    HAZZURE_INT(sceneColorCurve,0,1),
+    HAZZURE_INT(uiFontFamily,0,2), HAZZURE_INT(uiTheme,0,1),
+    HAZZURE_INT(hitchanceSamples,32,256),
+    HAZZURE_INT(poseHistoryMs,20,200),
+    HAZZURE_INT(jumpBugKey,1,255), HAZZURE_INT(edgeBugKey,1,255), HAZZURE_INT(pixelSurfKey,1,255),
+    HAZZURE_INT(espBoxType,0,1), HAZZURE_INT(aimBone,0,3), HAZZURE_INT(aimTargetMode,0,2),
+    HAZZURE_INT(aimKillDelayMs,0,1000), HAZZURE_INT(aimSwitchDelayMs,0,1000),
+    HAZZURE_INT(aimReactionMinMs,0,1000), HAZZURE_INT(aimReactionMaxMs,0,1000), HAZZURE_INT(triggerKey,0,255),
+    HAZZURE_INT(rcsBulletDelay,0,8), HAZZURE_INT(rcsRampBullets,0,8),
+    HAZZURE_INT(triggerPauseMs,80,1500),
+    HAZZURE_INT(materialStyle,0,4), HAZZURE_INT(chamsVisibleStyle,0,4), HAZZURE_INT(chamsHiddenStyle,0,4), HAZZURE_INT(skyboxIndex,0,9), HAZZURE_INT(agentCT,0,11), HAZZURE_INT(agentT,0,15),
+    HAZZURE_INT(knifeIndex,0,10), HAZZURE_INT(knifeFinishIndex,0,5), HAZZURE_INT(gloveIndex,0,8),
+    HAZZURE_INT(weaponIndex,0,HazzureWeapons::count-1), HAZZURE_INT(akFinishIndex,0,5), HAZZURE_INT(awpFinishIndex,0,4),
+    HAZZURE_INT(m4FinishIndex,0,3), HAZZURE_INT(deagleFinishIndex,0,3), HAZZURE_INT(jumpthrowKey,0,255),
+    HAZZURE_INT(menuKey,1,255), HAZZURE_INT(aimKey,0,255),
+    HAZZURE_INT(weatherKind,0,2), HAZZURE_INT(weatherCount,16,192), HAZZURE_INT(killfeedLines,1,12), HAZZURE_INT(thirdpersonKey,0,255),
+    HAZZURE_INT(rageAntiAimMode,0,2), HAZZURE_INT(autowallMaxLayers,1,4),
+    HAZZURE_INT(safePointMode,0,2), HAZZURE_INT(fakeDuckKey,0,255), HAZZURE_INT(slowWalkKey,0,255),
+    HAZZURE_INT(autoBuyPrimary,0,4), HAZZURE_INT(autoBuySecondary,0,3),
+    HAZZURE_INT(crosshairStyle,0,2)
+};
+#undef HAZZURE_INT
+#define HAZZURE_FLOAT(name, low, high) {#name, &OverlayConfig::name, low, high}
+static const FloatField floatFields[] = {
+    HAZZURE_FLOAT(grenadeAreaOpacity,0.f,.6f), HAZZURE_FLOAT(grenadeAreaWidth,.5f,4.f),
+    HAZZURE_FLOAT(trajectoryWidth,.5f,5.f), HAZZURE_FLOAT(trajectoryPointSize,1.f,8.f), HAZZURE_FLOAT(trajectoryOpacity,.1f,1.f),
+    HAZZURE_FLOAT(tracerWidth,.5f,5.f), HAZZURE_FLOAT(impactWidth,.5f,4.f), HAZZURE_FLOAT(impactSize,1.f,12.f),
+    HAZZURE_FLOAT(impactDuration,.2f,3.f), HAZZURE_FLOAT(impactOpacity,0.f,1.f),
+    HAZZURE_FLOAT(killEffectDuration,.2f,3.f), HAZZURE_FLOAT(killEffectSize,8.f,64.f), HAZZURE_FLOAT(killEffectIntensity,0.f,1.f),
+    HAZZURE_FLOAT(sceneSaturation,0.f,2.f), HAZZURE_FLOAT(sceneContrast,.5f,2.f), HAZZURE_FLOAT(sceneTemperature,-1.f,1.f), HAZZURE_FLOAT(sceneTint,-1.f,1.f),
+    HAZZURE_FLOAT(uiFontSize,12.f,18.f), HAZZURE_FLOAT(espFontSize,11.f,18.f),
+    HAZZURE_FLOAT(movingAccuracyPercent,0.f,100.f),
+    HAZZURE_FLOAT(scopeFilterAlpha,0.f,1.f),
+    HAZZURE_FLOAT(hitSoundGain,0.f,1.f), HAZZURE_FLOAT(headshotSoundGain,0.f,1.f), HAZZURE_FLOAT(killSoundGain,0.f,1.f),
+    HAZZURE_FLOAT(hitchancePercent,0.f,100.f), HAZZURE_FLOAT(multipointScale,0.f,.8f),
+    HAZZURE_FLOAT(aimExtrapolationScale,0.f,3.f), HAZZURE_FLOAT(slowWalkSpeed,30.f,160.f),
+    HAZZURE_FLOAT(bodyFallbackBelow,0.f,100.f), HAZZURE_FLOAT(shotStopSpeed,10.f,150.f),
+    HAZZURE_FLOAT(autoFireOnTargetDeg,0.05f,10.f),
+    HAZZURE_FLOAT(rageFov,0.5f,360.f), HAZZURE_FLOAT(rageAntiAimPitch,-89.f,89.f), HAZZURE_FLOAT(rageAntiAimYaw,-180.f,180.f),
+    HAZZURE_FLOAT(rageSmooth,1.f,25.f), HAZZURE_FLOAT(rageAutoStopSpeed,0.f,300.f),
+    HAZZURE_FLOAT(rageAntiAimJitterMin,-180.f,180.f), HAZZURE_FLOAT(rageAntiAimJitterMax,-180.f,180.f),
+    HAZZURE_FLOAT(rageAntiAimSpinStep,1.f,180.f), HAZZURE_FLOAT(autowallChancePenalty,0.f,100.f),
+    HAZZURE_FLOAT(soundDuration,.2f,3.f), HAZZURE_FLOAT(soundRadius,8.f,256.f), HAZZURE_FLOAT(damageDuration,.2f,3.f),
+    HAZZURE_FLOAT(tracerDuration,.2f,3.f), HAZZURE_FLOAT(dormantSeconds,2.f,3.f),
+    HAZZURE_FLOAT(aimFov,0.1f,90.f), HAZZURE_FLOAT(espMaxDistance,0.f,100000.f),
+    HAZZURE_FLOAT(aimSmooth,1.f,30.f), HAZZURE_FLOAT(rcsScaleX,0.f,3.f), HAZZURE_FLOAT(rcsScaleY,0.f,3.f),
+    HAZZURE_FLOAT(rcsSmooth,1.f,30.f), HAZZURE_FLOAT(aimCurveJitter,0.f,.25f),
+    HAZZURE_FLOAT(aimEaseBias,.15f,.65f), HAZZURE_FLOAT(rcsStrength,0.f,1.f),
+    HAZZURE_FLOAT(aimFovReferenceMetres,1.f,100.f), HAZZURE_FLOAT(aimFovMinimumScale,.05f,1.f),
+    HAZZURE_FLOAT(flashAlphaLimit,0.f,1.f), HAZZURE_FLOAT(cameraFov,60.f,140.f),
+    HAZZURE_FLOAT(viewmodelX,-10.f,10.f), HAZZURE_FLOAT(viewmodelY,-10.f,10.f), HAZZURE_FLOAT(viewmodelZ,-10.f,10.f), HAZZURE_FLOAT(viewmodelFov,40.f,120.f),
+    HAZZURE_FLOAT(mouseYawScale,0.0001f,1.f), HAZZURE_FLOAT(mousePitchScale,0.0001f,1.f),
+    HAZZURE_FLOAT(triggerDelayMs,0.f,150.f), HAZZURE_FLOAT(fogDensity,0.f,1.f),
+    HAZZURE_FLOAT(skyBrightness,0.05f,2.f), HAZZURE_FLOAT(worldBrightness,0.05f,1.f), HAZZURE_FLOAT(soundVolume,0.f,1.f),
+    HAZZURE_FLOAT(vignetteIntensity,0.10f,1.f),
+    HAZZURE_FLOAT(tsukuyomiMoonSize,3.f,20.f), HAZZURE_FLOAT(tsukuyomiMoonGlow,0.f,2.f),
+    HAZZURE_FLOAT(weatherSpeed,80.f,1000.f), HAZZURE_FLOAT(weatherWindX,-160.f,160.f), HAZZURE_FLOAT(weatherWindY,-160.f,160.f),
+    HAZZURE_FLOAT(killfeedDuration,0.f,120.f), HAZZURE_FLOAT(thirdpersonDistance,30.f,300.f), HAZZURE_FLOAT(aspectRatio,0.5f,2.5f),
+    HAZZURE_FLOAT(minimapSize,80.f,300.f), HAZZURE_FLOAT(minimapZoom,0.5f,3.0f)
+};
+#undef HAZZURE_FLOAT
+#define HAZZURE_COLOUR(name) {#name, &OverlayConfig::name}
+static const ColourField colourFields[] = {
+    HAZZURE_COLOUR(colTrajectory), HAZZURE_COLOUR(colTrajectoryCollision), HAZZURE_COLOUR(colTracer), HAZZURE_COLOUR(colImpact), HAZZURE_COLOUR(colKillEffect),
+    HAZZURE_COLOUR(uiAccent),
+    HAZZURE_COLOUR(colVisible), HAZZURE_COLOUR(colHidden), HAZZURE_COLOUR(colArms), HAZZURE_COLOUR(colGradient),
+    HAZZURE_COLOUR(colFog), HAZZURE_COLOUR(colSky), HAZZURE_COLOUR(colEnemy), HAZZURE_COLOUR(colTeam),
+    HAZZURE_COLOUR(colSkeleton), HAZZURE_COLOUR(colFov), HAZZURE_COLOUR(colSnaplines),
+
+    HAZZURE_COLOUR(colSmoke), HAZZURE_COLOUR(colMolotov), HAZZURE_COLOUR(colMuzzle),
+    HAZZURE_COLOUR(fireGlowColor), HAZZURE_COLOUR(smokeGlowColor),
+    HAZZURE_COLOUR(crosshairColor)
+};
+#undef HAZZURE_COLOUR
+
+static HazzureConfig::Document storage;
+static std::string storagePath;
+
+static bool Registered(const char* name) {
+    if(!name)return false;
+    for(const auto& field:boolFields)if(!strcmp(name,field.name))return true;
+    for(const auto& field:intFields)if(!strcmp(name,field.name))return true;
+    for(const auto& field:floatFields)if(!strcmp(name,field.name))return true;
+    for(const auto& field:colourFields)if(!strcmp(name,field.name))return true;
+    return g_contextDefaults.find(name)!=g_contextDefaults.end();
+}
+static void Status(const std::string& text) { sprintf_s(g_configStatusMsg, "%.120s", text.c_str()); }
+static bool Invalid(std::string& error, const std::string& name) { error = "Valor invalido: " + name; return false; }
+static std::string Text(const Value& value) {
+    if (value.IsString()) return std::string(value.GetString(), value.GetStringLength());
+    rapidjson::StringBuffer buffer; rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    return value.Accept(writer) ? std::string(buffer.GetString(), buffer.GetSize()) : std::string();
+}
+static bool ReadMap(const Value& object, VarMap& output, std::string& error) {
+    if (!object.IsObject() || object.MemberCount() > 256) return Invalid(error,"overrides");
+    VarMap candidate;
+    for (auto it = object.MemberBegin(); it != object.MemberEnd(); ++it) {
+        std::string name(it->name.GetString(),it->name.GetStringLength());
+        std::string text = Text(it->value);
+        if (name.empty() || name.size() > 128 || name.find('\0') != std::string::npos || text.size() > 4096)
+            return Invalid(error,"override");
+        candidate.emplace(std::move(name),std::move(text));
+    }
+    output.swap(candidate); return true;
+}
+static bool ReadContexts(const Value& object, ContextMap& output, std::string& error) {
+    if (!object.IsObject() || object.MemberCount() > 64) return Invalid(error,"contextos");
+    ContextMap candidate;
+    for (auto it = object.MemberBegin(); it != object.MemberEnd(); ++it) {
+        std::string name(it->name.GetString(),it->name.GetStringLength());
+        if (name.empty() || name.size() > 128 || name.find('\0') != std::string::npos) return Invalid(error,"contexto");
+        if (!ReadMap(it->value,candidate[name],error)) return false;
+    }
+    output.swap(candidate); return true;
+}
+static Value WriteMap(const VarMap& input, const Value* previous, Allocator& allocator) {
+    Value result(rapidjson::kObjectType);
+    for (const auto& item : input) {
+        const auto* old = previous ? HazzureConfig::Find(*previous,item.first.c_str()) : nullptr;
+        if (old && Text(*old) == item.second) {
+            Value copy; copy.CopyFrom(*old,allocator);
+            HazzureConfig::SetValue(result,item.first.c_str(),std::move(copy),allocator);
+        } else HazzureConfig::Set(result,item.first.c_str(),item.second,allocator);
+    }
+    return result;
+}
+static Value WriteContexts(const ContextMap& input, const Value* previous, Allocator& allocator) {
+    Value result(rapidjson::kObjectType);
+    for (const auto& item : input) {
+        const auto* old = previous ? HazzureConfig::Find(*previous,item.first.c_str()) : nullptr;
+        HazzureConfig::SetValue(result,item.first.c_str(),WriteMap(item.second,old,allocator),allocator);
+    }
+    return result;
+}
+static bool ValidSkin(const SkinConfig& value) {
+    if (value.definition < 0 || value.definition > 65535 || value.paint < 0 || value.paint > 20000 ||
+        value.seed < 0 || value.seed > 1000 || value.model < 0 || value.model > 65535 ||
+        !std::isfinite(value.wear) || value.wear < 0.f || value.wear > 1.f ||
+        (value.enabled != 0 && value.enabled != 1) || (value.legacy != 0 && value.legacy != 1)) return false;
+    return !value.enabled || value.definition != 0;
+}
+static bool ReadConfig(const Value& root, OverlayConfig& config, std::string& error) {
+    config.skinsEnabled=false; // Ignore retired skinchanger activation in old profiles.
+    struct AudioPath {const char* name;char* text;};
+    for(auto field:{AudioPath{"hitSoundFile",config.hitSoundFile},AudioPath{"headshotSoundFile",config.headshotSoundFile},AudioPath{"killSoundFile",config.killSoundFile}}){
+        if(!HazzureConfig::Find(root,field.name))continue;std::string value;
+        if(!HazzureConfig::GetString(root,field.name,value,511)||value.find('\0')!=std::string::npos)return Invalid(error,field.name);
+        strcpy_s(field.text,512,value.c_str());
+    }
+    if(!HazzureLineups::ReadJSON(root,config.lineups,error))return false;
+    if(!HazzureArmory::ReadJSON(root,config.armory,error))return false;
+    if(!HazzureInventory::ReadJSON(root,config.inventory,error))return false;
+    for (const auto& field : boolFields) if (HazzureConfig::Find(root,field.name) &&
+        !HazzureConfig::GetBool(root,field.name,config.*field.member,true)) return Invalid(error,field.name);
+    // Read the legacy key without preserving its misleading claim when saving.
+    if(!HazzureConfig::Find(root,"hideCustomCrosshairScoped")&&HazzureConfig::Find(root,"removeScopedCircle")&&
+       !HazzureConfig::GetBool(root,"removeScopedCircle",config.hideCustomCrosshairScoped,true))return Invalid(error,"removeScopedCircle");
+    for (const auto& field : intFields) if (HazzureConfig::Find(root,field.name) &&
+        !HazzureConfig::GetInt(root,field.name,config.*field.member,field.minimum,field.maximum)) return Invalid(error,field.name);
+    for (const auto& field : floatFields) if (HazzureConfig::Find(root,field.name) &&
+        !HazzureConfig::GetFloat(root,field.name,config.*field.member,field.minimum,field.maximum)) return Invalid(error,field.name);
+    // Old releases shared one duration between tracers and impacts.
+    if(!HazzureConfig::Find(root,"impactDuration")&&HazzureConfig::Find(root,"tracerDuration"))config.impactDuration=config.tracerDuration;
+    for (const auto& field : colourFields) if (HazzureConfig::Find(root,field.name) &&
+        !HazzureConfig::GetFloatArray(root,field.name,config.*field.member,4)) return Invalid(error,field.name);
+    if (auto skins = HazzureConfig::Find(root,"skins")) {
+        if (!skins->IsArray() || skins->Size() > 64) return Invalid(error,"skins");
+        for (rapidjson::SizeType i=0;i<skins->Size();++i) {
+            const auto& item=(*skins)[i]; auto& skin=config.skins[i];
+            if (!item.IsObject()) return Invalid(error,"skin");
+            struct Field { const char* name; int SkinConfig::*member; int low,high; };
+            const Field fields[]={{"definition",&SkinConfig::definition,0,65535},{"paint",&SkinConfig::paint,0,20000},
+                {"seed",&SkinConfig::seed,0,1000},{"model",&SkinConfig::model,0,65535},
+                {"legacy",&SkinConfig::legacy,0,1},{"enabled",&SkinConfig::enabled,0,1},
+                {"reserved",&SkinConfig::reserved,(std::numeric_limits<int>::min)(),(std::numeric_limits<int>::max)()}};
+            for (const auto& field:fields) if (HazzureConfig::Find(item,field.name) &&
+                !HazzureConfig::GetInt(item,field.name,skin.*field.member,field.low,field.high)) return Invalid(error,field.name);
+            if (HazzureConfig::Find(item,"wear") && !HazzureConfig::GetFloat(item,"wear",skin.wear,0.f,1.f)) return Invalid(error,"wear");
+            if (!ValidSkin(skin)) return Invalid(error,"skin");
+        }
+    }
+    return true;
+}
+static bool WriteConfig(HazzureConfig::Document& document,const OverlayConfig& config,
+                        const ContextMap& contexts,const ContextMap& classes,const std::vector<ConfigProfile>& profiles,
+                        int active,std::string& error) {
+    auto& root=document.Root(); auto& allocator=document.Allocator();
+    struct AudioPath {const char* name;const char* text;};
+    for(auto field:{AudioPath{"hitSoundFile",config.hitSoundFile},AudioPath{"headshotSoundFile",config.headshotSoundFile},AudioPath{"killSoundFile",config.killSoundFile}}){
+        if(strnlen_s(field.text,512)>=512)return Invalid(error,field.name);
+        HazzureConfig::Set(root,field.name,std::string(field.text),allocator);
+    }
+    if(!HazzureLineups::WriteJSON(root,allocator,config.lineups,error))return false;
+    if(!HazzureArmory::WriteJSON(root,allocator,config.armory,error))return false;
+    if(!HazzureInventory::WriteJSON(root,allocator,config.inventory,error))return false;
+    HazzureConfig::Set(root,"skinsEnabled",false,allocator);
+    for (const auto& field:boolFields) HazzureConfig::Set(root,field.name,config.*field.member,allocator);
+    for (const auto& field:intFields) {
+        int value=config.*field.member; if(value<field.minimum||value>field.maximum)return Invalid(error,field.name);
+        HazzureConfig::Set(root,field.name,value,allocator);
+    }
+    for (const auto& field:floatFields) {
+        float value=config.*field.member;
+        if(!std::isfinite(value)||value<field.minimum||value>field.maximum)return Invalid(error,field.name);
+        HazzureConfig::Set(root,field.name,static_cast<double>(value),allocator);
+    }
+    for (const auto& field:colourFields) {
+        const auto& colour=config.*field.member;
+        for(float component:colour)if(!std::isfinite(component)||component<0.f||component>1.f)return Invalid(error,field.name);
+        HazzureConfig::SetFloatArray(root,field.name,colour,4,allocator);
+    }
+    Value skins(rapidjson::kArrayType); const auto* oldSkins=HazzureConfig::Find(root,"skins");
+    for(unsigned i=0;i<64;++i) {
+        const auto& skin=config.skins[i];if(!ValidSkin(skin))return Invalid(error,"skin");
+        Value item(rapidjson::kObjectType);
+        if(oldSkins&&oldSkins->IsArray()&&i<oldSkins->Size()&&(*oldSkins)[i].IsObject())item.CopyFrom((*oldSkins)[i],allocator);
+        HazzureConfig::Set(item,"definition",skin.definition,allocator);HazzureConfig::Set(item,"paint",skin.paint,allocator);
+        HazzureConfig::Set(item,"seed",skin.seed,allocator);HazzureConfig::Set(item,"model",skin.model,allocator);
+        HazzureConfig::Set(item,"wear",static_cast<double>(skin.wear),allocator);
+        HazzureConfig::Set(item,"legacy",skin.legacy,allocator);HazzureConfig::Set(item,"enabled",skin.enabled,allocator);
+        HazzureConfig::Set(item,"reserved",skin.reserved,allocator);skins.PushBack(item,allocator);
+    }
+    HazzureConfig::SetValue(root,"skins",std::move(skins),allocator);
+    auto newContexts=WriteContexts(contexts,HazzureConfig::Find(root,"contexts"),allocator);
+    auto newClasses=WriteContexts(classes,HazzureConfig::Find(root,"weaponClasses"),allocator);
+    HazzureConfig::SetValue(root,"contexts",std::move(newContexts),allocator);
+    HazzureConfig::SetValue(root,"weaponClasses",std::move(newClasses),allocator);
+    Value array(rapidjson::kArrayType);const auto* previous=HazzureConfig::Find(root,"profiles");
+    for(const auto& profile:profiles) {
+        Value item(rapidjson::kObjectType);
+        if(previous&&previous->IsArray())for(const auto& old:previous->GetArray()) {
+            std::string name;
+            if(HazzureConfig::GetString(old,"name",name,128)&&name==profile.name){item.CopyFrom(old,allocator);break;}
+        }
+        HazzureConfig::Set(item,"name",profile.name,allocator);
+        auto overrides=WriteMap(profile.overrides,HazzureConfig::Find(item,"overrides"),allocator);
+        auto ctx=WriteContexts(profile.contexts,HazzureConfig::Find(item,"contexts"),allocator);
+        auto wp=WriteContexts(profile.weaponClasses,HazzureConfig::Find(item,"weaponClasses"),allocator);
+        HazzureConfig::SetValue(item,"overrides",std::move(overrides),allocator);
+        HazzureConfig::SetValue(item,"contexts",std::move(ctx),allocator);
+        HazzureConfig::SetValue(item,"weaponClasses",std::move(wp),allocator);array.PushBack(item,allocator);
+    }
+    HazzureConfig::SetValue(root,"profiles",std::move(array),allocator);
+    HazzureConfig::Set(root,"activeProfile",active>=0&&active<static_cast<int>(profiles.size())?profiles[active].name:std::string(),allocator);
+    HazzureConfig::Set(root,"activeProfileIndex",active,allocator);HazzureConfig::Set(root,"schemaVersion",3,allocator);
+    return true;
+}
+static bool ReadProfiles(const Value& root,ContextMap& contexts,ContextMap& classes,
+                         std::vector<ConfigProfile>& profiles,int& active,std::string& error) {
+    if(auto value=HazzureConfig::Find(root,"contexts"))if(!ReadContexts(*value,contexts,error))return false;
+    if(auto value=HazzureConfig::Find(root,"weaponClasses"))if(!ReadContexts(*value,classes,error))return false;
+    if(auto value=HazzureConfig::Find(root,"profiles")) {
+        if(!value->IsArray()||value->Size()>64)return Invalid(error,"profiles");
+        std::vector<ConfigProfile> candidate;std::set<std::string> names;
+        for(const auto& item:value->GetArray()) {
+            ConfigProfile profile;
+            if(!HazzureConfig::GetString(item,"name",profile.name,128)||profile.name.empty()||
+               profile.name.find('\0')!=std::string::npos||!names.insert(profile.name).second)return Invalid(error,"profile.name");
+            if(auto v=HazzureConfig::Find(item,"overrides"))if(!ReadMap(*v,profile.overrides,error))return false;
+            if(auto v=HazzureConfig::Find(item,"contexts"))if(!ReadContexts(*v,profile.contexts,error))return false;
+            if(auto v=HazzureConfig::Find(item,"weaponClasses"))if(!ReadContexts(*v,profile.weaponClasses,error))return false;
+            candidate.push_back(std::move(profile));
+        }
+        profiles.swap(candidate);
+    }
+    if(HazzureConfig::Find(root,"activeProfile")) {
+        std::string name;if(!HazzureConfig::GetString(root,"activeProfile",name,128))return Invalid(error,"activeProfile");
+        active=-1;
+        for(size_t i=0;i<profiles.size();++i)if(profiles[i].name==name){active=static_cast<int>(i);break;}
+        if(active<0&&!name.empty())return Invalid(error,"activeProfile");
+    } else if(HazzureConfig::Find(root,"activeProfileIndex")) {
+        if(!HazzureConfig::GetInt(root,"activeProfileIndex",active,-1,static_cast<int>(profiles.size())-1))return Invalid(error,"activeProfileIndex");
+    } else if(active>=static_cast<int>(profiles.size()))active=profiles.empty()?-1:0;
+    return true;
+}
+static bool Publish(Shared* shared,const OverlayConfig& config) {
+    if(!shared)return true;
+    LONG revision=0;bool acquired=false;
+    for(int attempt=0;attempt<64;++attempt) {
+        revision=InterlockedCompareExchange(&shared->revision,0,0);
+        if(!(revision&1)&&InterlockedCompareExchange(&shared->revision,
+            static_cast<LONG>(static_cast<uint32_t>(revision)+1u),revision)==revision){acquired=true;break;}
+        YieldProcessor();
+    }
+    if(!acquired)return false;
+    InterlockedExchange(&shared->uiConfigOwner,1);
+    LONG bits=(config.chamsVisible?1:0)|(config.chamsHidden?2:0)|(config.chamsArms?4:0)|
+        (config.espEnabled?8:0)|(config.espBoxes?16:0)|(config.espSkeleton?32:0);
+    LONG before=InterlockedCompareExchange(&shared->flags,0,0);
+    while(InterlockedCompareExchange(&shared->flags,(before&~0x3f)|bits,before)!=before)
+        before=InterlockedCompareExchange(&shared->flags,0,0);
+    InterlockedExchange(&shared->teamFilter,config.enemyOnly?1:0);
+    InterlockedExchange(&shared->gradient,config.chamsGradient?1:0);
+    shared->visibleColour=Float4ToIpcCol(config.colVisible);shared->hiddenColour=Float4ToIpcCol(config.colHidden);
+    shared->armsColour=Float4ToIpcCol(config.colArms);shared->gradientColour=Float4ToIpcCol(config.colGradient);
+    InterlockedExchange(&shared->materialStyle,config.materialStyle);InterlockedExchange(&shared->outlineGlow,config.glowOutline?1:0);
+    InterlockedExchange(&shared->chamsVisibleStyle,config.chamsVisibleStyle);InterlockedExchange(&shared->chamsHiddenStyle,config.chamsHiddenStyle);
+    InterlockedExchange(&shared->climateFlags,(config.skyActive?1:0)|(config.darkWorld?2:0));
+    shared->skyBrightness=config.skyBrightness;shared->worldBrightness=config.worldBrightness;shared->skyColour=Float4ToIpcCol(config.colSky);
+    InterlockedExchange(&shared->skyboxIndex,config.skyboxIndex);shared->fogDensity=config.fogDensity;shared->fogColour=Float4ToIpcCol(config.colFog);
+    InterlockedExchange(&shared->snowEnabled,config.snowParticles?1:0);InterlockedExchange(&shared->cleanMap,config.cleanMap?1:0);
+    InterlockedExchange(&shared->removeWeather,config.removeOriginalWeather?1:0);
+    InterlockedExchange(&shared->agentEnabled,config.agentEnabled?1:0);InterlockedExchange(&shared->agentCT,config.agentCT);
+    InterlockedExchange(&shared->agentT,config.agentT);InterlockedExchange(&shared->skinEnabled,0);
+    memcpy(shared->skins,config.skins,sizeof(config.skins));
+    HazzureArmory::Publish(config.armory);MemoryBarrier();
+    InterlockedExchange(&shared->revision,static_cast<LONG>(static_cast<uint32_t>(revision)+2u));return true;
+}
+} // namespace Persistence
+
+static bool CaptureSharedConfig(Shared* shared) {
+    if(!shared)return true;
+    OverlayConfig candidate=g_cfg;
+    LONG revision=InterlockedCompareExchange(&shared->revision,0,0);if(revision&1)return false;
+    LONG flags=InterlockedCompareExchange(&shared->flags,0,0);
+    candidate.chamsVisible=(flags&1)!=0;candidate.chamsHidden=(flags&2)!=0;candidate.chamsArms=(flags&4)!=0;
+    candidate.espEnabled=(flags&8)!=0;candidate.espBoxes=(flags&16)!=0;candidate.espSkeleton=(flags&32)!=0;
+    candidate.enemyOnly=InterlockedCompareExchange(&shared->teamFilter,0,0)!=0;
+    candidate.chamsGradient=InterlockedCompareExchange(&shared->gradient,0,0)!=0;
+    IpcColToFloat4(shared->visibleColour,candidate.colVisible);IpcColToFloat4(shared->hiddenColour,candidate.colHidden);
+    IpcColToFloat4(shared->armsColour,candidate.colArms);IpcColToFloat4(shared->gradientColour,candidate.colGradient);
+    candidate.materialStyle=InterlockedCompareExchange(&shared->materialStyle,0,0);
+    candidate.chamsVisibleStyle=InterlockedCompareExchange(&shared->chamsVisibleStyle,0,0);
+    candidate.chamsHiddenStyle=InterlockedCompareExchange(&shared->chamsHiddenStyle,0,0);
+    candidate.glowOutline=InterlockedCompareExchange(&shared->outlineGlow,0,0)!=0;
+    LONG climate=InterlockedCompareExchange(&shared->climateFlags,0,0);
+    candidate.skyActive=(climate&1)!=0;candidate.darkWorld=(climate&2)!=0;
+    candidate.skyBrightness=shared->skyBrightness;candidate.worldBrightness=shared->worldBrightness;IpcColToFloat4(shared->skyColour,candidate.colSky);
+    candidate.skyboxIndex=InterlockedCompareExchange(&shared->skyboxIndex,0,0);candidate.fogDensity=shared->fogDensity;
+    IpcColToFloat4(shared->fogColour,candidate.colFog);candidate.snowParticles=InterlockedCompareExchange(&shared->snowEnabled,0,0)!=0;
+    candidate.cleanMap=InterlockedCompareExchange(&shared->cleanMap,0,0)!=0;
+    candidate.removeOriginalWeather=InterlockedCompareExchange(&shared->removeWeather,0,0)!=0;
+    candidate.agentEnabled=InterlockedCompareExchange(&shared->agentEnabled,0,0)!=0;
+    candidate.agentCT=InterlockedCompareExchange(&shared->agentCT,0,0);candidate.agentT=InterlockedCompareExchange(&shared->agentT,0,0);
+    candidate.skinsEnabled=false;
+    memcpy(candidate.skins,shared->skins,sizeof(candidate.skins));MemoryBarrier();
+    if(revision!=InterlockedCompareExchange(&shared->revision,0,0))return false;
+    g_cfg=candidate;return true;
+}
+static bool ApplySharedConfig(Shared* shared) { return Persistence::Publish(shared,g_cfg); }
+
+static std::string RegisteredGlobalValue(const std::string& name) {
+    for(const auto& field:Persistence::boolFields)if(name==field.name)return g_cfg.*field.member?"1":"0";
+    for(const auto& field:Persistence::intFields)if(name==field.name)return std::to_string(g_cfg.*field.member);
+    for(const auto& field:Persistence::floatFields)if(name==field.name)return std::to_string(g_cfg.*field.member);
+    for(const auto& field:Persistence::colourFields)if(name==field.name){
+        HazzureConfig::Document document;auto& root=document.Root();
+        HazzureConfig::SetFloatArray(root,"value",g_cfg.*field.member,4,document.Allocator());
+        const auto* value=HazzureConfig::Find(root,"value");return value?Persistence::Text(*value):std::string();
+    }
+    return {};
+}
+
+static bool RuntimeBool(const char* name,bool fallback,const char* context,const char* weaponClass) {
+    if(!Persistence::Registered(name))return fallback;
+    std::string value=FindVar(std::string(name),std::string(context?context:""),std::string(weaponClass?weaponClass:""));
+    if(value=="1"||value=="true")return true;if(value=="0"||value=="false")return false;return fallback;
+}
+static float RuntimeFloat(const char* name,float fallback,const char* context,const char* weaponClass) {
+    if(!Persistence::Registered(name))return fallback;
+    std::string value=FindVar(std::string(name),std::string(context?context:""),std::string(weaponClass?weaponClass:""));
+    if(value.empty())return fallback;
+    char* end=nullptr;double number=strtod(value.c_str(),&end);
+    if(end==value.c_str()||!end||*end!='\0'||!std::isfinite(number)||number>1e8||number< -1e8)return fallback;
+    for(const auto& field:Persistence::floatFields)if(!strcmp(name,field.name)&&
+        (number<field.minimum||number>field.maximum))return fallback;
+    for(const auto& field:Persistence::intFields)if(!strcmp(name,field.name)&&
+        (number<field.minimum||number>field.maximum||std::trunc(number)!=number))return fallback;
+    return static_cast<float>(number);
+}
+
+// Canonical persisted values, never struct bytes or runtime diagnostics. Poll only while
+// the menu is visible; explicit IO always refreshes the baseline immediately.
+namespace Workflow {
+static std::string savedState;
+static bool hasSavedState=false, dirty=true;
+static double nextCheck=0, savedNoticeUntil=0;
+static bool Canonical(std::string& text) {
+    HazzureConfig::Document document;std::string error;
+    return Persistence::WriteConfig(document,g_cfg,g_contexts,g_weaponClasses,g_profiles,g_activeProfileIndex,error)&&document.Serialize(text,error);
+}
+static void MarkSaved() {
+    hasSavedState=Canonical(savedState);dirty=!hasSavedState;nextCheck=0;
+}
+static void Poll(double now,bool force=false) {
+    if(!force&&now<nextCheck)return;
+    nextCheck=now+.5;std::string state;
+    dirty=!hasSavedState||!Canonical(state)||state!=savedState;
+}
+static const char* ProfileName() {
+    return g_activeProfileIndex>=0&&g_activeProfileIndex<static_cast<int>(g_profiles.size())?
+        g_profiles[g_activeProfileIndex].name.c_str():"Personalizado (sem perfil)";
+}
+// Exponential response has the same endpoint at any frame rate; only colors use it.
+static float Approach(float value,float target,float dt) {
+    if(!std::isfinite(dt)||dt<=0)return value;
+    return target+(value-target)*std::exp(-12.f*std::min(dt,.25f));
+}
+static std::string Fold(const char* text) {
+    std::string out;if(!text)return out;
+    for(const unsigned char* p=reinterpret_cast<const unsigned char*>(text);*p;++p){
+        unsigned c=*p;
+        if(c==0xc3&&p[1]){c=*++p;
+            if((c>=0x80&&c<=0x85)||(c>=0xa0&&c<=0xa5))c='a';
+            else if(c==0x87||c==0xa7)c='c';
+            else if((c>=0x88&&c<=0x8b)||(c>=0xa8&&c<=0xab))c='e';
+            else if((c>=0x8c&&c<=0x8f)||(c>=0xac&&c<=0xaf))c='i';
+            else if((c>=0x92&&c<=0x96)||(c>=0xb2&&c<=0xb6))c='o';
+            else if((c>=0x99&&c<=0x9c)||(c>=0xb9&&c<=0xbc))c='u';
+        }
+        if(c>='A'&&c<='Z')c+='a'-'A';out.push_back(static_cast<char>(c));
+    }return out;
+}
+static bool Matches(const char* text,const char* query) {return Fold(text).find(Fold(query))!=std::string::npos;}
+static const char* Observed(bool requested,bool available,bool applied,const char* waiting) {
+    return !requested?"Desativado":!available?"Indisponivel: backend sem contrato validado":applied?"Ativo (confirmado pelo runtime)":waiting;
+}
+}
+
+static bool SaveConfigFile(const char* path="C:\\HazzureKernel\\hazzure_config.json") {
+    if(!path||!*path){Persistence::Status("Caminho de configuracao invalido");return false;}
+    if(!CaptureSharedConfig(g_settingsShared)){Persistence::Status("Configuracao IPC ocupada; tente novamente");return false;}
+    HazzureConfig::Document candidate;std::string error;
+    if(Persistence::storagePath==path)candidate=Persistence::storage;
+    else if(!candidate.Load(path,error,true)){Persistence::Status(error);return false;}
+    int version=1;
+    if(HazzureConfig::Find(candidate.Root(),"schemaVersion")&&
+       !HazzureConfig::GetInt(candidate.Root(),"schemaVersion",version,1,3)){Persistence::Status("schemaVersion nao suportada");return false;}
+    bool exists=GetFileAttributesW(HazzureConfig::Detail::Normalize(path).c_str())!=INVALID_FILE_ATTRIBUTES;
+    if(!Persistence::WriteConfig(candidate,g_cfg,g_contexts,g_weaponClasses,g_profiles,g_activeProfileIndex,error)||
+       !candidate.SaveAtomic(path,error,exists&&version<3?version:0)){Persistence::Status(error);return false;}
+    Persistence::storage=candidate;Persistence::storagePath=path;Workflow::MarkSaved();
+    Workflow::savedNoticeUntil=ImGui::GetCurrentContext()?ImGui::GetTime()+3:0;
+    Persistence::Status("Configuracao completa salva (v3)");return true;
+}
+
+// Forward declaration: implemented in GSLayout.inl (included after UIPanel.inl / InventoryPanel.inl)
+// Definição em header (GSLayout.inl); compilação single-TU por binário (DLL + Test.exe separados)
+// Sem inline/static: linkage externa, single-TU garante ausência de ODR violation.
+void ValidateNavigationIndices();
+
+static bool LoadConfigFile(const char* path="C:\\HazzureKernel\\hazzure_config.json") {
+    if(!path||!*path){Persistence::Status("Caminho de configuracao invalido");return false;}
+    HazzureConfig::Document candidate;std::string error;
+    if(!candidate.Load(path,error)){Persistence::Status(error);return false;}
+    int version=1;
+    if(HazzureConfig::Find(candidate.Root(),"schemaVersion")&&
+       !HazzureConfig::GetInt(candidate.Root(),"schemaVersion",version,1,3)){Persistence::Status("schemaVersion nao suportada");return false;}
+    OverlayConfig config{};auto contexts=g_contexts;auto classes=g_weaponClasses;auto profiles=g_profiles;int active=g_activeProfileIndex;
+    if(!Persistence::ReadConfig(candidate.Root(),config,error)||
+       !Persistence::ReadProfiles(candidate.Root(),contexts,classes,profiles,active,error)){Persistence::Status(error);return false;}
+    if(version<3&&(!Persistence::WriteConfig(candidate,config,contexts,classes,profiles,active,error)||
+                   !candidate.SaveAtomic(path,error,version))){Persistence::Status(error);return false;}
+    if(!Persistence::Publish(g_settingsShared,config)){Persistence::Status("Configuracao IPC ocupada; tente novamente");return false;}
+    g_cfg=config;g_contexts.swap(contexts);g_weaponClasses.swap(classes);g_profiles.swap(profiles);g_activeProfileIndex=active;
+    RefreshCustomAudio();
+    Persistence::storage=candidate;Persistence::storagePath=path;Workflow::MarkSaved();
+
+    // Validar índices de navegação após carregar config (defesa em profundidade)
+    ValidateNavigationIndices();
+
+    Persistence::Status(version<3?"Configuracao migrada para v3 com backup":"Configuracao completa carregada (v3)");return true;
+}
+
+static void SynchronizeSkinsAfterProfileChange() {
+    if (g_settingsShared) {
+        ApplySharedConfig(g_settingsShared);
+    }
+    HazzureArmory::Publish(g_cfg.armory);
+}
+
+static void OnProfileApplied(int profileIndex) {
+    if (profileIndex >= 0 && profileIndex < static_cast<int>(g_profiles.size())) {
+        g_activeProfileIndex = profileIndex;
+        for (const auto& kv : g_profiles[profileIndex].overrides) {
+            for (const auto& field : Persistence::boolFields) {
+                if (kv.first == field.name) g_cfg.*field.member = (kv.second == "1" || kv.second == "true");
+            }
+            for (const auto& field : Persistence::intFields) {
+                if (kv.first == field.name) g_cfg.*field.member = atoi(kv.second.c_str());
+            }
+            for (const auto& field : Persistence::floatFields) {
+                if (kv.first == field.name) g_cfg.*field.member = static_cast<float>(atof(kv.second.c_str()));
+            }
+        }
+        SynchronizeSkinsAfterProfileChange();
+        Persistence::Status("Perfil ativo aplicado: " + g_profiles[profileIndex].name);
+    }
+}
+
+static bool PollAndHotReloadConfig(const char* path = "C:\\HazzureKernel\\hazzure_config.json", uint64_t currentTick = 0) {
+    if (!currentTick) currentTick = GetTickCount64();
+    if (path && Persistence::g_configWatcher.path.empty()) {
+        Persistence::g_configWatcher.path = HazzureConfig::Detail::Normalize(path).wstring();
+    }
+    if (Persistence::g_configWatcher.HasFileChanged(currentTick, 500)) {
+        if (LoadConfigFile(path)) {
+            SynchronizeSkinsAfterProfileChange();
+            Persistence::Status("Configuracao recarregada via Hot-Reload");
+            return true;
+        }
+    }
+    return false;
+}

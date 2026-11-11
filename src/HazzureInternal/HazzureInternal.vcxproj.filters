@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Fontes" />
+    <Filter Include="Cabecalhos" />
+    <Filter Include="Testes" />
+    <Filter Include="Build" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\*.cpp">
+      <Filter>Fontes</Filter>
+    </ClCompile>
+    <ClInclude Include="src\**\*.h">
+      <Filter>Cabecalhos</Filter>
+    </ClInclude>
+    <None Include="tests\**\*.*">
+      <Filter>Testes</Filter>
+    </None>
+    <None Include="*.cmd">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="*.ps1">
+      <Filter>Build</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+    <ClInclude Include="src\**\*.h" />
+  </ItemGroup>
+</Project>

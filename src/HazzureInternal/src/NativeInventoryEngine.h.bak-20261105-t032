@@ -1,0 +1,340 @@
+// Current installed PE contracts are recorded in work/inventory-fixes-20261028/analysis/ and T006_EQUIP_CONTRACT.md.
+#pragma once
+#include "DebugLogger.h"
+#include "NativeInventory.h"
+#include "NativeInventoryProfile.h"
+#include "WeaponChoices.h"
+#include "GlovePresets.h"
+#include "../../HazzurePanel/src/skin_catalog.generated.h"
+namespace HazzureNativeInventory {
+inline bool KnownKnife(int d){for(int v:kKnifeDefs)if(v&&v==d)return true;return d==42||d==59;}
+inline bool KnownGlove(int d){return d==4725||d==5027||(d>=5030&&d<=5035);}
+inline int NativeDefinition(const HazzureInventory::Item& item){
+    int d=item.skin.definition;if(KnownKnife(d)&&KnownKnife(item.skin.model))return item.skin.model;return d;
+}
+inline bool KnownDefinition(const HazzureInventory::Item& item){
+    int d=NativeDefinition(item);
+    if(KnownKnife(item.skin.definition)){if(item.skin.model&&!KnownKnife(item.skin.model))return false;}
+    else if(KnownGlove(d)){if(item.skin.model&&item.skin.model!=d)return false;}
+    else if(item.skin.model)return false;
+    bool known=KnownKnife(d)||KnownGlove(d);for(int w:HazzureWeapons::definitions)known=known||(w==d&&w>0);
+    if(!known)return false;
+    if(KnownGlove(d))return HazzureGloves::ValidPaint(d,item.skin.paint);
+    if(!item.skin.paint)return true;
+    if(KnownKnife(d)&&HazzureKnifeFinishes::ValidPaint(d,item.skin.paint))return true;
+    for(const auto& s:kSkins)if(s.kit==item.skin.paint&&(s.def==d||(KnownKnife(d)&&s.def==-1)))return true;return false;
+}
+inline bool TeamAllowedForDefinition(int d,int team){
+    if(team!=2&&team!=3)return false;
+    switch(d){
+        case 4:case 11:case 13:case 17:case 29:case 30:case 39:case 59:return team==2;
+        case 3:case 8:case 10:case 16:case 27:case 32:case 34:case 38:case 42:case 60:case 61:return team==3;
+        default:return true;
+    }
+}
+inline int DefaultSlotForDefinition(int d,int team){
+    if(!TeamAllowedForDefinition(d,team))return -1;
+    if(KnownKnife(d))return 0;
+    if(KnownGlove(d))return 41;
+    switch(d){
+        case 4:case 32:case 61:return 2;
+        case 2:case 63:case 64:return 3;
+        case 36:return 4;
+        case 3:case 30:return 5;
+        case 1:return 6;
+        case 24:case 26:case 33:return 8;
+        case 25:case 27:case 29:return 9;
+        case 23:case 35:return 10;
+        case 14:case 19:case 28:return 11;
+        case 17:case 34:return 12;
+        case 10:case 13:case 16:return 14;
+        case 7:case 60:return 15;
+        case 40:return 16;
+        case 8:case 39:case 11:case 38:return 17;
+        case 9:return 18;
+        case 31:return 34;
+        default:return -1;
+    }
+}
+inline HazzureArmory::Plan AttributePlan(const HazzureInventory::Item& item){
+    auto plan=HazzureArmory::Attributes(item.attributes);
+    auto add=[&](unsigned id,uint32_t bits){auto& a=plan.entries[plan.count++];a.id=static_cast<uint16_t>(id);a.bits=bits;};
+    add(6,HazzureArmory::FloatBits(static_cast<float>(item.skin.paint)));
+    add(7,HazzureArmory::FloatBits(static_cast<float>(item.skin.seed)));add(8,HazzureArmory::FloatBits(item.skin.wear));return plan;
+}
+struct Engine {
+    uintptr_t client{};mutable bool faulted{};
+    bool Compatible()const{
+#ifdef INTERNAL_SELF_TEST
+        return false;
+#else
+        return CurrentProfile::Supported(client);
+#endif
+    }
+    bool RemoveAttribute(CEconItem* object,unsigned id,uintptr_t definition)const{
+        faulted=false;
+        if(!Compatible()||!Object(object))return false;
+        __try{reinterpret_cast<void(*)(CEconItem*,uintptr_t,const char*)>(client+CurrentProfile::setName)(object,definition,nullptr);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        uintptr_t entry{};return Entry(object,id,entry)&&!entry;
+    }
+    bool Preflight(const Session& s,const HazzureInventory::Item& item)const{
+        if(!HazzureInventory::Valid(item)||!KnownDefinition(item)||!ValidSession(s))return false;
+        const auto plan=AttributePlan(item);for(size_t n=0;n<plan.count;++n)if(!Attribute(plan.entries[n].id))return false;
+        return Attribute(111)!=0;
+    }
+    bool Object(CEconItem* p)const{uintptr_t a{},b{};auto at=reinterpret_cast<uintptr_t>(p);return HazzureGame::Read(at,a)&&
+        HazzureGame::Read(at+8,b)&&a==client+CurrentProfile::itemVtable&&b==client+CurrentProfile::itemSecondary;}
+    bool SessionNow(Session& s)const{
+        using HazzureGame::Read;uintptr_t managerTable{},table{};uint8_t loaded{};
+        if(!Compatible()) { LogDebug("[NATIVE_SESSION] !Compatible()"); return false; }
+        if(!Read(client+CurrentProfile::manager,managerTable)) { LogDebug("[NATIVE_SESSION] !Read(manager)"); return false; }
+        if(managerTable!=client+CurrentProfile::managerVtable) { LogDebug("[NATIVE_SESSION] managerTable mismatch: read 0x%p != vtable 0x%p", (void*)managerTable, (void*)(client+CurrentProfile::managerVtable)); return false; }
+        if(!Read(client+CurrentProfile::manager+0x528d0,s.inventory)) { LogDebug("[NATIVE_SESSION] !Read(s.inventory)"); return false; }
+        if(!s.inventory) { LogDebug("[NATIVE_SESSION] s.inventory == 0"); return false; }
+        if(!Read(s.inventory,table)) { LogDebug("[NATIVE_SESSION] !Read(inv_table)"); return false; }
+        if(table!=client+CurrentProfile::inventoryVtable) { LogDebug("[NATIVE_SESSION] inv_table mismatch: read 0x%p != 0x%p", (void*)table, (void*)(client+CurrentProfile::inventoryVtable)); return false; }
+        if(!Read(s.inventory+0x10,s.owner)) { LogDebug("[NATIVE_SESSION] !Read(owner)"); return false; }
+        if(!Read(s.inventory+0x64,loaded)) { LogDebug("[NATIVE_SESSION] !Read(loaded)"); return false; }
+        if(loaded!=1) { LogDebug("[NATIVE_SESSION] loaded=%d != 1", (int)loaded); return false; }
+        if(!Read(s.inventory+0x68,s.cache)) { LogDebug("[NATIVE_SESSION] !Read(cache)"); return false; }
+        if(!s.cache) { LogDebug("[NATIVE_SESSION] s.cache == 0"); return false; }
+        __try{s.typeCache=reinterpret_cast<uintptr_t(*)(uintptr_t,unsigned)>(client+CurrentProfile::findType)(s.cache,1);}
+        __except(EXCEPTION_EXECUTE_HANDLER){ LogDebug("[NATIVE_SESSION] exception in findType"); return false; }
+        int type{};
+        if(!Read(s.typeCache,table)) { LogDebug("[NATIVE_SESSION] !Read(typeCache table)"); return false; }
+        if(table!=client+CurrentProfile::typeVtable) { LogDebug("[NATIVE_SESSION] typeVtable mismatch: 0x%p != 0x%p", (void*)table, (void*)(client+CurrentProfile::typeVtable)); return false; }
+        if(!Read(s.typeCache+0x78,type)||type!=k_EEconTypeItem) { LogDebug("[NATIVE_SESSION] typeCache+0x78 = %d != %d", type, k_EEconTypeItem); return false; }
+        return s.Valid();
+    }
+    bool ValidSession(const Session& s)const{Session now{};return SessionNow(now)&&Same(s,now);}
+    static bool ReadCache(uintptr_t cache,int& count,uintptr_t& data){
+        return HazzureGame::Read(cache+8,count)&&count>=0&&count<=4096&&
+            HazzureGame::Read(cache+0x10,data)&&(!count||data>=0x10000);
+    }
+    bool Cache(const Session& s,int& count,uintptr_t& data)const{
+        return ValidSession(s)&&ReadCache(s.typeCache,count,data);
+    }
+    bool Contains(const Session& s,CEconItem* object,uint64_t expected,bool& found)const{
+        int count{};uintptr_t data{};if(!Cache(s,count,data))return false;found=false;
+        for(int i=0;i<count;++i){uintptr_t p{};if(!HazzureGame::Read(data+static_cast<size_t>(i)*8,p))return false;
+            if(p==reinterpret_cast<uintptr_t>(object)){uint64_t id{};if(!Object(object)||!HazzureGame::Read(p+0x10,id))return false;found=id==expected;}}return true;
+    }
+    // Reserved/virtual item IDs are not normal inventory entries. Exclude the
+    // whole entry from both maxima; keep real positions intact for validation.
+    static void AccumulateLimits(const CEconItem& item,uint64_t& id,uint32_t& inventory){
+        if(item.id>>60)return;
+        id=(std::max)(id,item.id);inventory=(std::max)(inventory,item.inventory);
+    }
+    bool Limits(const Session& s,uint64_t& id,uint32_t& inventory)const{
+        int count{};uintptr_t data{};if(!Cache(s,count,data))return false;id=0;inventory=0;
+        for(int i=0;i<count;++i){uintptr_t p{};CEconItem item{};if(!HazzureGame::Read(data+static_cast<size_t>(i)*8,p)||!p||
+            !Object(reinterpret_cast<CEconItem*>(p))||!HazzureGame::Read(p,item))return false;
+            AccumulateLimits(item,id,inventory);}return true;
+    }
+    uintptr_t Attribute(unsigned id)const{
+        if(!Compatible())return 0;
+        uintptr_t schema{},list{},value{};int count{};
+        __try{schema=reinterpret_cast<uintptr_t(*)()>(client+CurrentProfile::schema)();}
+        __except(EXCEPTION_EXECUTE_HANDLER){return 0;}
+        if(!schema||!HazzureGame::Read(schema+0x150,count)||count<1||count>65536||id>=static_cast<unsigned>(count)||
+           !HazzureGame::Read(schema+0x158,list)||!list||!HazzureGame::Read(list+id*8,value)||!value)return 0;
+        return value;
+    }
+    bool Entry(CEconItem* object,unsigned id,uintptr_t& entry)const{
+        uintptr_t custom{};uint16_t word{};if(!Object(object)||!HazzureGame::Read(reinterpret_cast<uintptr_t>(object)+0x20,custom))return false;
+        entry=0;if(!custom)return true;if(!HazzureGame::Read(custom+2,word)||(word&255)>128)return false;
+        for(unsigned n=0;n<(word&255u);++n){uint16_t current{};auto p=custom+4+n*16;if(!HazzureGame::Read(p,current))return false;if(current==id){entry=p;break;}}return true;
+    }
+    bool SetBits(CEconItem* object,unsigned id,uint32_t bits,uintptr_t definition)const{
+        faulted=false;
+        if(!Compatible()||!Object(object))return false;
+        __try{reinterpret_cast<void(*)(CEconItem*,uintptr_t,const uint32_t*)>(client+CurrentProfile::setBits)(object,definition,&bits);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        uintptr_t entry{};uint32_t actual{};return Entry(object,id,entry)&&entry&&HazzureGame::Read(entry+8,actual)&&actual==bits;
+    }
+    bool NameMatches(CEconItem* object,const char* name)const{
+        if(!name)return false;
+        uintptr_t entry{},proto{},tagged{},text{};size_t length{},capacity{};
+        if(!Entry(object,111,entry))return false;if(!entry)return !name[0];
+        if(!HazzureGame::Read(entry+8,proto)||!proto||!HazzureGame::Read(proto+8,tagged))return false;
+        text=tagged&~uintptr_t(3);if(tagged&1){if(!HazzureGame::Read(text,text))return false;}
+        if(!text||!HazzureGame::Read(text+16,length)||length>160||!HazzureGame::Read(text+24,capacity)||capacity<length)return false;
+        uintptr_t chars=text;if(capacity>15&&!HazzureGame::Read(text,chars))return false;char actual[161]{};
+        return HazzureGame::ReadBytes(chars,actual,length+1)&&actual[length]==0&&strlen(name)==length&&!memcmp(name,actual,length);
+    }
+    bool SetName(CEconItem* object,const char* name,uintptr_t definition)const{
+        faulted=false;
+        if(!Compatible()||!Object(object)||!name)return false;
+        __try{reinterpret_cast<void(*)(CEconItem*,uintptr_t,const char*)>(client+CurrentProfile::setName)(object,definition,name);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        return NameMatches(object,name);
+    }
+    bool Prepare(const Session& s,CEconItem* object,const HazzureInventory::Item& item,uint64_t id,uint32_t inventory)const{
+        faulted=false;
+        if(!Preflight(s,item)||!Object(object))return false;
+        const auto plan=AttributePlan(item);uintptr_t definitions[48]{};
+        for(size_t n=0;n<plan.count;++n)if(!(definitions[n]=Attribute(plan.entries[n].id)))return false;
+        auto nameDefinition=Attribute(111);if(!nameDefinition)return false;
+        __try{object->id=id;object->originalId=id;object->account=static_cast<uint32_t>(s.owner.steamId);
+            object->inventory=inventory;object->definition=static_cast<uint16_t>(NativeDefinition(item));
+            bool isSpecial=HazzureArmory::KnifeDefinition(item.skin.definition)||HazzureInventory::Glove(item.skin.definition);
+            uint16_t quality=item.attributes.stat?9u:(isSpecial?3u:4u);
+            uint16_t rarity=isSpecial?7u:6u;
+            uint16_t origin=2u;
+            object->packed=static_cast<uint16_t>((object->packed&~0x7fe0u)|(quality<<5)|((origin&3u)<<9)|((rarity&0xFu)<<11));}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        auto all=item;all.attributes.stickers=all.attributes.charm=all.attributes.stat=true;
+        auto managed=AttributePlan(all);
+        for(size_t n=0;n<managed.count;++n){unsigned idManaged=managed.entries[n].id;bool wanted=false;
+            for(size_t j=0;j<plan.count;++j)wanted=wanted||plan.entries[j].id==idManaged;
+            uintptr_t entry{};if(!Entry(object,idManaged,entry))return false;
+            if(entry&&!wanted){auto definition=Attribute(idManaged);if(!definition||!RemoveAttribute(object,idManaged,definition))return false;}}
+        for(size_t n=0;n<plan.count;++n)if(!ValidSession(s)||!SetBits(object,plan.entries[n].id,plan.entries[n].bits,definitions[n]))return false;
+        if(item.attributes.nametag&&item.attributes.name[0]){if(!SetName(object,item.attributes.name,nameDefinition))return false;}
+        else if(!RemoveAttribute(object,111,nameDefinition))return false;
+        CEconItem check{};return HazzureGame::Read(reinterpret_cast<uintptr_t>(object),check)&&check.id==id&&check.originalId==id&&
+            check.inventory==inventory&&check.account==static_cast<uint32_t>(s.owner.steamId)&&check.definition==NativeDefinition(item)&&ValidSession(s);
+    }
+    CEconItem* Create()const{faulted=false;if(!Compatible())return nullptr;__try{return reinterpret_cast<CEconItem*(*)()>(client+CurrentProfile::create)();}__except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return nullptr;}}
+    bool Destroy(CEconItem* object)const{faulted=false;if(!Compatible()||!Object(object))return false;
+        __try{reinterpret_cast<void*(*)(CEconItem*,unsigned)>(client+CurrentProfile::destroy)(object,1);return true;}__except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}}
+    struct CacheState {int total{},pointers{},ids{};};
+    bool InspectCache(const Session& s,CEconItem* object,uint64_t id,CacheState& state)const{
+        int count{};uintptr_t data{};if(!Cache(s,count,data))return false;state={count,0,0};
+        for(int i=0;i<count;++i){uintptr_t p{};uint64_t actual{};
+            if(!HazzureGame::Read(data+static_cast<size_t>(i)*8,p)||!p||!Object(reinterpret_cast<CEconItem*>(p))||
+               !HazzureGame::Read(p+0x10,actual))return false;
+            if(p==reinterpret_cast<uintptr_t>(object))++state.pointers;if(actual==id)++state.ids;
+        }
+        return true;
+    }
+    static bool UniqueCached(const CacheState& state){return state.total>0&&state.pointers==1&&state.ids==1;}
+    static bool AddedExactly(const CacheState& before,const CacheState& after){
+        return before.pointers==0&&before.ids==0&&after.total==before.total+1&&after.pointers==1&&after.ids==1;
+    }
+    static bool DetachedExactly(const CacheState& before,const CacheState& after,CEconItem* expected,CEconItem* removed){
+        return expected&&removed==expected&&UniqueCached(before)&&after.total==before.total-1&&after.pointers==0&&after.ids==0;
+    }
+    bool Add(const Session& s,CEconItem* object)const{
+        faulted=false;if(!ValidSession(s)||!Object(object))return false;
+        uint64_t id{};CacheState before{},after{};
+        if(!HazzureGame::Read(reinterpret_cast<uintptr_t>(object)+0x10,id)||!InspectCache(s,object,id,before))return false;
+        if(before.pointers||before.ids){faulted=true;return false;}
+        bool added{};
+        __try{added=reinterpret_cast<bool(*)(uintptr_t,CEconItem*)>(client+CurrentProfile::add)(s.typeCache,object);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        if(!InspectCache(s,object,id,after)){faulted=true;return false;}
+        if(added&&AddedExactly(before,after))return true;
+        // A verified rejection without effects permits ordinary rollback. Every
+        // other outcome is quarantined, never retried as another native Add.
+        if(!added&&after.total==before.total&&!after.pointers&&!after.ids)return false;
+        faulted=true;return false;
+    }
+    bool Remove(const Session& s,CEconItem* object)const{
+        faulted=false;if(!ValidSession(s)||!Object(object))return false;
+        uint64_t id{};CacheState before{},after{};
+        if(!HazzureGame::Read(reinterpret_cast<uintptr_t>(object)+0x10,id)||!InspectCache(s,object,id,before)){faulted=true;return false;}
+        if(!UniqueCached(before)){faulted=true;return false;}
+        CEconItem* removed{};
+        // PE contract: type-cache slot +0x18 -> 0x162C950 -> 0x162C9E0.
+        // Detaches and returns CEconItem* in RAX; never calls deleting destructor.
+        // 0x162AC00 is unchecked ADD and must never be used for removal.
+        __try{removed=reinterpret_cast<CEconItem*(*)(uintptr_t,CEconItem*)>(client+CurrentProfile::remove)(s.typeCache,object);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        if(!InspectCache(s,object,id,after)||!DetachedExactly(before,after,object,removed)){
+            faulted=true;return false; // uncertain ownership: never retry, notify or destroy
+        }
+        return true;
+    }
+    Notification Notify(const Session& s,CEconItem* object,Change kind)const{faulted=false;if(!ValidSession(s)||!Object(object))return Notification::Rejected;
+        uintptr_t rva=kind==Change::Created?CurrentProfile::created:kind==Change::Updated?CurrentProfile::updated:CurrentProfile::destroyed;
+        __try{reinterpret_cast<void(*)(uintptr_t,const SOID_t*,CEconItem*,int)>(client+rva)(s.inventory,&s.owner,object,k_eSOCacheEvent_Incremental);return Notification::Done;}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return Notification::Indeterminate;}}
+    // PE contract: CCSPlayerInventory loadout table at inv + 0x90 + (team * 58 + slot) * 16.
+    // Verified against 0x83DC60 (GetItemInLoadout) and 0x83DC20 (GetItemIDInLoadout).
+    static bool ReadLoadoutEntry(uintptr_t inventory,int team,int slot,uint64_t& id,uint16_t* definition=nullptr){
+        if(!inventory||team<2||team>3||slot<0||slot>=58)return false;
+        uintptr_t entry=inventory+0x90+(static_cast<size_t>(team)*58+static_cast<size_t>(slot))*16;
+        uint16_t def{};
+        if(!HazzureGame::Read(entry,id)||!HazzureGame::Read(entry+8,def))return false;
+        if(definition)*definition=def;
+        return true;
+    }
+    bool Loadout(const Session& s,int team,int slot,uint64_t& id)const{
+        faulted=false;
+        if(!ValidSession(s)||team<2||team>3||slot<0||slot>=58)return false;
+        if(!ReadLoadoutEntry(s.inventory,team,slot,id)){faulted=true;return false;}
+        return true;
+    }
+    uintptr_t View(const Session& s,uint64_t id)const{
+        if(!Compatible()||!s.inventory||!id)return 0;
+        uintptr_t view{};
+        __try{view=reinterpret_cast<uintptr_t(*)(uintptr_t,uint64_t)>(client+CurrentProfile::itemView)(s.inventory,id);}
+        __except(EXCEPTION_EXECUTE_HANDLER){return 0;}
+        return view;
+    }
+    static bool Initialized(uintptr_t view){uint8_t value{};return view&&HazzureGame::Read(view+0x1e8,value)&&value!=0;}
+    bool DefinitionSlot(uintptr_t view,int& slot)const{
+        slot=-1;uintptr_t vtable{},definitionFn{},definition{};
+        if(!view||!HazzureGame::Read(view,vtable)||!vtable||!HazzureGame::Read(vtable+0x80,definitionFn)||!definitionFn)return false;
+        __try{definition=reinterpret_cast<uintptr_t(*)(uintptr_t)>(definitionFn)(view);}
+        __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+        return definition&&HazzureGame::Read(definition+0x338,slot)&&slot>=0&&slot<58;
+    }
+    // EquipItemInLoadout validates AreSlotsConsideredIdentical(definition slot, slot)
+    // and rejects any other slot, so the definition's own +0x338 value is authoritative.
+    int ResolveLoadoutSlot(const Session& s,uint64_t itemId,int definition,int team)const{
+        if(!TeamAllowedForDefinition(definition,team))return -1;
+        if(Compatible()&&ValidSession(s)){
+            auto view=View(s,itemId);int slot{-1};
+            if(Initialized(view)&&DefinitionSlot(view,slot))return slot;
+            int active=-1;
+            __try{active=reinterpret_cast<int(*)(uintptr_t,uint16_t,int)>(client+CurrentProfile::findLoadoutSlot)(s.inventory,static_cast<uint16_t>(definition),team);}
+            __except(EXCEPTION_EXECUTE_HANDLER){active=-1;}
+            if(active>=0&&active<58)return active;
+        }
+        return DefaultSlotForDefinition(definition,team);
+    }
+    // PE contract: CCSInventoryManager::EquipItemInLoadout at 0x83BE90 (vtable + 0x228).
+    // Performs local SetLoadoutSlot (0x8445C0) + UpdateEquippedState (0x117E980); confirmed by readback.
+    bool Equip(const Session& s,int team,int slot,uint64_t id)const{
+        faulted=false;
+        if(!ValidSession(s)||team<2||team>3||slot<0||slot>=58)return false;
+        bool ok=false;
+        __try{ok=reinterpret_cast<bool(*)(uintptr_t,int,int,uint64_t)>(client+CurrentProfile::equip)(client+CurrentProfile::manager,team,slot,id);}
+        __except(EXCEPTION_EXECUTE_HANDLER){faulted=true;return false;}
+        // Every false return in EquipItemInLoadout happens in its verification
+        // branches, before the loadout write: no mutation, so this is a benign
+        // rejection instead of an indeterminate state that quarantines records.
+        if(!ok){
+            static unsigned reported{};
+            if(reported<16){++reported;uint64_t currentId{};int nativeSlot{-1};auto view=View(s,id);
+                ReadLoadoutEntry(s.inventory,team,slot,currentId);DefinitionSlot(view,nativeSlot);
+                LogDebug("[NATIVE_EQUIP] rejected team=%d slot=%d nativeSlot=%d id=0x%llX read=0x%llX view=%p ready=%d",team,slot,nativeSlot,
+                    static_cast<unsigned long long>(id),static_cast<unsigned long long>(currentId),reinterpret_cast<void*>(view),static_cast<int>(Initialized(view)));}
+            faulted=false;return false;
+        }
+        uint64_t currentId{};
+        if(!Loadout(s,team,slot,currentId)||currentId!=id){faulted=true;return false;}
+        return true;
+    }
+    Backend Bind(){Backend b{};b.context=this;b.cacheOwnsObjects=true;
+        b.session=[](void* p,Session& s){return static_cast<Engine*>(p)->SessionNow(s);};
+        b.valid=[](void* p,const Session& s){return static_cast<Engine*>(p)->ValidSession(s);};
+        b.preflight=[](void* p,const Session& s,const HazzureInventory::Item& item){return static_cast<Engine*>(p)->Preflight(s,item);};
+        b.limits=[](void* p,const Session& s,uint64_t& id,uint32_t& inv){return static_cast<Engine*>(p)->Limits(s,id,inv);};
+        b.contains=[](void* p,const Session& s,CEconItem* o,uint64_t id,bool& found){return static_cast<Engine*>(p)->Contains(s,o,id,found);};
+        b.create=[](void* p){return static_cast<Engine*>(p)->Create();};
+        b.prepare=[](void* p,const Session& s,CEconItem* o,const HazzureInventory::Item& i,uint64_t id,uint32_t inv){return static_cast<Engine*>(p)->Prepare(s,o,i,id,inv);};
+        b.add=[](void* p,const Session& s,CEconItem* o){return static_cast<Engine*>(p)->Add(s,o);};
+        b.remove=[](void* p,const Session& s,CEconItem* o){return static_cast<Engine*>(p)->Remove(s,o);};
+        b.notify=[](void* p,const Session& s,CEconItem* o,Change k){return static_cast<Engine*>(p)->Notify(s,o,k);};
+        b.destroy=[](void* p,CEconItem* o){return static_cast<Engine*>(p)->Destroy(o);};
+        b.faulted=[](void* p){return static_cast<Engine*>(p)->faulted;};
+        b.loadout=[](void* p,const Session& s,int team,int slot,uint64_t& id){return static_cast<Engine*>(p)->Loadout(s,team,slot,id);};
+        b.equip=[](void* p,const Session& s,int team,int slot,uint64_t id){return static_cast<Engine*>(p)->Equip(s,team,slot,id);};
+        return b;
+    }
+};
+}

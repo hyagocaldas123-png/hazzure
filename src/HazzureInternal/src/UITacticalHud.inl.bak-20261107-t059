@@ -1,0 +1,315 @@
+// ---------- HUDs Flutuantes Discretos & Dados de Jogo ----------
+using PlantedC4Data=HazzureTactical::Bomb;
+static HazzureTactical::BombLocator g_bombLocator;
+
+static void DrawBombTimerHUD(const PlantedC4Data& c4,HazzureTactical::Damage damage,int health,int screenW) {
+    if(screenW<320)return;
+    auto* draw=ImGui::GetForegroundDrawList();
+    const float cardW=std::min(300.f,static_cast<float>(screenW)-16.f);
+    const float cardH=c4.beingDefused?90.f:74.f,posX=(screenW-cardW)*.5f,posY=24.f;
+    const ImU32 timerCol=c4.remaining<5.f?IM_COL32(239,68,68,255):
+        (c4.remaining<10.f?IM_COL32(245,158,11,255):IM_COL32(243,243,247,255));
+    draw->AddRectFilled({posX,posY},{posX+cardW,posY+cardH},IM_COL32(18,18,22,240),6.f);
+    draw->AddRect({posX,posY},{posX+cardW,posY+cardH},IM_COL32(40,40,48,255),6.f);
+    draw->AddRectFilled({posX+4,posY+6},{posX+7,posY+cardH-6},timerCol,2.f);
+    char title[32],time[32];sprintf_s(title,"BOMBA [SITE %s]",c4.site==1?"B":"A");
+    sprintf_s(time,"%.1fs",c4.remaining);
+    draw->AddText({posX+14,posY+8},IM_COL32(160,160,175,255),title);
+    draw->AddText({posX+cardW-14-ImGui::CalcTextSize(time).x,posY+8},timerCol,time);
+    const float barW=cardW-28,barY=posY+26;
+    draw->AddRectFilled({posX+14,barY},{posX+14+barW,barY+3},IM_COL32(35,35,42,255),1.5f);
+    draw->AddRectFilled({posX+14,barY},{posX+14+barW*std::clamp(c4.remaining/c4.timerLength,0.f,1.f),barY+3},timerCol,1.5f);
+    if(c4.isDefused){
+        draw->AddText({posX+14,posY+32},IM_COL32(16,185,129,255),"BOMBA DESARMADA");
+    }else if(c4.beingDefused){
+        // Equality is too close to call: leave a server tick of margin.
+        const bool wins=HazzureTactical::DefuseHasMargin(c4.remaining,c4.defuseLeft);
+        char label[80];sprintf_s(label,"DEFUSE %.1fs / %.0fs: %s",c4.defuseLeft,c4.defuseLength,wins?"A TEMPO":"SEM MARGEM");
+        const auto color=wins?IM_COL32(16,185,129,255):IM_COL32(239,68,68,255);
+        draw->AddText({posX+14,posY+32},color,label);
+        draw->AddRectFilled({posX+14,posY+50},{posX+14+barW,posY+53},IM_COL32(35,35,42,255),1.f);
+        draw->AddRectFilled({posX+14,posY+50},{posX+14+barW*(1.f-std::clamp(c4.defuseLeft/c4.defuseLength,0.f,1.f)),posY+53},color,1.f);
+    }else{
+        const char* hint=!HazzureTactical::DefuseHasMargin(c4.remaining,5.f)?"SEM MARGEM PARA DEFUSE":
+            (!HazzureTactical::DefuseHasMargin(c4.remaining,10.f)?"DEFUSE COM KIT: 5s":"DEFUSE: 5s COM KIT / 10s SEM KIT");
+        draw->AddText({posX+14,posY+32},IM_COL32(160,160,175,255),hint);
+    }
+    char risk[96];ImU32 riskColor=IM_COL32(132,132,143,255);
+    if(c4.isDefused)sprintf_s(risk,"EXPLOSAO CANCELADA");
+    else if(health<=0)sprintf_s(risk,"DANO: JOGADOR LOCAL SEM VIDA");
+    else if(!damage.available)sprintf_s(risk,"DANO: LEITURA INDISPONIVEL");
+    else if(damage.amount>=health){sprintf_s(risk,"DANO: -%u | LETAL",static_cast<unsigned>(damage.amount));riskColor=IM_COL32(239,68,68,255);}
+    else{sprintf_s(risk,"DANO: -%u | SOBRA: %d HP",static_cast<unsigned>(damage.amount),health-damage.amount);riskColor=IM_COL32(16,185,129,255);}
+    draw->AddText({posX+14,posY+(c4.beingDefused?64.f:50.f)},riskColor,risk);
+}
+
+struct BombPlantNotice { int site=-1; ULONGLONG when=0; };
+static BombPlantNotice g_bombPlantNotice;
+static uint32_t g_lastPlantedHandle=0;
+
+static void DrawBombPlantedNotice(int screenW,int screenH) {
+    if(screenW<320||screenH<120||g_bombPlantNotice.site<0)return;
+    const ULONGLONG now=GetTickCount64();
+    if(now<g_bombPlantNotice.when)return;
+    const ULONGLONG duration=4200;
+    const ULONGLONG elapsed=now-g_bombPlantNotice.when;
+    if(elapsed>duration){g_bombPlantNotice.site=-1;return;}
+    float alpha=1.f;
+    if(elapsed>duration-900)alpha=std::clamp(static_cast<float>(duration-elapsed)/900.f,0.f,1.f);
+    const int a=static_cast<int>(alpha*255.f);
+    auto* draw=ImGui::GetForegroundDrawList();
+    const char* label=g_bombPlantNotice.site==1?"BOMBA PLANTADA - SITE B":"BOMBA PLANTADA - SITE A";
+    const ImU32 accent=g_bombPlantNotice.site==1?IM_COL32(239,68,68,a):IM_COL32(245,158,11,a);
+    const ImVec2 sz=ImGui::CalcTextSize(label);
+    const float w=sz.x+40.f,h=36.f,x=(screenW-w)*.5f,y=118.f;
+    draw->AddRectFilled({x,y},{x+w,y+h},IM_COL32(18,18,22,static_cast<int>(a*235/255)),6.f);
+    draw->AddRect({x,y},{x+w,y+h},IM_COL32(40,40,48,a),6.f);
+    draw->AddCircleFilled({x+18,y+h*.5f},4,accent);
+    draw->AddText({x+30,y+(h-ImGui::GetTextLineHeight())*.5f},IM_COL32(236,236,242,a),label);
+}
+
+static void RenderBombPlantedNotify(uintptr_t client,int screenW,int screenH) {
+    if(!client||!g_cfg.bombPlantedNotify)return;
+    HazzureTactical::Bomb c4{};
+    if(g_bombLocator.Read(client,c4)){
+        const bool tickingNow=c4.isTicking&&!c4.isDefused&&c4.handle!=0;
+        if(tickingNow){
+            if(c4.handle!=g_lastPlantedHandle){
+                g_lastPlantedHandle=c4.handle;
+                g_bombPlantNotice.site=c4.site;
+                g_bombPlantNotice.when=GetTickCount64();
+                LogDebug("[C4] plantada: site=%d handle=0x%X loc=%s cur=%.2f remaining=%.2f",
+                    c4.site,c4.handle,g_bombLocator.lastLoc,g_bombLocator.lastCurrent,c4.remaining);
+            }
+        }else g_lastPlantedHandle=0;
+    }else if(g_bombPlantNotice.site<0){
+        g_lastPlantedHandle=0;
+        return;
+    }
+    DrawBombPlantedNotice(screenW,screenH);
+}
+
+static void RenderBombTimerHUD(uintptr_t client,int screenW,int) {
+    PlantedC4Data c4{};
+    if(!g_cfg.showBombTimer){HazzureTactical::damageQueue.Reset();return;}
+    if(!g_bombLocator.Read(client,c4)){
+        HazzureTactical::damageQueue.Reset();
+        static ULONGLONG lastFailDiag{};
+        const auto now=GetTickCount64();
+        if(now-lastFailDiag>=2000){lastFailDiag=now;
+            LogDebug("[C4] timer sem bomba: loc=%s handleOk=%d simDelta=%.2f readBomb=%d cur=%.2f sim=%.2f dwPlantedC4=0x%llX",
+                g_bombLocator.lastLoc,g_bombLocator.lastHandleOk?1:0,g_bombLocator.lastSimDelta,
+                g_bombLocator.lastReadBomb?1:0,g_bombLocator.lastCurrent,g_bombLocator.lastSim,
+                static_cast<unsigned long long>(g_bombLocator.lastGlobal));
+        }
+        return;
+    }
+    HazzureGame::Pawn local{};auto pawn=HazzureGame::LocalPawn(client);
+    const bool alive=HazzureGame::ReadPawn(pawn,local);
+    HazzureTactical::Damage damage{};HazzureTactical::DamageRequest request{};
+    if(alive&&HazzureTactical::MakeDamageRequest(c4,pawn,request))damage=HazzureTactical::damageQueue.Submit(request,GetTickCount64());
+    else HazzureTactical::damageQueue.Reset();
+    static ULONGLONG lastDiagnostic{};const auto now=GetTickCount64();
+    if(now-lastDiagnostic>=2000){lastDiagnostic=now;
+        LogDebug("[C4] nativePrediction=%s damage=%u health=%d site=%d remaining=%.2f nameOk=%d loc=%s handleOk=%d simDelta=%.2f readBomb=%d cur=%.2f sim=%.2f bomb=0x%llX",
+            damage.available?"ready":"pending-or-unavailable",static_cast<unsigned>(damage.amount),
+            alive?local.health:0,c4.site,c4.remaining,HazzureTactical::DesignerName(c4.address,"planted_c4")?1:0,
+            g_bombLocator.lastLoc,g_bombLocator.lastHandleOk?1:0,g_bombLocator.lastSimDelta,
+            g_bombLocator.lastReadBomb?1:0,g_bombLocator.lastCurrent,g_bombLocator.lastSim,
+            static_cast<unsigned long long>(c4.address));}
+    DrawBombTimerHUD(c4,damage,alive?local.health:0,screenW);
+}
+
+static void DrawSpectatorsHUD(const HazzureTactical::Spectators& specs,int screenW,int screenH) {
+    HazzureTactical::Spectators effective = specs;
+    if(!effective.count && g_menuOpen && g_cfg.showSpectators) {
+        effective.count = 1;
+        strcpy_s(effective.entries[0].name, "Preview_Espectador");
+        effective.entries[0].mode = 4;
+    }
+    if(!effective.count||screenW<160||screenH<80)return;
+    const auto& currentSpecs = effective;
+    auto* draw=ImGui::GetForegroundDrawList();
+    const float cardW=std::min(224.f,static_cast<float>(screenW)-16.f),posX=screenW-cardW-8.f,posY=screenW<800?124.f:24.f;
+    if(screenH<posY+54.f)return;
+    const size_t capacity=static_cast<size_t>((screenH-posY-36.f)/18.f);
+    const bool overflow=currentSpecs.count>capacity;
+    const size_t rows=overflow?capacity-1:currentSpecs.count;
+    const float cardH=28.f+static_cast<float>(rows+(overflow?1:0))*18.f;
+    draw->AddRectFilled({posX,posY},{posX+cardW,posY+cardH},IM_COL32(18,18,22,235),6.f);
+    draw->AddRect({posX,posY},{posX+cardW,posY+cardH},IM_COL32(40,40,48,255),6.f);
+    char header[40];sprintf_s(header,"ESPECTADORES (%zu)",currentSpecs.count);
+    draw->AddText({posX+12,posY+7},IM_COL32(239,68,68,255),header);
+    float y=posY+26;
+    for(size_t i=0;i<rows;++i){const auto& entry=currentSpecs.entries[i];const bool first=entry.mode==4;
+        const auto color=first?IM_COL32(239,68,68,255):IM_COL32(59,130,246,255);
+        draw->AddCircleFilled({posX+16,y+6},3,color);
+        draw->PushClipRect({posX+26,y},{posX+cardW-46,y+18},true);
+        draw->AddText({posX+26,y},IM_COL32(236,236,242,255),entry.name);draw->PopClipRect();
+        const char* tag=first?"[1P]":"[3P]";
+        draw->AddText({posX+cardW-12-ImGui::CalcTextSize(tag).x,y},color,tag);y+=18;
+    }
+    if(overflow){char label[40];sprintf_s(label,"+%zu espectadores",currentSpecs.count-rows);
+        draw->AddText({posX+26,y},IM_COL32(160,160,175,255),label);}
+}
+
+static void RenderSpectatorsHUD(uintptr_t client,uintptr_t localPawn,int screenW,int screenH) {
+    if(!g_cfg.showSpectators||!client)return;
+    uintptr_t list{},controller{};
+    if(!SafeRead(client+HazzureOffsets::Globals::dwEntityList,&list)||!list)return;
+    SafeRead(client+HazzureOffsets::Globals::dwLocalPlayerController,&controller);
+    DrawSpectatorsHUD(HazzureTactical::CollectSpectators(list,localPawn,controller),screenW,screenH);
+}
+
+static void RenderPersistentKillFeedHUD(int screenW, int /*screenH*/) {
+    HazzureKillFeed::enabled.store(g_cfg.killfeedEnabled);
+    if (!g_cfg.killfeedEnabled || screenW < 320) return;
+    auto* draw = ImGui::GetForegroundDrawList();
+    const auto now = GetTickCount64();
+
+    HazzureKillFeed::Settings kfSettings{};
+    kfSettings.enabled = g_cfg.killfeedEnabled;
+    kfSettings.localOnly = g_cfg.killfeedLocalOnly;
+    kfSettings.duration = g_cfg.killfeedDuration;
+    kfSettings.lines = g_cfg.killfeedLines;
+    HazzureKillFeed::store.Frame(kfSettings, now, HazzureCombat::roundEpoch.load(), HazzureWorld::epoch.load());
+
+    float startY = 48.f;
+    if (g_cfg.showSpectators) startY += 84.f;
+
+    size_t drawCount = std::min(HazzureKillFeed::store.count, static_cast<size_t>(g_cfg.killfeedLines));
+    for (size_t i = 0; i < drawCount; ++i) {
+        const auto& e = HazzureKillFeed::store.entries[i];
+        float ageSec = (now >= e.time) ? (now - e.time) * 0.001f : 0.f;
+        float alpha = 1.0f;
+        if (g_cfg.killfeedDuration > 0.f && ageSec > (g_cfg.killfeedDuration - 1.5f)) {
+            alpha = std::clamp((g_cfg.killfeedDuration - ageSec) / 1.5f, 0.f, 1.f);
+        }
+        if (alpha <= 0.01f) continue;
+
+        ImU32 bgCol = IM_COL32(18, 18, 22, static_cast<int>(225.f * alpha));
+        ImU32 borderCol = e.local ? IM_COL32(245, 158, 11, static_cast<int>(255.f * alpha)) : IM_COL32(40, 40, 48, static_cast<int>(220.f * alpha));
+        ImU32 textAtkCol = e.local ? IM_COL32(245, 158, 11, static_cast<int>(255.f * alpha)) : IM_COL32(236, 236, 242, static_cast<int>(255.f * alpha));
+
+        char rowText[320];
+        if (e.headshot) {
+            sprintf_s(rowText, "%s [%s HS] %s", e.attackerName[0] ? e.attackerName : "Inimigo", e.weapon[0] ? e.weapon : "arma", e.victimName[0] ? e.victimName : "Vitima");
+        } else {
+            sprintf_s(rowText, "%s [%s] %s", e.attackerName[0] ? e.attackerName : "Inimigo", e.weapon[0] ? e.weapon : "arma", e.victimName[0] ? e.victimName : "Vitima");
+        }
+        ImVec2 txtSz = ImGui::CalcTextSize(rowText);
+        float badgeW = txtSz.x + 18.f;
+        float badgeH = 22.f;
+        float bX = static_cast<float>(screenW) - badgeW - 16.f;
+        float bY = startY;
+
+        draw->AddRectFilled({bX, bY}, {bX + badgeW, bY + badgeH}, bgCol, 4.f);
+        draw->AddRect({bX, bY}, {bX + badgeW, bY + badgeH}, borderCol, 4.f);
+        draw->AddText({bX + 9.f, bY + 3.f}, textAtkCol, rowText);
+
+        startY += badgeH + 4.f;
+    }
+}
+
+// ==========================================================
+// WIDGETS STUDIO MINIMALISTAS (BASEADOS EM HAZZUREPANEL)
+// ==========================================================
+static float g_cleanCardContentW = 240.f;
+
+static void RenderEventLogsHUD(int screenW, int screenH) {
+    if (!g_cfg.eventLogsScreen || screenW < 320 || screenH < 200) return;
+    auto* draw = ImGui::GetForegroundDrawList();
+    const auto now = GetTickCount64();
+    float x = 16.f, y = 16.f;
+    int drawn = 0;
+
+    if (g_bombPlantNotice.site >= 0 && now >= g_bombPlantNotice.when && (now - g_bombPlantNotice.when) <= 5000) {
+        float age = static_cast<float>(now - g_bombPlantNotice.when) * 0.001f;
+        float alpha = std::clamp(1.f - (age - 3.5f) / 1.5f, 0.f, 1.f);
+        char msg[96];
+        sprintf_s(msg, "[EVENT] Bomba plantada no Site %s", g_bombPlantNotice.site == 1 ? "B" : "A");
+        ImVec2 sz = ImGui::CalcTextSize(msg);
+        draw->AddRectFilled({x, y}, {x + sz.x + 18.f, y + 22.f}, IM_COL32(18, 18, 22, static_cast<int>(220 * alpha)), 4.f);
+        draw->AddRectFilled({x, y}, {x + 3.f, y + 22.f}, IM_COL32(239, 68, 68, static_cast<int>(255 * alpha)), 2.f);
+        draw->AddText({x + 10.f, y + 3.f}, IM_COL32(242, 242, 248, static_cast<int>(255 * alpha)), msg);
+        y += 26.f;
+        ++drawn;
+    }
+
+    for (size_t i = HazzureCombat::effects.count; i > 0 && drawn < 6; --i) {
+        const auto& e = HazzureCombat::effects.entries[i - 1];
+        if (e.kind != HazzureCombat::Kind::Damage && e.kind != HazzureCombat::Kind::Kill) continue;
+        float age = HazzureCombat::Age(now, e.time);
+        if (age < 0.f || age > 4.0f) continue;
+        float alpha = std::clamp(1.f - (age - 2.8f) / 1.2f, 0.f, 1.f);
+        char msg[128];
+        ImU32 accent = IM_COL32(56, 189, 248, static_cast<int>(255 * alpha));
+        if (e.kind == HazzureCombat::Kind::Kill) {
+            sprintf_s(msg, "[KILL] Alvo eliminado%s", e.lethal ? " (Headshot)" : "");
+            accent = IM_COL32(245, 158, 11, static_cast<int>(255 * alpha));
+        } else {
+            sprintf_s(msg, "[HIT] Dano causado: -%d HP%s", e.damage, e.lethal ? " [HS]" : "");
+        }
+        ImVec2 sz = ImGui::CalcTextSize(msg);
+        draw->AddRectFilled({x, y}, {x + sz.x + 18.f, y + 22.f}, IM_COL32(14, 15, 20, static_cast<int>(215 * alpha)), 4.f);
+        draw->AddRectFilled({x, y}, {x + 3.f, y + 22.f}, accent, 2.f);
+        draw->AddText({x + 10.f, y + 3.f}, IM_COL32(236, 236, 244, static_cast<int>(255 * alpha)), msg);
+        y += 26.f;
+        ++drawn;
+    }
+}
+
+static void RenderScoreboardOverrideHUD(int screenW, int screenH) {
+    if (!g_cfg.scoreboardRevealAll || !(GetAsyncKeyState(VK_TAB) & 0x8000) || screenW < 480 || screenH < 300) return;
+    auto* draw = ImGui::GetForegroundDrawList();
+    const float w = std::min(560.f, static_cast<float>(screenW) - 40.f);
+    int activeRows = 0;
+    for (const auto& p : HazzureCombat::history.players) {
+        if (p.handle && p.health > 0 && p.name[0]) ++activeRows;
+    }
+    const float h = 44.f + std::max(1, activeRows) * 22.f;
+    const float x = (screenW - w) * 0.5f;
+    const float y = std::max(36.f, (screenH - h) * 0.22f);
+
+    draw->AddRectFilled({x, y}, {x + w, y + h}, IM_COL32(12, 13, 18, 242), 6.f);
+    draw->AddRect({x, y}, {x + w, y + h}, IM_COL32(122, 90, 248, 220), 6.f, 0, 1.2f);
+    draw->AddText({x + 14.f, y + 10.f}, IM_COL32(240, 240, 250, 255), "HAZZURE TACTICAL SCOREBOARD (REVEAL)");
+    draw->AddLine({x + 10.f, y + 32.f}, {x + w - 10.f, y + 32.f}, IM_COL32(42, 44, 56, 255), 1.f);
+
+    float rowY = y + 38.f;
+    if (activeRows == 0) {
+        draw->AddText({x + 14.f, rowY}, IM_COL32(150, 152, 168, 255), "Nenhum jogador vivo rastreado no frame atual.");
+        return;
+    }
+    for (const auto& p : HazzureCombat::history.players) {
+        if (!p.handle || p.health <= 0 || !p.name[0]) continue;
+        ImU32 teamCol = (p.team == 2) ? IM_COL32(245, 158, 11, 255) : IM_COL32(56, 189, 248, 255);
+        char line[256];
+        sprintf_s(line, "[%s] %-20.20s | %3d HP | %3d ARM | %s%s",
+            p.team == 2 ? "TR" : "CT", p.name, p.health, p.armor,
+            p.weapon[0] ? p.weapon : "Arma", (p.flagsMask & 2) ? " [KIT]" : "");
+        draw->AddText({x + 14.f, rowY}, teamCol, line);
+        rowY += 22.f;
+    }
+}
+
+static void RenderCleanSniperScopeLines(uintptr_t client, uintptr_t localPawn, int screenW, int screenH) {
+    if (!g_cfg.noScopeOverlay || !g_cfg.cleanSniperScopeLines || !client || !localPawn || screenW <= 0 || screenH <= 0) return;
+    uint8_t scoped = 0;
+    uintptr_t scpOff = HazzureSchema::g_mIsScoped.offset ? HazzureSchema::g_mIsScoped.offset : 0x1EA0u;
+    if (!SafeRead(localPawn + scpOff, &scoped) || scoped != 1) return;
+    auto* draw = ImGui::GetForegroundDrawList();
+    const float cx = screenW * 0.5f, cy = screenH * 0.5f, gap = 6.f;
+    const ImU32 lineCol = IM_COL32(235, 235, 245, 220);
+    const ImU32 shadowCol = IM_COL32(0, 0, 0, 200);
+    draw->AddLine({0.f, cy + 1.f}, {cx - gap, cy + 1.f}, shadowCol, 1.f);
+    draw->AddLine({cx + gap, cy + 1.f}, {static_cast<float>(screenW), cy + 1.f}, shadowCol, 1.f);
+    draw->AddLine({cx + 1.f, 0.f}, {cx + 1.f, cy - gap}, shadowCol, 1.f);
+    draw->AddLine({cx + 1.f, cy + gap}, {cx + 1.f, static_cast<float>(screenH)}, shadowCol, 1.f);
+    draw->AddLine({0.f, cy}, {cx - gap, cy}, lineCol, 1.f);
+    draw->AddLine({cx + gap, cy}, {static_cast<float>(screenW), cy}, lineCol, 1.f);
+    draw->AddLine({cx, 0.f}, {cx, cy - gap}, lineCol, 1.f);
+    draw->AddLine({cx, cy + gap}, {cx, static_cast<float>(screenH)}, lineCol, 1.f);
+    draw->AddCircleFilled({cx, cy}, 1.5f, IM_COL32(255, 65, 65, 235));
+}
+

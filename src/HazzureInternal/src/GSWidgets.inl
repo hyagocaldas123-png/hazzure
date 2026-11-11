@@ -1,0 +1,1136 @@
+// GSWidgets.inl — Componentes Customizados Estilo GameSense
+// 9 widgets: GS_Toggle, GS_SliderFloat, GS_SliderInt, GS_Combo, GS_ColorRow,
+// GS_Keybind, GS_MultiCombo, GS_SectionHeader, GS_Card, GS_InventoryGrid
+
+#pragma once
+// UIState.inl is included via HazzureUI.h
+
+#include <cstdio>
+#include <windows.h>
+
+namespace GSWidgets {
+
+// Exponential color/alpha easing; no hitbox or layout changes. Invalid time
+// pauses the transition, while long stalls are capped to avoid a visual jump.
+inline float GS_Fade(float value, float target, float dt) {
+    target = std::isfinite(target) ? std::clamp(target, 0.f, 1.f) : 0.f;
+    value = std::isfinite(value) ? std::clamp(value, 0.f, 1.f) : target;
+    if (!std::isfinite(dt) || dt <= 0.f) return value;
+    const float weight = -std::expm1(-12.f * std::min(dt, .1f));
+    return std::clamp(value + (target - value) * weight, 0.f, 1.f);
+}
+
+// Twenty 16x16 vector symbols. Their geometry is independent of fonts/assets.
+inline void GS_NavIcon(ImDrawList* d, int icon, ImVec2 origin, ImU32 color) {
+    if (!d || icon < 0 || icon >= 20) return;
+    auto p = [origin](float x, float y) { return ImVec2(origin.x + x, origin.y + y); };
+    auto line = [&](float x, float y, float u, float v) { d->AddLine(p(x,y),p(u,v),color,1.4f); };
+    switch (icon) {
+        case 0: // crosshair
+            d->AddCircle(p(8,8),4,color,16,1.4f);
+            line(8,1,8,5); line(8,11,8,15); line(1,8,5,8); line(11,8,15,8); break;
+        case 1: // target
+            d->AddCircle(p(8,8),6,color,20,1.4f); d->AddCircle(p(8,8),2.5f,color,12,1.4f);
+            line(9,7,15,1); line(12,1,15,1); line(15,1,15,4); break;
+        case 2: // player
+            d->AddCircle(p(8,4),2.6f,color,12,1.4f);
+            d->AddBezierCubic(p(2,15),p(2,5),p(14,5),p(14,15),color,1.4f); line(2,15,14,15); break;
+        case 3: // material cube
+            d->AddQuad(p(8,1),p(14,4.5f),p(8,8),p(2,4.5f),color,1.4f);
+            line(2,4.5f,2,11); line(2,11,8,15); line(8,15,14,11); line(14,11,14,4.5f); line(8,8,8,15); break;
+        case 4: // agent badge
+            d->AddQuad(p(3,2),p(13,2),p(12,12),p(8,15),color,1.4f); line(8,15,4,12); line(4,12,3,2);
+            d->AddCircle(p(8,6),1.8f,color,12,1.4f); line(6,10,10,10); break;
+        case 5: // item tag (index retained for the hidden Items tab)
+            d->AddQuad(p(1,2),p(8,2),p(15,9),p(8,15),color,1.4f); line(8,15,1,8); line(1,8,1,2);
+            d->AddCircle(p(4,5),1,color,8,1.4f); break;
+        case 6: // eye
+            d->AddBezierCubic(p(1,8),p(5,1),p(11,1),p(15,8),color,1.4f);
+            d->AddBezierCubic(p(1,8),p(5,15),p(11,15),p(15,8),color,1.4f);
+            d->AddCircle(p(8,8),2.5f,color,12,1.4f); break;
+        case 7: // globe
+            d->AddCircle(p(8,8),7,color,20,1.4f); line(1,8,15,8); line(8,1,8,15);
+            d->AddEllipse(p(8,8),ImVec2(3,7),color,0,20,1.4f); break;
+        case 8: // camera
+            d->AddRect(p(1,5),p(15,14),color,2,0,1.4f); line(4,5,5,2); line(5,2,11,2); line(11,2,12,5);
+            d->AddCircle(p(8,9),3,color,14,1.4f); break;
+        case 9: // indicators
+            line(2,1,2,14); line(2,14,15,14); line(5,11,5,8); line(9,11,9,5); line(13,11,13,2); break;
+        case 10: // adjustments
+            line(1,4,15,4); line(1,12,15,12);
+            d->AddCircleFilled(p(5,4),2,color,12); d->AddCircleFilled(p(11,12),2,color,12); break;
+        case 11: // collection
+            for (int y : {1,9}) for (int x : {1,9}) d->AddRect(p(float(x),float(y)),p(float(x+6),float(y+6)),color,1,0,1.4f);
+            break;
+        case 12: // grenade
+            d->AddCircle(p(8,10),5,color,16,1.4f); d->AddRect(p(6,2),p(10,5),color,0,0,1.4f);
+            line(10,2,14,4); line(14,4,15,8); break;
+        case 13: // gear
+            d->AddCircle(p(8,8),4.5f,color,16,1.4f); d->AddCircle(p(8,8),1.5f,color,12,1.4f);
+            for (int i=0;i<8;++i) {float angle=i*.785398163f;
+                line(8+5*std::cos(angle),8+5*std::sin(angle),8+7*std::cos(angle),8+7*std::sin(angle));}
+            break;
+        case 14: // lupa (busca)
+            d->AddCircle(p(6.5f,6.5f),4.5f,color,18,1.4f); line(10,10,14.5f,14.5f); break;
+        case 15: // disquete (config/save)
+            d->AddRect(p(2,2),p(14,14),color,0,0,1.4f);
+            d->AddRect(p(9.5f,2),p(13,5),color,0,0,1.2f); line(9.5f,2,9.5f,5); line(13,2,13,5);
+            d->AddRect(p(5,8.5f),p(11,13),color,0,0,1.2f); break;
+        case 16: // chevron para baixo
+            line(4,6,8,10); line(8,10,12,6); break;
+        case 17: // hamburger
+            line(2,4,14,4); line(2,8,14,8); line(2,12,14,12); break;
+        case 18: // pistola
+            line(2,6,13,6); line(13,6,13,8); line(6,8,4,12); line(4,12,7,12); line(7,12,8,8);
+            line(10,8,10,10); break;
+        case 19: // reset (seta circular)
+            d->AddBezierCubic(p(4,5),p(4,12),p(12,12.5f),p(12,4.5f),color,1.4f);
+            d->AddTriangleFilled(p(12,2),p(15,5),p(10.5f,6.5f),color); break;
+    }
+}
+
+inline bool GS_EmptyState(const char* title, const char* description, const char* action) {
+    ImGui::PushTextWrapPos(0);
+    ImGui::TextUnformatted(title);
+    ImGui::TextUnformatted(description);
+    ImGui::PopTextWrapPos();
+    return ImGui::Button(action, ImVec2(std::max(1.f, std::min(ImGui::GetContentRegionAvail().x,
+        ImGui::CalcTextSize(action).x + 24.f)), 24));
+}
+
+inline void GS_Hint(const char* text) {
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ImGui::SetTooltip("%s", text);
+}
+
+// ============================================================================
+// Logging de diagnóstico para C:\HazzureKernel\debug_log.txt
+// ============================================================================
+inline void GS_Log(const char* fmt, ...) {
+#ifndef INTERNAL_SELF_TEST
+    FILE* f = nullptr;
+    fopen_s(&f, "C:\\HazzureKernel\\debug_log.txt", "a");
+    if (f) {
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(f, fmt, args);
+        va_end(args);
+        fprintf(f, "\n");
+        fclose(f);
+    }
+#else
+    (void)fmt;
+#endif
+}
+
+// ============================================================================
+// Helpers de Cor (IM_COL32 a partir de ImVec4)
+// ============================================================================
+inline ImU32 IM_COL(const ImVec4& c) {
+    return IM_COL32(
+        static_cast<int>(c.x * 255.f + 0.5f),
+        static_cast<int>(c.y * 255.f + 0.5f),
+        static_cast<int>(c.z * 255.f + 0.5f),
+        static_cast<int>(c.w * 255.f + 0.5f)
+    );
+}
+
+inline ImU32 IM_COL_A(const ImVec4& c, float a) {
+    return IM_COL32(
+        static_cast<int>(c.x * 255.f + 0.5f),
+        static_cast<int>(c.y * 255.f + 0.5f),
+        static_cast<int>(c.z * 255.f + 0.5f),
+        static_cast<int>(a * 255.f + 0.5f)
+    );
+}
+
+// ============================================================================
+// GS_Toggle — Caixa quadrada, borda #2A2C38, preenchimento #00FF00 quando ativo
+// ============================================================================
+// Full row switches wrap visible labels and respect the available card width.
+static bool GS_Toggle(const char* label, bool* v) {
+    if (!label || !v) return false;
+    float old = g_cleanCardContentW;
+    g_cleanCardContentW = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    bool changed = CleanToggle(label, &*v);
+    g_cleanCardContentW = old;
+    return changed;
+}
+
+static bool GS_SliderFloat(const char* label, float* v, float low, float high, const char* format = "%.3f") {
+    if (!label || !v || !format) return false;
+    ImGui::PushID(label);
+    float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    char valBuf[48];
+    if (*v <= low && (strstr(label, "time") || strstr(label, "Delay") || strstr(label, "Pausa") || strstr(label, "Ghost"))) {
+        strcpy_s(valBuf, "disabled");
+    } else {
+        snprintf(valBuf, sizeof(valBuf), format, *v);
+    }
+    const char* end = VisibleLabelEnd(label);
+    ImVec2 valSz = ImGui::CalcTextSize(valBuf);
+    d->AddText(p, IM_COL(GS_TEXT), label, end);
+    d->AddText(ImVec2(p.x + w - valSz.x, p.y), IM_COL(GS_TEXT), valBuf);
+
+    ImGui::Dummy(ImVec2(w, 14.0f));
+    ImGui::SetNextItemWidth(w);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
+
+    bool changed = ImGui::SliderFloat("##value", v, low, high, format, ImGuiSliderFlags_AlwaysClamp);
+    ImVec2 bMin = ImGui::GetItemRectMin();
+    ImVec2 bMax = ImGui::GetItemRectMax();
+    float bW = bMax.x - bMin.x;
+    bool hov = ImGui::IsItemHovered();
+    bool act = ImGui::IsItemActive();
+
+    float trackY = (bMin.y + bMax.y) * 0.5f;
+    float frac = (high > low) ? std::clamp((*v - low) / (high - low), 0.0f, 1.0f) : 0.0f;
+    float fillX = bMin.x + frac * bW;
+
+    // Dark grey track line (height 2.5px)
+    d->AddLine(ImVec2(bMin.x, trackY), ImVec2(bMax.x, trackY), IM_COL32(42, 45, 54, 255), 2.5f);
+    // Filled progress line (lighter grey/white)
+    if (fillX > bMin.x) {
+        ImU32 fillCol = (hov || act) ? IM_COL32(225, 228, 238, 255) : IM_COL32(150, 154, 166, 255);
+        d->AddLine(ImVec2(bMin.x, trackY), ImVec2(fillX, trackY), fillCol, 2.5f);
+    }
+
+    ImGui::PopStyleColor(6);
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(label, v);
+    return changed;
+}
+
+static bool GS_SliderInt(const char* label, int* v, int low, int high, const char* format = "%d") {
+    if (!label || !v || !format) return false;
+    ImGui::PushID(label);
+    float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    char valBuf[48];
+    if (*v <= low && (strstr(label, "time") || strstr(label, "Delay") || strstr(label, "Pausa") || strstr(label, "Ghost"))) {
+        strcpy_s(valBuf, "disabled");
+    } else {
+        snprintf(valBuf, sizeof(valBuf), format, *v);
+    }
+    const char* end = VisibleLabelEnd(label);
+    ImVec2 valSz = ImGui::CalcTextSize(valBuf);
+    d->AddText(p, IM_COL(GS_TEXT), label, end);
+    d->AddText(ImVec2(p.x + w - valSz.x, p.y), IM_COL(GS_TEXT), valBuf);
+
+    ImGui::Dummy(ImVec2(w, 14.0f));
+    ImGui::SetNextItemWidth(w);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
+
+    bool changed = ImGui::SliderInt("##value", v, low, high, format, ImGuiSliderFlags_AlwaysClamp);
+    ImVec2 bMin = ImGui::GetItemRectMin();
+    ImVec2 bMax = ImGui::GetItemRectMax();
+    float bW = bMax.x - bMin.x;
+    bool hov = ImGui::IsItemHovered();
+    bool act = ImGui::IsItemActive();
+
+    float trackY = (bMin.y + bMax.y) * 0.5f;
+    float frac = (high > low) ? std::clamp(float(*v - low) / float(high - low), 0.0f, 1.0f) : 0.0f;
+    float fillX = bMin.x + frac * bW;
+
+    // Dark grey track line (height 2.5px)
+    d->AddLine(ImVec2(bMin.x, trackY), ImVec2(bMax.x, trackY), IM_COL32(42, 45, 54, 255), 2.5f);
+    // Filled progress line (lighter grey/white)
+    if (fillX > bMin.x) {
+        ImU32 fillCol = (hov || act) ? IM_COL32(225, 228, 238, 255) : IM_COL32(150, 154, 166, 255);
+        d->AddLine(ImVec2(bMin.x, trackY), ImVec2(fillX, trackY), fillCol, 2.5f);
+    }
+
+    ImGui::PopStyleColor(6);
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(label, v);
+    return changed;
+}
+
+static bool GS_ToggleWithKeybind(const char* label, bool* v, int* key) {
+    if (!label || !v || !key) return false;
+    ImGui::PushID(label);
+    float availableW = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    const float h = 24.0f;
+    const float btnW = 28.0f;
+    const float btnH = 17.0f;
+
+    // Checkbox on left with width minus the button
+    float old = g_cleanCardContentW;
+    g_cleanCardContentW = availableW - btnW - 8.0f;
+    bool toggleChanged = CleanToggle(label, v);
+    g_cleanCardContentW = old;
+
+    // Red keyboard button aligned to right
+    ImVec2 bMin(p.x + availableW - btnW, p.y + (h - btnH) * 0.5f);
+    ImVec2 bMax(bMin.x + btnW, bMin.y + btnH);
+    ImGui::SetCursorScreenPos(bMin);
+    bool kbClicked = ImGui::InvisibleButton("##kbbtn", ImVec2(btnW, btnH));
+    bool kbHov = ImGui::IsItemHovered();
+    bool waiting = (g_bindingTarget == key);
+    if (waiting) g_bindingRenderedFrame = ImGui::GetFrameCount();
+
+    // Muted red keyboard box ("teclado meio apagado em vermelho")
+    ImU32 bgCol = waiting ? IM_COL32(165, 30, 40, 255) : (kbHov ? IM_COL32(75, 22, 28, 255) : IM_COL32(48, 14, 18, 255));
+    ImU32 brdCol = waiting ? IM_COL32(235, 60, 75, 255) : (kbHov ? IM_COL32(115, 32, 40, 255) : IM_COL32(78, 22, 28, 255));
+    d->AddRectFilled(bMin, bMax, bgCol, 2.5f);
+    d->AddRect(bMin, bMax, brdCol, 2.5f, 0, 1.0f);
+
+    // Keyboard icon drawn inside button: 16x9 vector keyboard
+    float iconX = bMin.x + (btnW - 16.0f) * 0.5f;
+    float iconY = bMin.y + (btnH - 9.0f) * 0.5f;
+    ImU32 iconCol = waiting ? IM_COL32(255, 255, 255, 255) : (kbHov ? IM_COL32(220, 160, 165, 255) : IM_COL32(185, 110, 118, 255));
+    d->AddRect(ImVec2(iconX, iconY), ImVec2(iconX + 16.0f, iconY + 9.0f), iconCol, 1.5f, 0, 1.0f);
+    d->AddLine(ImVec2(iconX + 3.f, iconY + 3.f), ImVec2(iconX + 5.f, iconY + 3.f), iconCol, 1.0f);
+    d->AddLine(ImVec2(iconX + 7.f, iconY + 3.f), ImVec2(iconX + 9.f, iconY + 3.f), iconCol, 1.0f);
+    d->AddLine(ImVec2(iconX + 11.f, iconY + 3.f), ImVec2(iconX + 13.f, iconY + 3.f), iconCol, 1.0f);
+    d->AddLine(ImVec2(iconX + 4.f, iconY + 6.5f), ImVec2(iconX + 12.f, iconY + 6.5f), iconCol, 1.0f);
+
+    if (kbClicked) {
+        if (waiting) { g_bindingTarget = nullptr; g_bindingWaitRelease = false; }
+        else { g_bindingTarget = key; g_bindingWaitRelease = true; g_bindingRenderedFrame = ImGui::GetFrameCount(); }
+    }
+    if (kbHov && !waiting) {
+        char tmp[24]{};
+        ImGui::SetTooltip("Tecla: %s (clique para alterar)", KeyLabel(*key, tmp, sizeof(tmp)));
+    }
+    if (waiting && !ImGui::GetIO().AppFocusLost) {
+        if (g_bindingWaitRelease) {
+            if (!AnyBindInputDown()) g_bindingWaitRelease = false;
+        } else {
+            auto& io = ImGui::GetIO();
+            auto commit = [&](int vk) {
+                *key = vk;
+                g_bindingTarget = nullptr;
+                g_bindingWaitRelease = false;
+            };
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || g_bindingKeyDown[VK_ESCAPE]) {
+                g_bindingTarget = nullptr;
+                g_bindingWaitRelease = false;
+            } else if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) || ImGui::IsKeyPressed(ImGuiKey_Backspace, false) ||
+                       g_bindingKeyDown[VK_DELETE] || g_bindingKeyDown[VK_BACK]) {
+                commit(0);
+            } else {
+                static const int mouseVks[5] = { VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2 };
+                for (int m = 0; m < 5 && g_bindingTarget; ++m)
+                    if (ImGui::IsMouseClicked(m) || io.MouseDown[m] || g_bindingKeyDown[mouseVks[m]]) commit(mouseVks[m]);
+                struct KeyPair { ImGuiKey k; int vk; };
+                static const KeyPair pairs[] = {
+                    {ImGuiKey_Insert, VK_INSERT}, {ImGuiKey_Home, VK_HOME}, {ImGuiKey_End, VK_END},
+                    {ImGuiKey_PageUp, VK_PRIOR}, {ImGuiKey_PageDown, VK_NEXT}, {ImGuiKey_Tab, VK_TAB},
+                    {ImGuiKey_Space, VK_SPACE}, {ImGuiKey_CapsLock, VK_CAPITAL},
+                    {ImGuiKey_LeftShift, VK_SHIFT}, {ImGuiKey_RightShift, VK_SHIFT},
+                    {ImGuiKey_LeftCtrl, VK_CONTROL}, {ImGuiKey_RightCtrl, VK_CONTROL},
+                    {ImGuiKey_LeftAlt, VK_MENU}, {ImGuiKey_RightAlt, VK_MENU}
+                };
+                for (const auto& pair : pairs)
+                    if (g_bindingTarget && (ImGui::IsKeyPressed(pair.k, false) || ImGui::IsKeyDown(pair.k) || g_bindingKeyDown[pair.vk]))
+                        commit(pair.vk);
+                for (int i = 0; i < 12 && g_bindingTarget; ++i) {
+                    ImGuiKey fk = static_cast<ImGuiKey>(ImGuiKey_F1 + i);
+                    if (ImGui::IsKeyPressed(fk, false) || ImGui::IsKeyDown(fk) || g_bindingKeyDown[VK_F1 + i]) commit(VK_F1 + i);
+                }
+                for (int i = 0; i < 10 && g_bindingTarget; ++i) {
+                    ImGuiKey nk = static_cast<ImGuiKey>(ImGuiKey_0 + i);
+                    if (ImGui::IsKeyPressed(nk, false) || ImGui::IsKeyDown(nk) || g_bindingKeyDown['0' + i]) commit('0' + i);
+                }
+                for (int i = 0; i < 26 && g_bindingTarget; ++i) {
+                    ImGuiKey ak = static_cast<ImGuiKey>(ImGuiKey_A + i);
+                    if (ImGui::IsKeyPressed(ak, false) || ImGui::IsKeyDown(ak) || g_bindingKeyDown['A' + i]) commit('A' + i);
+                }
+            }
+        }
+    }
+
+    ImGui::PopID();
+    return toggleChanged;
+}
+
+// ============================================================================
+// GS_Combo — Dropdown estilizado alinhado à direita (estilo MemeSense)
+// ============================================================================
+static bool GS_Combo(const char* label, int* current_item, const char* const items[], int items_count) {
+    if (!label || !current_item || !items || items_count <= 0) return false;
+    ImGui::PushID(label);
+    float availableW = ImGui::GetContentRegionAvail().x;
+    const float comboW = std::clamp(availableW * 0.48f, 105.f, 150.f);
+    const float h = 26.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    const char* end = VisibleLabelEnd(label);
+    ImVec2 textSz = ImGui::CalcTextSize(label, end);
+
+    ImGui::GetWindowDrawList()->AddText(ImVec2(p.x, p.y + (h - textSz.y) * 0.5f), IM_COL(GS_TEXT), label, end);
+
+    ImGui::SetCursorScreenPos(ImVec2(p.x + availableW - comboW, p.y));
+    ImGui::SetNextItemWidth(comboW);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(GS_DROPDOWN));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(GS_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(GS_TEXT));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL(GS_DROPDOWN));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL(GS_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL(GS_BORDER_HOVER));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL(GS_BORDER_HOVER));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+
+    bool changed = ImGui::Combo("##combo", current_item, items, items_count);
+
+    ImGui::PopStyleVar(4);
+    ImGui::PopStyleColor(12);
+
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + 2.0f));
+    ImGui::Dummy(ImVec2(availableW, 0.f));
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(label, current_item);
+    return changed;
+}
+
+// ============================================================================
+// GS_ColorRow — Caixa de cor quadrada + texto ao lado
+// ============================================================================
+static void GS_ColorRow(const char* label, float col[4]) {
+    __try {
+        if (!label || !col) {
+            GS_Log("[GUI] GS_ColorRow: ponteiro nulo - label=%p, col=%p", label, col);
+            return;
+        }
+
+
+        ImGui::PushID(label);
+        const float rowH = 24.0f;
+        const float swatchSize = 20.0f;
+        [[maybe_unused]] const float spacing = 10.0f;
+
+        ImVec2 labelSize = ImGui::CalcTextSize(label);
+        float availableW = ImGui::GetContentRegionAvail().x;
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton("##colrow", ImVec2(availableW, rowH));
+        bool hovered = ImGui::IsItemHovered();
+        bool clicked = ImGui::IsItemClicked();
+
+        ImDrawList* d = ImGui::GetWindowDrawList();
+
+        // Label
+        ImU32 labelCol = hovered ? IM_COL(GS_TEXT) : IM_COL(GS_TEXT_MUTED);
+        d->PushClipRect(p, ImVec2(p.x + std::max(0.f, availableW - 100.f), p.y + rowH), true);
+        d->AddText(ImVec2(p.x, p.y + (rowH - labelSize.y) * 0.5f), labelCol, label, VisibleLabelEnd(label));
+        d->PopClipRect();
+
+        // Swatch à direita
+        ImVec2 sMin(p.x + availableW - swatchSize, p.y + (rowH - swatchSize) * 0.5f);
+        ImVec2 sMax(sMin.x + swatchSize, sMin.y + swatchSize);
+
+        ImU32 colU32 = IM_COL32(
+            static_cast<int>(col[0] * 255.f + 0.5f),
+            static_cast<int>(col[1] * 255.f + 0.5f),
+            static_cast<int>(col[2] * 255.f + 0.5f),
+            static_cast<int>(col[3] * 255.f + 0.5f)
+        );
+        d->AddRectFilled(sMin, sMax, colU32, 3.0f);
+        d->AddRect(sMin, sMax, hovered ? IM_COL(GS_ACCENT) : IM_COL(GS_BORDER), 3.0f);
+
+        // Hex display
+        char hexBuf[16];
+        int ir = static_cast<int>(col[0] * 255.f + 0.5f);
+        int ig = static_cast<int>(col[1] * 255.f + 0.5f);
+        int ib = static_cast<int>(col[2] * 255.f + 0.5f);
+        sprintf_s(hexBuf, "#%02X%02X%02X", ir, ig, ib);
+        ImVec2 hexSize = ImGui::CalcTextSize(hexBuf);
+        d->AddText(ImVec2(sMin.x - hexSize.x - 8.0f, p.y + (rowH - hexSize.y) * 0.5f), IM_COL(GS_TEXT_MUTED), hexBuf);
+
+        // Color picker popup
+        static ImVec4 pickerCol;
+        if (clicked) {
+            pickerCol = ImVec4(col[0], col[1], col[2], col[3]);
+            ImGui::OpenPopup("##colorpicker");
+        }
+        if (ImGui::BeginPopup("##colorpicker")) {
+            if (ImGui::ColorPicker4("##pkr", &pickerCol.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_DisplayHex)) {
+                col[0] = pickerCol.x;
+                col[1] = pickerCol.y;
+                col[2] = pickerCol.z;
+                col[3] = pickerCol.w;
+            }
+            ImGui::EndPopup();
+        }
+
+        ImGui::PopID();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_ColorRow: %s (code=0x%X)", label ? label : "NULL", GetExceptionCode());
+    }
+}
+
+// ============================================================================
+// GS_Keybind — Hold / Toggle / Always com badge discreto
+// ============================================================================
+enum GS_KeybindMode : int {
+    GS_KEYBIND_HOLD = 0,
+    GS_KEYBIND_TOGGLE = 1,
+    GS_KEYBIND_ALWAYS = 2
+};
+
+static bool GS_Keybind(const char* label, int* key, int mode = GS_KEYBIND_HOLD) {
+    if (!label || !key) return false;
+    (void)mode; // Capture edits the existing key only; no cosmetic mode selector.
+    float old = g_cleanCardContentW;
+    g_cleanCardContentW = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    bool changed = CleanKeybind(label, key);
+    g_cleanCardContentW = old;
+    return changed;
+}
+
+// ============================================================================
+// GS_MultiCombo — Múltiplas seleções com caixas individuais
+// ============================================================================
+[[maybe_unused]] static bool GS_MultiCombo(const char* label, bool* items, int items_count, const char* const item_names[]) {
+    __try {
+        if (!label || !items || !item_names || items_count <= 0) {
+            GS_Log("[GUI] GS_MultiCombo: ponteiro nulo ou inválido - label=%p, items=%p, item_names=%p, count=%d", label, items, item_names, items_count);
+            return false;
+        }
+
+
+        ImGui::PushID(label);
+        bool any_changed = false;
+
+        // Label
+        ImGui::PushTextWrapPos(0);
+    ImGui::TextUnformatted(label, VisibleLabelEnd(label));
+    ImGui::PopTextWrapPos();
+
+        // Dropdown button
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(GS_DROPDOWN));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL(GS_CARD));
+        ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(GS_BORDER));
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(GS_TEXT));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL(GS_CARD));
+        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL(GS_BORDER));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL(GS_BORDER_HOVER));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+
+        // Build preview string
+        char preview[256] = "";
+        int count = 0;
+        for (int i = 0; i < items_count; ++i) {
+            if (items[i]) {
+                if (count > 0) strcat_s(preview, ", ");
+                strcat_s(preview, item_names[i]);
+                count++;
+            }
+        }
+        if (count == 0) strcpy_s(preview, "None");
+        else if (count > 3) { // Truncate
+            char temp[256];
+            sprintf_s(temp, "%d items", count);
+            strcpy_s(preview, temp);
+        }
+
+        bool opened = ImGui::BeginCombo("##multicombo", preview);
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor(7);
+
+        if (opened) {
+            for (int i = 0; i < items_count; ++i) {
+                ImGui::PushID(i);
+                bool changed = GS_Toggle(item_names[i], &items[i]);
+                if (changed) any_changed = true;
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::PopID();
+        return any_changed;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_MultiCombo: %s (code=0x%X)", label ? label : "NULL", GetExceptionCode());
+        return false;
+    }
+}
+
+// ============================================================================
+// GS_SectionHeader — Divisor horizontal com título centralizado
+// ============================================================================
+static void GS_SectionHeader(const char* label) {
+    __try {
+        if (!label) {
+            GS_Log("[GUI] GS_SectionHeader: ponteiro nulo - label=%p", label);
+            return;
+        }
+        ImGui::Dummy(ImVec2(0, 2.0f));
+        ImDrawList* d = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+        if (HazzureTypography::heading) ImGui::PushFont(HazzureTypography::heading);
+        ImVec2 ts = ImGui::CalcTextSize(label);
+        float textX = p.x + std::max(0.0f, (w - ts.x) * 0.5f);
+        float lineY = p.y + ts.y * 0.5f;
+        if (textX - p.x > 10.0f) {
+            d->AddLine(ImVec2(p.x, lineY), ImVec2(textX - 8.0f, lineY), IM_COL(GS_BORDER), 1.0f);
+        }
+        if (p.x + w - (textX + ts.x) > 10.0f) {
+            d->AddLine(ImVec2(textX + ts.x + 8.0f, lineY), ImVec2(p.x + w, lineY), IM_COL(GS_BORDER), 1.0f);
+        }
+        d->PushClipRect(p, ImVec2(p.x + w, p.y + ts.y + 2.0f), true);
+        d->AddText(ImVec2(textX, p.y), IM_COL32(242, 243, 248, 255), label);
+        d->PopClipRect();
+        if (HazzureTypography::heading) ImGui::PopFont();
+        ImGui::Dummy(ImVec2(w, ts.y + 4.0f));
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_SectionHeader: %s (code=0x%X)", label ? label : "NULL", GetExceptionCode());
+    }
+}
+
+// ============================================================================
+// GS_Card — Container com fundo #1A1A1A, borda #2A2C38, arredondamento 6px
+// ============================================================================
+[[maybe_unused]] static bool GS_CardBegin(const char* title) {
+    __try {
+        if (!title) {
+            GS_Log("[GUI] GS_CardBegin: ponteiro nulo - title=%p", title);
+            return false;
+        }
+
+
+        ImGui::PushID(title);
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float w = ImGui::GetContentRegionAvail().x;
+        if (w < 100.0f) w = 100.0f;
+
+        ImGui::BeginGroup();
+        ImGui::Dummy(ImVec2(w, 30.0f)); // Header space
+
+        ImDrawList* d = ImGui::GetWindowDrawList();
+        // Title
+        d->AddText(ImVec2(p.x + 14.0f, p.y + 7.0f), IM_COL(GS_TEXT), title);
+
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_CardBegin: %s (code=0x%X)", title ? title : "NULL", GetExceptionCode());
+        return false;
+    }
+}
+
+[[maybe_unused]] static void GS_CardEnd() {
+    __try {
+
+
+        ImVec2 minP = ImGui::GetItemRectMin();
+        ImVec2 maxP = ImGui::GetItemRectMax();
+        ImDrawList* d = ImGui::GetWindowDrawList();
+
+        // Expand slightly for padding
+        minP.x -= 10.0f;
+        minP.y -= 10.0f;
+        maxP.x += 10.0f;
+        maxP.y += 10.0f;
+
+        // Background
+        d->AddRectFilled(minP, maxP, IM_COL(GS_CARD), 6.0f);
+        // Border
+        d->AddRect(minP, maxP, IM_COL(GS_BORDER), 6.0f, 0, 1.0f);
+
+        ImGui::EndGroup();
+        ImGui::Dummy(ImVec2(0, 12.0f));
+        ImGui::PopID();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_CardEnd (code=0x%X)", GetExceptionCode());
+    }
+}
+
+// ============================================================================
+// GS_ImagePreview — Preview de imagem (placeholder para texturas de itens)
+// ============================================================================
+static void GS_ImagePreview(ImTextureID texture, const ImVec2& size, const ImVec4& tint = ImVec4(1,1,1,1), const ImVec4& border = ImVec4(0,0,0,0)) {
+    __try {
+        ImDrawList* d = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImVec2 uvMin(0.0f, 0.0f), uvMax(1.0f, 1.0f);
+        ImU32 tintCol = IM_COL(tint);
+        ImU32 borderCol = border.w > 0.0f ? IM_COL(border) : IM_COL(GS_BORDER);
+        
+        if (texture) {
+            d->AddImage(texture, p, ImVec2(p.x + size.x, p.y + size.y), uvMin, uvMax, tintCol);
+        } else {
+            // Placeholder: retângulo colorido baseado no tipo de item
+            d->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), IM_COL(GS_SLIDER_BG), 4.0f);
+        }
+        d->AddRect(p, ImVec2(p.x + size.x, p.y + size.y), borderCol, 4.0f);
+        ImGui::Dummy(size);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_ImagePreview (code=0x%X)", GetExceptionCode());
+    }
+}
+
+// ============================================================================
+// GS_InventorySlot — Slot individual no estilo MemeSense: imagem + nome + barra inferior
+// ============================================================================
+static bool GS_InventorySlot(const char* id, const char* itemName, const char* skinName, bool* selected, ImTextureID texture, float wear = 0.0f, int seed = 0, unsigned imageW = 0, unsigned imageH = 0, const char* statusBadge = nullptr) {
+    if (!id || !itemName || !selected) return false;
+    ImGui::PushID(id);
+    const float w = std::max(1.f, std::min(144.f, ImGui::GetContentRegionAvail().x - 8.f));
+    const float h = 104.f;
+    ImVec2 p = ImGui::GetCursorScreenPos(), end(p.x + w, p.y + h);
+    bool changed = ImGui::InvisibleButton("##slot", ImVec2(w, h), ImGuiButtonFlags_EnableNav);
+    if (changed) *selected = !*selected;
+    bool hovered = ImGui::IsItemHovered();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+
+    ImU32 bgCol = *selected ? IM_COL32(32, 33, 44, 255) : (hovered ? IM_COL32(28, 29, 38, 255) : IM_COL32(20, 21, 28, 255));
+    ImU32 borderCol = *selected ? IM_COL32(255, 255, 255, 255) : (hovered || ImGui::IsItemFocused() ? IM_COL32(70, 72, 86, 255) : IM_COL32(36, 38, 48, 255));
+    d->AddRectFilled(p, end, bgCol, 3.0f);
+    d->AddRect(p, end, borderCol, 3.0f, 0, *selected ? 1.5f : 1.0f);
+
+    // Barra inferior de raridade (3 px) estilo MemeSense ocupando toda a largura inferior do card:
+    // Vermelho Covert (#EB4B4B), Rosa Classified (#D32CE6), Roxo Restricted (#8847FF), Azul Mil-Spec (#4B69FF)
+    ImU32 underlineCol = IM_COL32(235, 75, 75, 255); // Covert Red (#EB4B4B)
+    int seedMod = (seed >= 0 ? seed : -seed) % 4;
+    if (seedMod == 1) underlineCol = IM_COL32(211, 44, 230, 255); // Classified Pink (#D32CE6)
+    else if (seedMod == 2) underlineCol = IM_COL32(136, 71, 255, 255); // Restricted Purple (#8847FF)
+    else if (seedMod == 3) underlineCol = IM_COL32(75, 105, 255, 255); // Mil-Spec Blue (#4B69FF)
+    d->AddRectFilled(ImVec2(p.x, end.y - 3.0f), end, underlineCol, 2.0f, ImDrawFlags_RoundCornersBottom);
+
+    if (statusBadge && *statusBadge) {
+        ImVec2 badgeSz = ImGui::CalcTextSize(statusBadge);
+        ImVec2 bMin(end.x - badgeSz.x - 10.f, p.y + 4.f);
+        ImVec2 bMax(end.x - 4.f, p.y + 4.f + badgeSz.y + 2.f);
+        d->AddRectFilled(bMin, bMax, IM_COL32(245, 245, 250, 240), 2.0f);
+        d->AddText(ImVec2(bMin.x + 3.f, bMin.y + 1.f), IM_COL32(10, 10, 14, 255), statusBadge);
+    }
+
+    if (texture) {
+        float imageWidth = std::max(1.f, w - 16), imageHeight = 30.f;
+        if (imageW && imageH) { float scale = std::min(imageWidth / imageW, imageHeight / imageH); imageWidth = imageW * scale; imageHeight = imageH * scale; }
+        ImVec2 minimum(p.x + (w - imageWidth) * .5f, p.y + 20 + (30 - imageHeight) * .5f);
+        d->AddImage(texture, minimum, ImVec2(minimum.x + imageWidth, minimum.y + imageHeight));
+    } else {
+        float barW = std::max(24.f, (w - 40.f) * 0.65f);
+        ImVec2 barMin(p.x + (w - barW) * 0.5f, p.y + 34.f);
+        d->AddRectFilled(barMin, ImVec2(barMin.x + barW, barMin.y + 5.f), IM_COL32(50, 52, 64, 255), 1.5f);
+    }
+
+    const char* displayLabel = (skinName && *skinName && strcmp(skinName, "Pintura padrao") != 0) ? skinName : itemName;
+    const float lineH = ImGui::GetFontSize();
+    d->PushClipRect(ImVec2(p.x + 8, p.y + 72), ImVec2(end.x - 8, p.y + 72 + lineH + 2.f), true);
+    d->AddText(ImVec2(p.x + 8, p.y + 72), IM_COL32(250, 250, 255, 255), displayLabel, VisibleLabelEnd(displayLabel));
+    d->PopClipRect();
+
+    if (hovered) ImGui::SetTooltip("%s\n%s\nWear %.4f | Seed %d%s%s", itemName, skinName ? skinName : "Pintura padrao", wear, seed, (statusBadge && *statusBadge) ? "\n" : "", (statusBadge && *statusBadge) ? statusBadge : "");
+    HAZZURE_OBSERVE_CONTROL(id, selected);
+    ImGui::PopID(); return changed;
+}
+
+// ============================================================================
+// GS_AddItemSlotCard — Card com círculo central e '+' (estilo MemeSense)
+// ============================================================================
+static bool GS_AddItemSlotCard(const char* id, const char* tooltip = "Adicionar item") {
+    if (!id) return false;
+    ImGui::PushID(id);
+    const float w = std::max(1.f, std::min(144.f, ImGui::GetContentRegionAvail().x - 8.f));
+    const float h = 104.f;
+    ImVec2 p = ImGui::GetCursorScreenPos(), end(p.x + w, p.y + h);
+    bool clicked = ImGui::InvisibleButton("##addSlot", ImVec2(w, h), ImGuiButtonFlags_EnableNav);
+    bool hovered = ImGui::IsItemHovered();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddRectFilled(p, end, hovered ? IM_COL32(28, 29, 38, 255) : IM_COL32(20, 21, 28, 255), 3.0f);
+    d->AddRect(p, end, hovered ? IM_COL32(70, 72, 86, 255) : IM_COL32(36, 38, 48, 255), 3.0f);
+    ImVec2 center(p.x + w * 0.5f, p.y + h * 0.50f);
+    const float radius = 17.0f;
+    d->AddCircleFilled(center, radius, hovered ? IM_COL32(50, 52, 66, 255) : IM_COL32(38, 40, 52, 255), 24);
+    const float arm = 7.0f;
+    ImU32 plusCol = IM_COL32(250, 250, 255, 255);
+    d->AddLine(ImVec2(center.x - arm, center.y), ImVec2(center.x + arm, center.y), plusCol, 2.0f);
+    d->AddLine(ImVec2(center.x, center.y - arm), ImVec2(center.x, center.y + arm), plusCol, 2.0f);
+    if (hovered && tooltip && *tooltip) ImGui::SetTooltip("%s", tooltip);
+    ImGui::PopID();
+    return clicked;
+}
+
+// ============================================================================
+// GS_InventoryGrid — Grade de slots para skins com dados reais do inventário
+// ============================================================================
+static void GS_InventoryGrid(Shared* shared, int tab) {
+    static uint64_t selectedItem{};
+    __try {
+        (void)shared;
+        // tab: 0=Knives, 1=Pistols, 2=Mid-Tier, 3=Rifles, 4=Misc, 5=Agents, 6=Gloves
+        const char* tabNames[] = { "Knives", "Pistols", "Mid-Tier", "Rifles", "Misc", "Agents", "Gloves" };
+
+        if (tab < 0 || tab >= 7) {
+            GS_Log("[GUI] GS_InventoryGrid: tab inválido=%d", tab);
+            tab = 0;
+        }
+
+        ImGui::TextColored(GS_TEXT_MUTED, "%s", tabNames[tab]);
+        ImGui::Dummy(ImVec2(0, 6.0f));
+
+        float availW = ImGui::GetContentRegionAvail().x;
+        const float slotSize = 144.0f;
+        const float spacing = 12.0f;
+        int columns = static_cast<int>(std::max(1.0f, std::floor((availW + spacing) / (slotSize + spacing))));
+
+        ImGui::BeginChild("##inventoryGrid", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::Columns(columns, "##invcols", false);
+
+        int slotIndex = 0;
+        for (size_t i = 0; i < g_cfg.inventory.count; ++i) {
+            const auto& inventoryItem=g_cfg.inventory.items[i];
+            int def = inventoryItem.skin.definition;
+            int paint = inventoryItem.skin.paint;
+            float wear = inventoryItem.skin.wear;
+            int seed = inventoryItem.skin.seed;
+            
+            bool showInTab=false;
+            if(tab==0)showInTab=HazzureArmory::KnifeDefinition(def);
+            else if(tab==6)showInTab=HazzureInventory::Glove(def);
+            else if(tab==1){
+                switch(def){case 1:case 2:case 3:case 4:case 30:case 32:case 36:case 61:case 63:case 64:showInTab=true;break;}
+            }else if(tab==2){
+                switch(def){case 14:case 17:case 19:case 23:case 24:case 25:case 26:case 27:case 28:case 29:case 33:case 34:case 35:showInTab=true;break;}
+            }else if(tab==3){
+                switch(def){case 7:case 8:case 10:case 13:case 16:case 39:case 60:showInTab=true;break;}
+            }else if(tab==4){
+                switch(def){case 9:case 11:case 31:case 38:case 40:showInTab=true;break;}
+            }
+
+            if (!showInTab) continue;
+            ++slotIndex;
+
+            char slotId[32];
+            sprintf_s(slotId, "slot_%d_%llu", tab, static_cast<unsigned long long>(inventoryItem.id));
+            
+            const char* skinName = "Custom Paint";
+            if (HazzureInventory::Glove(def)) {
+                if (const char* gName = HazzureGloves::PaintName(def, paint)) skinName = gName;
+            } else if (HazzureArmory::KnifeDefinition(def)) {
+                int kDef = (inventoryItem.skin.model && HazzureArmory::KnifeDefinition(inventoryItem.skin.model)) ? inventoryItem.skin.model : def;
+                if (const char* kName = HazzureKnifeFinishes::PaintName(kDef, paint)) skinName = kName;
+            }
+            constexpr size_t kSkinsCount = sizeof(kSkins) / sizeof(kSkins[0]);
+            for (size_t s = 0; s < kSkinsCount; ++s) {
+                if ((kSkins[s].def == def || (HazzureArmory::KnifeDefinition(def) && kSkins[s].def == -1)) && kSkins[s].kit == paint) {
+                    skinName = kSkins[s].name;
+                    break;
+                }
+            }
+
+            bool selected=selectedItem==inventoryItem.id;
+            auto thumbnail=HazzurePreviewAssets::GetWeaponThumbnail(def,paint);
+            if(GS_InventorySlot(slotId,inventoryItem.label,skinName,&selected,reinterpret_cast<ImTextureID>(thumbnail.view),wear,seed,thumbnail.width,thumbnail.height))
+                selectedItem=selected?inventoryItem.id:0;
+            ImGui::NextColumn();
+        }
+
+        if (slotIndex == 0) {
+            ImGui::TextColored(GS_TEXT_MUTED, "Nenhum item nesta categoria.");
+            ImGui::Dummy(ImVec2(0, 40.0f));
+        }
+
+        ImGui::Columns(1);
+        ImGui::EndChild();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        GS_Log("[GUI] EXCEPTION em GS_InventoryGrid: tab=%d (code=0x%X)", tab, GetExceptionCode());
+    }
+}
+
+// ============================================================================
+// Widgets Enigma v3 (T073) — paleta fixa EN_*, raios 10/6/4px do briefing
+// ============================================================================
+
+// Captura de bind compartilhada (mesma maquinaria de GS_ToggleWithKeybind);
+// retorna false enquanto espera liberar o input atual, true ao capturar.
+static void GS_EnBindWait(int* key) {
+    if (!key || g_bindingTarget != key || ImGui::GetIO().AppFocusLost) return;
+    if (g_bindingWaitRelease) {
+        if (!AnyBindInputDown()) g_bindingWaitRelease = false;
+        return;
+    }
+    auto& io = ImGui::GetIO();
+    auto commit = [&](int vk) { *key = vk; g_bindingTarget = nullptr; g_bindingWaitRelease = false; };
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || g_bindingKeyDown[VK_ESCAPE]) {
+        g_bindingTarget = nullptr; g_bindingWaitRelease = false;
+    } else if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) || ImGui::IsKeyPressed(ImGuiKey_Backspace, false) ||
+               g_bindingKeyDown[VK_DELETE] || g_bindingKeyDown[VK_BACK]) {
+        commit(0);
+    } else {
+        static const int mouseVks[5] = { VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2 };
+        for (int m = 0; m < 5 && g_bindingTarget; ++m)
+            if (ImGui::IsMouseClicked(m) || io.MouseDown[m] || g_bindingKeyDown[mouseVks[m]]) commit(mouseVks[m]);
+        struct KeyPair { ImGuiKey k; int vk; };
+        static const KeyPair pairs[] = {
+            {ImGuiKey_Insert, VK_INSERT}, {ImGuiKey_Home, VK_HOME}, {ImGuiKey_End, VK_END},
+            {ImGuiKey_PageUp, VK_PRIOR}, {ImGuiKey_PageDown, VK_NEXT}, {ImGuiKey_Tab, VK_TAB},
+            {ImGuiKey_Space, VK_SPACE}, {ImGuiKey_CapsLock, VK_CAPITAL},
+            {ImGuiKey_LeftShift, VK_SHIFT}, {ImGuiKey_RightShift, VK_SHIFT},
+            {ImGuiKey_LeftCtrl, VK_CONTROL}, {ImGuiKey_RightCtrl, VK_CONTROL},
+            {ImGuiKey_LeftAlt, VK_MENU}, {ImGuiKey_RightAlt, VK_MENU}
+        };
+        for (const auto& pair : pairs)
+            if (g_bindingTarget && (ImGui::IsKeyPressed(pair.k, false) || ImGui::IsKeyDown(pair.k) || g_bindingKeyDown[pair.vk])) commit(pair.vk);
+        for (int i = 0; i < 12 && g_bindingTarget; ++i) {
+            ImGuiKey fk = static_cast<ImGuiKey>(ImGuiKey_F1 + i);
+            if (ImGui::IsKeyPressed(fk, false) || ImGui::IsKeyDown(fk) || g_bindingKeyDown[VK_F1 + i]) commit(VK_F1 + i);
+        }
+        for (int i = 0; i < 10 && g_bindingTarget; ++i) {
+            ImGuiKey nk = static_cast<ImGuiKey>(ImGuiKey_0 + i);
+            if (ImGui::IsKeyPressed(nk, false) || ImGui::IsKeyDown(nk) || g_bindingKeyDown['0' + i]) commit('0' + i);
+        }
+        for (int i = 0; i < 26 && g_bindingTarget; ++i) {
+            ImGuiKey ak = static_cast<ImGuiKey>(ImGuiKey_A + i);
+            if (ImGui::IsKeyPressed(ak, false) || ImGui::IsKeyDown(ak) || g_bindingKeyDown['A' + i]) commit('A' + i);
+        }
+    }
+}
+
+// Toggle 34x18: trilho r9, ON #E13B3B / OFF #303035, knob branco 14px (16px no hover).
+static bool GS_EnToggle(const char* id, bool* v) {
+    if (!id || !v) return false;
+    ImGui::PushID(id);
+    const float w = 34.0f, h = 18.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImGui::InvisibleButton("##enToggle", ImVec2(w, h));
+    bool changed = false;
+    if (ImGui::IsItemClicked()) { *v = !*v; changed = true; }
+    const bool hov = ImGui::IsItemHovered();
+    const float knob = hov ? 16.0f : 14.0f;
+    d->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL(*v ? EN_ACCENT : EN_BORDER), 9.0f);
+    const float t = *v ? 1.0f : 0.0f;
+    const float kx = p.x + 2.0f + t * (w - knob - 4.0f);
+    d->AddCircleFilled(ImVec2(kx + knob * 0.5f, p.y + h * 0.5f), knob * 0.5f, IM_COL32(255, 255, 255, 255));
+    ImGui::Dummy(ImVec2(0, 0));
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(id, v);
+    return changed;
+}
+
+// Slider: label a esquerda, valor alinhado a direita (zona 56px), trilho 4px
+// #303035, preenchimento #E13B3B, thumb quadrado 10px branco. Drag e clique
+// vem de um SliderFloat invisivel real.
+static bool GS_EnSlider(const char* label, float* v, float low, float high, const char* fmt) {
+    if (!label || !v || !fmt) return false;
+    ImGui::PushID(label);
+    float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    char valBuf[48];
+    snprintf(valBuf, sizeof(valBuf), fmt, *v);
+    const char* end = VisibleLabelEnd(label);
+    ImVec2 valSz = ImGui::CalcTextSize(valBuf);
+    d->AddText(p, IM_COL(EN_TEXT), label, end);
+    d->AddText(ImVec2(p.x + w - valSz.x, p.y), IM_COL(EN_TEXT), valBuf);
+
+    ImGui::Dummy(ImVec2(w, 16.0f));
+    ImGui::SetNextItemWidth(w - 56.0f - 8.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
+    bool changed = ImGui::SliderFloat("##enValue", v, low, high, fmt, ImGuiSliderFlags_AlwaysClamp);
+    ImVec2 bMin = ImGui::GetItemRectMin();
+    ImVec2 bMax = ImGui::GetItemRectMax();
+    const float bW = bMax.x - bMin.x;
+    const bool hov = ImGui::IsItemHovered();
+    const float frac = (high > low) ? std::clamp((*v - low) / (high - low), 0.0f, 1.0f) : 0.0f;
+    const float trackY = (bMin.y + bMax.y) * 0.5f;
+    d->AddRectFilled(ImVec2(bMin.x, trackY - 2.0f), ImVec2(bMax.x, trackY + 2.0f), IM_COL(EN_BORDER), 2.0f);
+    if (frac > 0.0f)
+        d->AddRectFilled(ImVec2(bMin.x, trackY - 2.0f), ImVec2(bMin.x + frac * bW, trackY + 2.0f), IM_COL(EN_ACCENT), 2.0f);
+    const float tx = bMin.x + frac * bW;
+    d->AddRectFilled(ImVec2(tx - 5.0f, trackY - 5.0f), ImVec2(tx + 5.0f, trackY + 5.0f), IM_COL32(255, 255, 255, hov ? 255 : 235), 2.0f);
+    ImGui::PopStyleColor(6);
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + 26.0f));
+    ImGui::Dummy(ImVec2(w, 0));
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(label, v);
+    return changed;
+}
+
+// Combo fixo 170x26, r4, fundo #131316, borda #303035, chevron (icone 16).
+// O label da row e desenhado pelo chamador; aqui so a caixa.
+static bool GS_EnCombo(const char* id, int* v, const char* const items[], int count, float w = 170.0f) {
+    if (!id || !v || !items || count <= 0) return false;
+    ImGui::PushID(id);
+    const float h = 26.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImGui::SetNextItemWidth(w);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(EN_INSET));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL(EN_SECTION));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL(EN_SECTION));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(EN_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(EN_TEXT));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL(EN_CARD_INNER));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL(EN_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL(EN_ACCENT_DARK));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL(EN_ACCENT_DARK));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+    const char* visibleItems[64];
+    const int n = std::min(count, 64);
+    for (int i = 0; i < n; ++i) visibleItems[i] = items[i];
+    bool changed = ImGui::Combo("##enCombo", v, visibleItems, n);
+    ImGui::PopStyleVar(4);
+    ImGui::PopStyleColor(9);
+    ImVec2 bMin = ImGui::GetItemRectMin();
+    ImVec2 bMax = ImGui::GetItemRectMax();
+    GS_NavIcon(d, 16, ImVec2(bMax.x - 14.0f, bMin.y + (h - 16.0f) * 0.5f), IM_COL(EN_TEXT_DIM));
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(id, v);
+    return changed;
+}
+
+// Chip BIND: 11px maiusculo #8A8A92, borda #303035 r4, padding 2x8; capturando
+// fica borda #E13B3B com texto "...". Usa a mesma maquinaria de bind global.
+static bool GS_EnChip(const char* id, int* key) {
+    if (!id || !key) return false;
+    ImGui::PushID(id);
+    char labelBuf[32];
+    if (g_bindingTarget == key) {
+        g_bindingRenderedFrame = ImGui::GetFrameCount();
+        strcpy_s(labelBuf, "...");
+    } else if (*key == 0) {
+        strcpy_s(labelBuf, "BIND");
+    } else {
+        KeyLabel(*key, labelBuf, sizeof(labelBuf));
+        _strupr_s(labelBuf, sizeof(labelBuf));
+    }
+    const ImVec2 sz = ImGui::CalcTextSize(labelBuf);
+    const ImVec2 szPad(sz.x + 16.0f, sz.y + 4.0f);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImGui::InvisibleButton("##enChip", szPad);
+    const bool hov = ImGui::IsItemHovered();
+    const bool waiting = (g_bindingTarget == key);
+    const ImU32 brd = waiting ? IM_COL(EN_ACCENT) : (hov ? IM_COL(EN_TEXT_DIM) : IM_COL(EN_BORDER));
+    d->AddRectFilled(p, ImVec2(p.x + szPad.x, p.y + szPad.y), IM_COL(EN_INSET), 4.0f);
+    d->AddRect(p, ImVec2(p.x + szPad.x, p.y + szPad.y), brd, 4.0f, 0, 1.0f);
+    d->AddText(ImVec2(p.x + 8.0f, p.y + 2.0f), IM_COL(waiting ? EN_TEXT : EN_TEXT_DIM), labelBuf);
+    if (ImGui::IsItemClicked()) {
+        if (waiting) { g_bindingTarget = nullptr; g_bindingWaitRelease = false; }
+        else { g_bindingTarget = key; g_bindingWaitRelease = true; g_bindingRenderedFrame = ImGui::GetFrameCount(); }
+    }
+    GS_EnBindWait(key);
+    ImGui::Dummy(ImVec2(0, 0));
+    ImGui::PopID();
+    HAZZURE_OBSERVE_CONTROL(id, key);
+    return *key;
+}
+
+// Linha expansivel: caret girando 90 graus, label a esquerda e valor a
+// direita; o chamador indenta sub-rows 24px quando aberto.
+static bool GS_EnExpandRow(const char* label, const char* value, bool* open) {
+    if (!label || !open) return false;
+    ImGui::PushID(label);
+    const float h = 24.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    const float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    const char* end = VisibleLabelEnd(label);
+    ImVec2 tsz = ImGui::CalcTextSize(label, end);
+    ImVec2 vsz = value ? ImGui::CalcTextSize(value) : ImVec2(0, 0);
+    ImGui::InvisibleButton("##enExpand", ImVec2(w, h));
+    const bool hov = ImGui::IsItemHovered();
+    if (ImGui::IsItemClicked()) *open = !*open;
+    // Caret 10px: aponta pra direita fechado, pra baixo aberto.
+    ImU32 col = IM_COL(hov ? EN_TEXT : EN_TEXT_DIM);
+    const float cx = p.x + 4.0f, cy = p.y + h * 0.5f;
+    if (*open) { d->AddLine(ImVec2(cx - 3, cy - 1), ImVec2(cx, cy + 2), col, 1.4f); d->AddLine(ImVec2(cx, cy + 2), ImVec2(cx + 3, cy - 1), col, 1.4f); }
+    else { d->AddLine(ImVec2(cx - 1, cy - 3), ImVec2(cx + 2, cy), col, 1.4f); d->AddLine(ImVec2(cx + 2, cy), ImVec2(cx - 1, cy + 3), col, 1.4f); }
+    d->AddText(ImVec2(p.x + 14.0f, p.y + (h - tsz.y) * 0.5f), IM_COL(EN_TEXT), label, end);
+    if (value && vsz.x > 0.0f)
+        d->AddText(ImVec2(p.x + w - vsz.x, p.y + (h - vsz.y) * 0.5f), IM_COL(EN_TEXT_DIM), value);
+    ImGui::PopID();
+    return *open;
+}
+
+// Barra de secao 34px: fundo #202024, gear (icone 13) #8A8A92, titulo 12px
+// maiusculo espacado, reset (icone 19) a direita. Retorna clique no reset.
+static bool GS_EnSectionBar(const char* title, float width, const char* resetId) {
+    if (!title || width <= 0) return false;
+    const float h = 34.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddRectFilled(p, ImVec2(p.x + width, p.y + h), IM_COL(EN_SECTION), 6.0f);
+    GS_NavIcon(d, 13, ImVec2(p.x + 10.0f, p.y + (h - 16.0f) * 0.5f), IM_COL(EN_TEXT_DIM));
+    char upper[64];
+    strncpy_s(upper, sizeof(upper), title, _TRUNCATE);
+    _strupr_s(upper, sizeof(upper));
+    // Tracking .12em: desenha caractere a caractere com passo extra.
+    float tx = p.x + 34.0f;
+    const float step = ImGui::CalcTextSize("A").x * 1.12f;
+    for (const char* c = upper; *c; ++c) {
+        char one[2] = { *c, 0 };
+        d->AddText(ImVec2(tx, p.y + (h - ImGui::CalcTextSize(one).y) * 0.5f), IM_COL(EN_TEXT), one);
+        tx += step;
+    }
+    bool reset = false;
+    if (resetId) {
+        ImGui::PushID(resetId);
+        const float bx = p.x + width - 26.0f;
+        ImGui::SetCursorScreenPos(ImVec2(bx, p.y + (h - 20.0f) * 0.5f));
+        ImGui::InvisibleButton("##enReset", ImVec2(20.0f, 20.0f));
+        GS_NavIcon(d, 19, ImVec2(bx + 2.0f, p.y + (h - 16.0f) * 0.5f), IM_COL(ImGui::IsItemHovered() ? EN_TEXT : EN_TEXT_DIM));
+        reset = ImGui::IsItemClicked();
+        ImGui::PopID();
+    }
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
+    ImGui::Dummy(ImVec2(width, 0));
+    return reset;
+}
+
+// Busca 34px r6: fundo #131316, lupa (icone 14), placeholder "Search...", borda
+// #E13B3B com foco.
+static bool GS_EnSearch(char* buf, size_t bufSize, float width) {
+    if (!buf || bufSize < 2 || width <= 0) return false;
+    const float h = 34.0f;
+    ImGui::SetNextItemWidth(width);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(EN_INSET));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL(EN_INSET));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL(EN_INSET));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(EN_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(EN_TEXT));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(24.0f, (h - ImGui::GetFontSize()) * 0.5f));
+    bool changed = ImGui::InputTextWithHint("##enSearch", "Search...", buf, bufSize);
+    const bool focused = ImGui::IsItemActive();
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(5);
+    if (focused) {
+        ImVec2 rMin = ImGui::GetItemRectMin(), rMax = ImGui::GetItemRectMax();
+        ImGui::GetWindowDrawList()->AddRect(rMin, rMax, IM_COL(EN_ACCENT), 6.0f, 0, 1.5f);
+    }
+    ImVec2 rMin = ImGui::GetItemRectMin();
+    GS_NavIcon(ImGui::GetWindowDrawList(), 14, ImVec2(rMin.x + 8.0f, rMin.y + (h - 16.0f) * 0.5f), IM_COL(EN_TEXT_DIM));
+    return changed;
+}
+
+} // namespace GSWidgets

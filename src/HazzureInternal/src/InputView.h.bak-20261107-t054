@@ -1,0 +1,156 @@
+#pragma once
+#include "Visibility.h"
+#include "../../Compartilhado/offsets_generated.h"
+namespace HazzureInputView {
+// Installed PE: CCSGOInput::GetViewAngles 0xB72A30 / SetViewAngles 0xB82890.
+// With history, the engine returns the newest 0x440-byte record +0x430;
+// +0x688 is only the no-history fallback, not always the current camera angle.
+inline bool ReadSnapshot(uintptr_t input,HazzureGame::Vec3& result){
+    int count{};uintptr_t records{},address{};
+    if(!HazzureGame::Read(input+0xb50,count)||count<0||count>4096)return false;
+    if(count){if(!HazzureGame::Read(input+0xb58,records)||records<0x10000)return false;
+        address=records+static_cast<size_t>(count-1)*0x440+0x430;
+    }else address=input+0x688;
+    HazzureGame::Vec3 view{};int after{};uintptr_t next{};
+    if(!HazzureGame::Read(address,view)||!HazzureGame::Finite(view,36000)||std::fabs(view.x)>90||
+       !HazzureGame::Read(input+0xb50,after)||after!=count)return false;
+    if(count&&(!HazzureGame::Read(input+0xb58,next)||next!=records))return false;
+    view.y=HazzureGame::NormalizeAngle(view.y);result=view;return true;
+}
+inline uintptr_t GetterRva(uintptr_t client){
+    if(HazzureVisibility::CurrentBuild(client))return 0xb72a30;
+    return HazzureVisibility::Build14194Matches(client)?0xb728b0:0xb71e50;
+}
+// dwCSGOInput is a pointer global in the installed build: call sites load
+// [client+0x2240C80] and pass the dereferenced object to the accessors.
+inline uintptr_t InputObject(uintptr_t client){
+    uintptr_t offset=HazzureOffsets::Globals::dwCSGOInput?HazzureOffsets::Globals::dwCSGOInput:0x2240C80;
+    uintptr_t input{};
+    if(!HazzureGame::Read(client+offset,input))return 0;
+    if(input<0x10000||input>0x7fffffffffffULL||(input&7))return client+offset;
+    return input;
+}
+inline bool ReadLive(uintptr_t client,HazzureGame::Vec3& result){
+    constexpr unsigned char code[]={0x4c,0x8b,0xc1,0x85,0xd2,0x74,0x08,0x48,0x8d,0x05};
+    uintptr_t rva=GetterRva(client);
+    return HazzureVisibility::BuildMatches(client)&&HazzureVisibility::Prefix(client+rva,code,sizeof(code))&&
+        ReadSnapshot(InputObject(client),result);
+}
+// The engine setter keeps the history record and camera fallback consistent.
+// Only the verified 0x6AEBC4DA accessor may receive synthetic angles.
+inline bool Write(uintptr_t client,uintptr_t input,HazzureGame::Vec3 view){
+    constexpr unsigned char setCode[]={0x85,0xd2,0x75,0x3d,0x48,0x63,0x81,0x50,0x0b,0x00,0x00,0xf2,0x41,0x0f,0x10,0x00};
+    if(!HazzureVisibility::CurrentBuild(client)||!input||!HazzureGame::Finite(view,36000)||std::fabs(view.x)>89.5f)return false;
+    constexpr uintptr_t setRva=0xb82890;
+    if(!HazzureVisibility::Prefix(client+setRva,setCode,sizeof(setCode)))return false;
+    int count{};
+    if(!HazzureGame::Read(input+0xb50,count)||count<0||count>4096)return false;
+    view.y=HazzureGame::NormalizeAngle(view.y);
+    __try{reinterpret_cast<void(__fastcall*)(void*,int,const HazzureGame::Vec3*)>(client+setRva)
+        (reinterpret_cast<void*>(input),0,&view);}
+    __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+    HazzureGame::Vec3 actual{};
+    return ReadSnapshot(input,actual)&&std::fabs(actual.x-view.x)<.01f&&
+        std::fabs(HazzureGame::NormalizeAngle(actual.y-view.y))<.01f;
+}
+inline bool WriteLive(uintptr_t client,HazzureGame::Vec3 view){
+    return Write(client,InputObject(client),view);
+}
+
+// ============================================================================
+// Angulos dentro do CUserCmd (build 0x6AEBC4DA)
+// ----------------------------------------------------------------------------
+// O Write() acima prova que o ESTADO VIVO recebeu o angulo falso (read-back no
+// fim), mas nunca provou que ele chega ao comando serializado: o motor preenche
+// o CUserCmd a partir do proprio acumulador e o hook devolve a vista no mesmo
+// frame. Estes helpers leem o comando ja preenchido e, quando o campo e
+// conhecido, escrevem nele — que e o que o servidor recebe e o que a animacao
+// local usa. Fail-closed: sem offset resolvido, nada aqui e usado.
+// ============================================================================
+inline constexpr int kCmdScanBytes = 512;
+inline constexpr int kCmdSlots = kCmdScanBytes / 4;
+inline constexpr int kCmdProbeRuns = 96;
+inline constexpr int kCmdProbeTrust = 8;
+inline unsigned int g_cmdAngleHits[kCmdSlots] = {};
+
+struct CmdAnglesProbe {
+    uintptr_t lastYawKey[kCmdSlots] = {};
+    int offset = -1;
+    int bestOffset = -1;
+    int bestHits = 0;
+    int secondHits = 0;
+    int runs = 0;
+    int variedRuns = 0;
+    float yawRef = 0.f;
+    bool hasYawRef = false;
+    float yawSpan = 0.f;
+};
+
+inline float AngleDelta(float a, float b) {
+    float d = HazzureGame::NormalizeAngle(a - b);
+    return d < 0.f ? -d : d;
+}
+
+inline bool ReadCmdFloats(uintptr_t at, float* out, int n) {
+    __try { for (int i = 0; i < n; ++i) out[i] = *reinterpret_cast<const float*>(at + static_cast<size_t>(i) * 4u); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    for (int i = 0; i < n; ++i) if (!std::isfinite(out[i])) return false;
+    return true;
+}
+
+// O motor copiou a vista real para dentro do comando ha poucas instrucoes: os
+// floats que batem com (pitch, yaw) e roll ~0 sao o campo de angulos. A contagem
+// de um offset so sobe quando o yaw deste tick e diferente do yaw ja contado
+// nele, e a resolucao so acontece depois de ticks em que a camera girou de
+// verdade — assim padding constante que coincide uma vez nao vira "confirmado".
+inline void ProbeCmdAngles(CmdAnglesProbe& probe, uintptr_t cmd, const HazzureGame::Vec3& realView) {
+    if (!cmd || probe.offset >= 0 || probe.runs >= kCmdProbeRuns) return;
+    ++probe.runs;
+    if (!probe.hasYawRef) { probe.yawRef = HazzureGame::NormalizeAngle(realView.y); probe.hasYawRef = true; }
+    const float span = AngleDelta(realView.y, probe.yawRef);
+    if (span > probe.yawSpan) probe.yawSpan = span;
+    int counted = 0;
+    for (int i = 0; i < kCmdSlots; ++i) {
+        float angles[3] = {};
+        if (!ReadCmdFloats(cmd + static_cast<uintptr_t>(i) * 4u, angles, 3)) continue;
+        if (AngleDelta(angles[0], realView.x) > .5f) continue;
+        if (AngleDelta(angles[1], realView.y) > .5f) continue;
+        if (angles[2] < -1.5f || angles[2] > 1.5f) continue;
+        const uintptr_t key = static_cast<uintptr_t>(
+            static_cast<long long>(HazzureGame::NormalizeAngle(realView.y) * 1000.0) + 1000000);
+        if (probe.lastYawKey[i] == key) continue;
+        const bool repeat = probe.lastYawKey[i] != 0;
+        probe.lastYawKey[i] = key;
+        if (!repeat) continue;
+        ++counted;
+        ++g_cmdAngleHits[i];
+    }
+    if (counted && probe.yawSpan > 25.f) ++probe.variedRuns;
+    probe.bestOffset = -1; probe.bestHits = 0; probe.secondHits = 0;
+    for (int i = 0; i < kCmdSlots; ++i) {
+        const int hits = static_cast<int>(g_cmdAngleHits[i]);
+        if (hits > probe.bestHits) { probe.secondHits = probe.bestHits; probe.bestHits = hits; probe.bestOffset = i * 4; }
+        else if (hits > probe.secondHits) probe.secondHits = hits;
+    }
+    if (probe.bestHits >= kCmdProbeTrust && probe.secondHits < kCmdProbeTrust &&
+        probe.variedRuns >= 3 && probe.bestOffset >= 0 && probe.bestOffset + 12 <= kCmdScanBytes)
+        probe.offset = probe.bestOffset;
+}
+
+inline bool ReadCmdAngles(uintptr_t cmd, int offset, HazzureGame::Vec3& out) {
+    if (!cmd || offset < 0) return false;
+    return ReadCmdFloats(cmd + static_cast<uintptr_t>(offset), reinterpret_cast<float*>(&out), 3);
+}
+
+inline bool WriteCmdAngles(uintptr_t cmd, int offset, float pitch, float yaw, HazzureGame::Vec3* readBack) {
+    if (!cmd || offset < 0) return false;
+    if (!std::isfinite(pitch) || std::fabs(pitch) > 89.5f || !std::isfinite(yaw)) return false;
+    const uintptr_t at = cmd + static_cast<uintptr_t>(offset);
+    __try {
+        *reinterpret_cast<float*>(at) = pitch;
+        *reinterpret_cast<float*>(at + 4u) = HazzureGame::NormalizeAngle(yaw);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    if (readBack) ReadCmdAngles(cmd, offset, *readBack);
+    return true;
+}
+}

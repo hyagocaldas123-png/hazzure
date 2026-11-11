@@ -1,0 +1,54 @@
+#pragma once
+
+// HazzureInternal/src/cards/CardMovement.inl — Frente 2.4 Modularizacao UI Enigma CS2
+// Escopo: Bhop subtick, Auto-Strafe direcional/fisica, JumpBug, EdgeBug, PixelSurf, FastLadder
+
+
+inline void DrawMovementBasicCard() {
+    BeginCleanCard("Movimentacao", "GUARDADO");
+    CleanToggle("BunnyHop Automatico", &g_cfg.bhopActive);
+    CleanToggle("Boost no Ar (ganha speed)", &g_cfg.bhopBoost);
+    if (g_cfg.bhopBoost) {
+        ImGui::TextWrapped("Enquanto segura espaco no ar, gira a mira e strafa sozinho para ganhar velocidade (o mesmo caminho do Auto-Strafe por Fisica).");
+    }
+    CleanToggle("Travar Mira no Salto (Auto-Strafe)", &g_cfg.bhopViewLock);
+    if (g_cfg.bhopViewLock) {
+        ImGui::TextWrapped("Desligado = mira livre no bhop. Ligado, o auto-strafe fisico gira a mira no ar para ganhar speed.");
+    }
+    CleanToggle("Auto-Strafe Direcional", &g_cfg.autoStrafe);
+    CleanToggle("Edge Jump Automatico", &g_cfg.edgeJump);
+    CleanToggle("Fast Ladder", &g_cfg.fastLadder);
+    if (g_cfg.fastLadder) {
+        ImGui::TextWrapped("Segure W na escada; ajusta a mira para a subida diagonal.");
+        ImGui::TextDisabled("Velocidade vertical: %.0f u/s", HazzureMove::ladderSpeed.load());
+    }
+    CleanToggle("Velocimetro Compacto", &g_cfg.showSpeedometer);
+    CleanToggle("Grafico de Velocidade", &g_cfg.showMovementGraph);
+    EndCleanCard();
+}
+
+inline void DrawMovementTechCard() {
+    BeginCleanCard("Tecnicas de Movimento", "FISICA");
+    CleanToggle("Auto-Strafe por Fisica", &g_cfg.autoStrafePhysics);
+    CleanToggle("Assistencia JumpBug", &g_cfg.jumpBug);
+    if (g_cfg.jumpBug) CleanKeybind("Tecla JumpBug", &g_cfg.jumpBugKey);
+    CleanToggle("Assistencia EdgeBug", &g_cfg.edgeBug);
+    if (g_cfg.edgeBug) CleanKeybind("Tecla EdgeBug", &g_cfg.edgeBugKey);
+    CleanToggle("Assistencia Pixel Surf", &g_cfg.pixelSurf);
+    if (g_cfg.pixelSurf) CleanKeybind("Tecla Pixel Surf", &g_cfg.pixelSurfKey);
+    if (g_cfg.autoStrafePhysics || g_cfg.jumpBug || g_cfg.edgeBug || g_cfg.pixelSurf) {
+        ImGui::TextWrapped("%s. Assistencias por frame; precisam de calibracao em partida.", HazzureMovementTech::Label());
+    }
+    EndCleanCard();
+}
+
+inline void DrawMovementAutomationCard() {
+    BeginCleanCard("Automacao", "UTILITARIOS");
+    CleanToggle("Jumpthrow por Tecla", &g_cfg.jumpthrowActive);
+    CleanKeybind("Tecla Jumpthrow", &g_cfg.jumpthrowKey);
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    CleanToggle("Auto-Pistol", &g_cfg.autoPistol);
+    EndCleanCard();
+}
+
+

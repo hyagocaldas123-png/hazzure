@@ -1,0 +1,80 @@
+// Scope filter: cl_ironsight_filter_alpha controls how heavily the iron-sight scope filter
+// (materials/models/weapons/shared/scope/scope_filter.vmat) is composited in C_IronSightController.
+// Note (T055 RE on client.dll 0x6AEBC4DA): C_IronSightController::RenderScopeEffect (0x833A10..0x834E7C,
+// gated by IsInIronSight 0x831710) samples [*(0x24DBE50+8)+0x58] at 0x833D23..0x833D2A for the
+// AUG/SG553 ironsight filter quad; sniper black surround (AWP/SSG08/SCAR20/G3SG1) is rendered by
+// Panorama HudScope and post-process material materials/effects/legacy_sniper_scope.vmat (0x11D0940 -> 0x25FC608).
+#pragma once
+#include "Visibility.h"
+#include "DebugLogger.h"
+namespace HazzureScopeOverlay {
+// client.dll 0x6AEBC4DA: ConVarF32 registered in ctor 0xA9830..0xA98DE (lea rcx at +0xA98B2 -> 0x24DBE50,
+// name +0x1C03890 "cl_ironsight_filter_alpha", help "Ironsight filter alpha", default 1.0 via +0x76BD90).
+// Float slot at [global+8]+0x58 is sampled directly by the renderer at +0x833D23..0x833D2A.
+inline constexpr uintptr_t filterAlphaRva = 0x24dbe50;
+inline constexpr uintptr_t valueOffset = 0x58;
+enum class Status { Disabled, Unverified, Applied, Restored };
+inline std::atomic<Status> status{ Status::Disabled };
+inline std::atomic<float> observed{}, delivered{}, saved{};
+inline std::atomic<bool> owned{};
+inline std::atomic<uint32_t> writes{};
+template<class T> inline bool Put(uintptr_t at, const T& value) {
+    __try { memcpy(reinterpret_cast<void*>(at), &value, sizeof(value)); return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// The float must read back as a plausible alpha before anything is written to it: a slot
+// that does not answer with a finite 0..1 value is not this convar on this build.
+inline bool Slot(uintptr_t client, uintptr_t& address, float& value) {
+    uintptr_t data{}; float read{};
+    if (!HazzureGame::Read(client + filterAlphaRva + 8, data) || !data) return false;
+    address = data + valueOffset;
+    if (!HazzureGame::Read(address, read) || !std::isfinite(read) || read < 0.f || read > 1.f) return false;
+    value = read; return true;
+}
+// Runs on the UI pump; logs one transition line when disabled so session logs distinguish off vs unverified.
+inline void Update(uintptr_t client, bool enabled, float target, uint64_t now) {
+    static Status lastStatus{ Status::Unverified }; static uint64_t loggedAt{};
+    if (!enabled && !owned.load()) {
+        status.store(Status::Disabled);
+        if (lastStatus != Status::Disabled && client && HazzureVisibility::BuildMatches(client)) {
+            uintptr_t address{}; float current{};
+            if (Slot(client, address, current)) observed.store(current);
+            lastStatus = Status::Disabled; loggedAt = now;
+            LogDebug("[SCOPE] filtro: medido=%.3f entregue=%.3f alvo=%.3f ligado=0 writes=%u slot=0x%llX",
+                current, delivered.load(), target, writes.load(), static_cast<unsigned long long>(address));
+        }
+        return;
+    }
+    if (!client || !HazzureVisibility::BuildMatches(client)) { status.store(Status::Unverified); return; }
+    uintptr_t address{}; float current{};
+    if (!Slot(client, address, current)) { status.store(Status::Unverified); return; }
+    observed.store(current);
+    float want{};
+    if (enabled) {
+        want = target < 0.f ? 0.f : (target > 1.f ? 1.f : target);
+        if (!owned.exchange(true)) saved.store(current);
+    } else {
+        want = saved.load(); owned.store(false);
+    }
+    if (current != want) {
+        if (!Put(address, want)) { status.store(Status::Unverified); return; }
+        delivered.store(want); writes.fetch_add(1);
+    }
+    Status next = enabled ? Status::Applied : Status::Restored;
+    status.store(next);
+    if (next != lastStatus || now - loggedAt >= 2000) {
+        lastStatus = next; loggedAt = now;
+        LogDebug("[SCOPE] filtro: medido=%.3f entregue=%.3f alvo=%.3f ligado=%d writes=%u slot=0x%llX",
+            current, delivered.load(), want, enabled ? 1 : 0, writes.load(),
+            static_cast<unsigned long long>(address));
+    }
+}
+inline const char* Label() {
+    switch (status.load()) {
+    case Status::Applied: return "Filtro do scope aplicado";
+    case Status::Restored: return "Filtro do scope restaurado para o valor nativo";
+    case Status::Unverified: return "Convar do filtro nao confirmado neste build; nada foi escrito";
+    default: return "Desativado";
+    }
+}
+}

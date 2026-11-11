@@ -1,0 +1,18 @@
+# Build & intermediate files
+build/
+*.obj
+*.exe
+*.dll
+*.pdb
+*.lib
+*.exp
+*.log
+*.dmp
+*.mdmp
+*.i
+NUL
+__pycache__/
+*.pyc
+.obsidian/workspace.json
+.trash/
+.vs/

@@ -1,0 +1,1105 @@
+// C++ / GameplayRuntime.h / MSVC x64 C++17 / in-game controls and validated snapshots
+// Included inside HazzureUI after geometry, drawing and input helpers.
+#pragma once
+#include "CombatCalibration.h"
+
+struct FrameDiagnostics {
+    int players{},projected{},bones{}; uintptr_t localPawn{};
+    bool matrixValid{},localValid{},sensitivityValid{};
+    bool aimHeld{},haveTarget{};const char* aimStatus="not-run";
+    const char* aaStatus="off";
+    bool aimActive{};int aimDefinition{};
+    int occluded{},visibilityPending{},visibilityUnavailable{};
+    float hitchance=-1;
+    const char* triggerStatus="Aguardando frame";const char* scopeStatus="Desativado";
+};
+static FrameDiagnostics g_frameDiagnostics;
+static HazzureStable::ShotPause g_triggerPause;
+static bool g_triggerOwnsDown;
+static uintptr_t g_triggerButtonClient;
+static uint64_t g_triggerButtonSince;
+static bool ReleaseTriggerButton(bool force){
+    if(!g_triggerOwnsDown){HazzurePistol::triggerOwned=false;g_triggerButtonClient=0;g_triggerButtonSince=0;return true;}
+    auto now=GetTickCount64();if(!force&&now>=g_triggerButtonSince&&now-g_triggerButtonSince<40)return true;
+    // The CreateMove hook releases IN_ATTACK itself; this only releases the
+    // auto-pistol ownership flag so the trigger press stays a single producer.
+    g_triggerOwnsDown=false;HazzurePistol::triggerOwned=false;g_triggerButtonClient=0;g_triggerButtonSince=0;return true;
+}
+static uintptr_t g_retainedAimPawn;
+static uint32_t g_retainedAimHandle;
+static HazzureConvenience::ScopeGate g_scopeGate;
+static HazzureConvenience::ZoomSettle g_zoomSettle;
+static uintptr_t g_scopeButtonClient;
+static uint64_t g_scopeButtonSince = 0;
+static void ReleaseScopeButton(bool force = false){
+    if(!g_scopeButtonClient)return;
+    auto now = GetTickCount64();
+    if(!force && now >= g_scopeButtonSince && now - g_scopeButtonSince < 25) return;
+#ifndef INTERNAL_SELF_TEST
+    if(HazzureMove::Button(g_scopeButtonClient+HazzureOffsets::Buttons::attack2,"attack2",
+        (IsGameInputActive(false)&&(GetAsyncKeyState(VK_RBUTTON)&0x8000))?65537:256)){
+        g_scopeButtonClient=0;
+        g_scopeButtonSince=0;
+    }
+#else
+    g_scopeButtonClient=0;
+    g_scopeButtonSince=0;
+#endif
+}
+static void ProcessAutoScope(uintptr_t client,const HazzureGame::Pawn& local,uintptr_t weapon,unsigned definition,uintptr_t target,bool menuOpen){
+    ReleaseScopeButton();uint8_t scoped=2;
+    bool context=client&&HazzureConvenience::CombatAllowed(HazzureWorld::ready.load()&&local.health>0&&local.life==0&&IsGameInputActive(menuOpen),HazzureMove::lineupBusy.load())&&
+        HazzureVisibility::BuildMatches(client)&&SafeRead(local.address+(HazzureSchema::g_mIsScoped.offset ? HazzureSchema::g_mIsScoped.offset : 0x1ea0),&scoped)&&scoped<=1;
+    HazzureConvenience::ScopeInput q{g_cfg.autoScope,context,target!=0,scoped==1,
+        (GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0,(GetAsyncKeyState(VK_RBUTTON)&0x8000)!=0,
+        local.address,weapon,target,definition,GetTickCount64()};
+    g_frameDiagnostics.scopeStatus=!q.enabled?"Desativado":(!context?"Contexto indisponivel":(q.scoped?"Zoom confirmado":(!q.target?"Sem alvo visivel no FOV":"Aguardando zoom")));
+    if(!g_scopeGate.Step(q))return;
+#ifndef INTERNAL_SELF_TEST
+    if(g_scopeButtonClient)return;
+    if(!IsGameInputActive(menuOpen)||!HazzureMove::Button(client+HazzureOffsets::Buttons::attack2,"attack2",65537))g_scopeGate.SendFailed();
+    else {
+        g_scopeButtonClient=client;
+        g_scopeButtonSince=GetTickCount64();
+        g_frameDiagnostics.scopeStatus="Comando de zoom enviado";
+    }
+#endif
+}
+static bool SetPlayerGlow(uintptr_t list,uint32_t handle,uintptr_t pawn,uint32_t colour,int range) {
+    if(!HazzureSchema::IsGlowValid()||HazzureGame::Entity(list,handle)!=pawn)return false;
+    uintptr_t offset=HazzureSchema::g_mGlow.offset;
+    if(!HazzureState::CaptureGlow(handle,pawn,offset))return false;
+    __try {
+        *reinterpret_cast<bool*>(pawn+offset+0x50)=true;
+        *reinterpret_cast<bool*>(pawn+offset+0x51)=true;
+        *reinterpret_cast<int32_t*>(pawn+offset+0x30)=1;
+        *reinterpret_cast<int32_t*>(pawn+offset+0x38)=std::clamp(range,0,100000);
+        *reinterpret_cast<uint32_t*>(pawn+offset+0x40)=colour;
+        return true;
+    }__except(EXCEPTION_EXECUTE_HANDLER){return false;}
+}
+
+static const char* WeaponLabel(uint16_t definition) {
+    switch(definition){
+    case 1:return "Desert Eagle";case 2:return "Dual Berettas";case 3:return "Five-SeveN";
+    case 4:return "Glock";case 7:return "AK-47";case 8:return "AUG";case 9:return "AWP";
+    case 10:return "FAMAS";case 11:return "G3SG1";case 13:return "Galil";case 14:return "M249";
+    case 16:return "M4A4";case 17:return "MAC-10";case 19:return "P90";case 23:return "MP5";
+    case 24:return "UMP-45";case 25:return "XM1014";case 26:return "Bizon";case 27:return "MAG-7";
+    case 28:return "Negev";case 29:return "Sawed-Off";case 30:return "Tec-9";case 31:return "Zeus";
+    case 32:return "P2000";case 33:return "MP7";case 34:return "MP9";case 35:return "Nova";
+    case 36:return "P250";case 38:return "SCAR-20";case 39:return "SG 553";case 40:return "SSG 08";
+    case 43:return "Flash";case 44:return "HE";case 45:return "Smoke";case 46:return "Molotov";
+    case 47:return "Decoy";case 48:return "Incendiary";case 49:return "C4";case 60:return "M4A1-S";
+    case 61:return "USP-S";case 63:return "CZ75";case 64:return "R8";
+    default:return definition==42||definition==59||definition>=500?"Faca":"Arma";}
+}
+static uint16_t ActiveWeaponDefinition(uintptr_t pawn,uintptr_t list,uintptr_t* outWeapon=nullptr) {
+    if(outWeapon)*outWeapon=0;
+    uintptr_t services{};uint32_t handle{};uint16_t definition{};
+    if(!SafeRead(pawn+HazzureOffsets::Schema::m_pWeaponServices,&services)||!services||
+       !SafeRead(services+HazzureOffsets::Schema::m_hActiveWeapon,&handle))return 0;
+    uintptr_t weapon=HazzureGame::Entity(list,handle);
+    if(outWeapon)*outWeapon=weapon;
+    if(weapon)SafeRead(weapon+HazzureOffsets::Schema::m_iItemDefinitionIndex,&definition);
+    return definition;
+}
+static const char* WeaponClass(uint16_t definition) {
+    switch(definition){case 9:case 11:case 38:case 40:return "snipers";
+    case 1:case 2:case 3:case 4:case 30:case 32:case 36:case 61:case 63:case 64:return "pistols";
+    default:return "rifles";}
+}
+static bool IsFirearm(uint16_t definition){for(int gun:HazzureWeapons::definitions)if(gun&&gun==definition)return true;return false;}
+static void RotatePointYaw(HazzureGame::Vec3&p,const HazzureGame::Vec3&o,float deg){
+    float r=deg*0.017453292519943295f,c=cosf(r),s=sinf(r),dx=p.x-o.x,dy=p.y-o.y;
+    p.x=o.x+dx*c-dy*s;p.y=o.y+dx*s+dy*c;
+}
+#include "CombatTargeting.inl"
+static bool ReadSensitivity(uintptr_t client,float& value) {
+    uintptr_t sensitivity{};float current{};value=0.f;
+    if(client&&SafeRead(client+HazzureOffsets::Globals::dwSensitivity,&sensitivity)&&sensitivity&&
+       SafeRead(sensitivity+HazzureOffsets::Schema::dwSensitivity_sensitivity,&current)&&
+       std::isfinite(current)&&current>=.01f&&current<=100.f){value=current;return true;}
+    return false; // Unknown input scale cannot authorize synthetic movement.
+}
+
+// Synthetic angles are applied only through the verified CCSGOInput accessor.
+// The old dwViewAngles fallback (0x2580008) does not exist in this build.
+static bool WriteViewAngles(uintptr_t client, const HazzureGame::Vec3& angles) {
+    return client&&HazzureInputView::WriteLive(client,angles);
+}
+
+// --- Canal de mira entre threads (Build 14194) ---
+// O render thread calcula o alvo/smoothing/RCS e PUBLICA os angulos desejados;
+// o hook pos-original de CCSGOInput::CreateMove CONSOME e grava no CUserCmd.
+// A escrita direta de dwViewAngles a partir do Present e sobrescrita pelo motor,
+// por isso a aplicacao vive exclusivamente no hook.
+static SRWLOCK g_aimCommandLock=SRWLOCK_INIT;
+static HazzureGame::Vec3 g_aimCommandView{};
+static volatile LONG64 g_aimCommandStamp=0;
+static LONG64 g_aimCommandSequence=0;
+static volatile LONG g_triggerCommandWanted=0;
+inline void SignalTriggerFire() {
+    InterlockedExchange(&g_triggerCommandWanted, 1);
+}
+inline bool PeekTriggerFire() {
+    return InterlockedCompareExchange(&g_triggerCommandWanted, 0, 0) == 1;
+}
+inline bool ConsumeTriggerFire() {
+    return InterlockedExchange(&g_triggerCommandWanted, 0) == 1;
+}
+static void PublishAimCommand(const HazzureGame::Vec3& angles) {
+    if (!std::isfinite(angles.x) || !std::isfinite(angles.y)) return;
+    if (std::fabs(angles.x) > 89.5f) return;
+    if (TryAcquireSRWLockExclusive(&g_aimCommandLock)) {
+        g_aimCommandView = angles;
+        ++g_aimCommandSequence;
+        InterlockedExchange64(&g_aimCommandStamp, static_cast<long long>(GetTickCount64()));
+        ReleaseSRWLockExclusive(&g_aimCommandLock);
+    }
+}
+// Releasing the key must invalidate the last command immediately; otherwise
+// the hook keeps writing it for up to 100 ms and the mouse feels locked.
+static void ClearAimCommand() {
+    InterlockedExchange64(&g_aimCommandStamp, 0);
+}
+static bool ReadAimCommand(HazzureGame::Vec3& out, LONG64* sequence=nullptr) {
+    if (!TryAcquireSRWLockShared(&g_aimCommandLock)) return false;
+    LONG64 stamp = InterlockedCompareExchange64(&g_aimCommandStamp, 0, 0);
+    bool fresh = stamp != 0 && (GetTickCount64() - static_cast<uint64_t>(stamp)) < 100;
+    if (fresh) { out = g_aimCommandView; if (sequence) *sequence = g_aimCommandSequence; }
+    ReleaseSRWLockShared(&g_aimCommandLock);
+    return fresh;
+}
+
+// Anti-aim vive em canal proprio. O que o servidor precisa ver e o angulo do
+// comando, nao o da camera: o hook aplica o offset dentro de CCSGOInput::CreateMove
+// antes do original e devolve o angulo real logo em seguida. Enquanto o aim acima
+// publica um angulo absoluto de camera, aqui so existe (pitch, offset de yaw).
+struct AntiAimCommand { bool active{}; float pitch{}, yawOffset{}; };
+static SRWLOCK g_antiAimLock=SRWLOCK_INIT;
+static AntiAimCommand g_antiAimCommand{};
+static volatile LONG64 g_antiAimStamp=0;
+// Telemetria escrita pelo Hook_CreateMove e lida pelo render thread: prova o que o
+// motor realmente recebeu no ultimo comando, em vez de afirmar "aplicado" do lado de
+// quem apenas publicou o pedido.
+static volatile LONG g_antiAimAppliedLast=0;
+static volatile LONG g_antiAimApplyOk=0, g_antiAimApplyFail=0;
+static volatile LONG g_silentAimAppliedLast=0;
+static volatile LONG g_shotTickLast=0;
+// Medicao do caminho novo: o angulo falso escrito direto no CUserCmd. offset<0
+// significa que o probe ainda nao confirmou o campo e o fallback legado segue
+// valendo; fakeHits>0 e a prova de que o motor colocou o angulo falso no comando.
+static volatile LONG g_antiAimCmdOffset=-1;
+static volatile LONG g_antiAimCmdOk=0, g_antiAimCmdFail=0;
+static volatile LONG g_antiAimCmdHits=0, g_antiAimCmdVaried=0, g_antiAimCmdRuns=0;
+static volatile LONG g_antiAimCmdFakeHits=0;
+static volatile LONG g_antiAimCmdPitch=0, g_antiAimCmdYaw=0;
+// T071: Desync — telemetria do yaw falso escrito no sub-tick (mesmo canal do
+// Perfect Silent da T069, agora para ticks de AA). ok/fail contam o write nas
+// entries do input_history_; yawReal/yawSent sao x100 para o render thread.
+static volatile LONG g_desyncStampOk=0, g_desyncStampFail=0;
+static volatile LONG g_desyncAppliedLast=0;
+static volatile LONG g_desyncYawReal=0, g_desyncYawSent=0;
+
+// --- Backtrack: per-enemy historical position ring buffer ---
+struct BacktrackRecord{Vec3 origin{},head{},chest{};float simTime{};uint64_t stamp{};bool valid{};};
+struct BacktrackPlayer{uint32_t handle{};BacktrackRecord ticks[12]{};int write{};int stored{};};
+static BacktrackPlayer g_backtrack[64]{};
+static void BacktrackStore(uint32_t handle,const Vec3& origin,uintptr_t bones,float simTime,uint64_t now){
+    BacktrackPlayer*slot=nullptr;BacktrackPlayer*oldest=&g_backtrack[0];
+    for(auto&p:g_backtrack){if(p.handle==handle){slot=&p;break;}if(!p.handle||p.ticks[p.write>0?(p.write-1):11].stamp<oldest->ticks[oldest->write>0?(oldest->write-1):11].stamp)oldest=&p;}
+    if(!slot){*oldest={};oldest->handle=handle;slot=oldest;}
+    auto&r=slot->ticks[slot->write];r.origin=origin;r.simTime=simTime;r.stamp=now;r.valid=true;
+    ReadBonePos(bones,BONE_HEAD,&r.head);ReadBonePos(bones,BONE_SPINE_2,&r.chest);
+    slot->write=(slot->write+1)%12;if(slot->stored<12)++slot->stored;
+}
+static int BacktrackFind(uint32_t handle,int maxTicks,uint64_t now,BacktrackRecord* out,int outMax){
+    int found=0;
+    for(auto&p:g_backtrack){if(p.handle!=handle)continue;
+        for(int i=0;i<p.stored&&found<outMax;++i){
+            int idx=(p.write-1-i+12)%12;auto&r=p.ticks[idx];
+            if(!r.valid||now-r.stamp>500)continue; // max 500ms window
+            if(i>=maxTicks)break;
+            out[found++]=r;
+        }break;
+    }return found;
+}
+
+// --- Resolver: per-enemy yaw correction for detected anti-aim ---
+struct ResolverEntry{uint32_t handle{};float yaw[16]{};int count{},idx{};float delta{};int side{1};uint64_t seen{};bool active{};};
+static ResolverEntry g_resolver[64]{};
+static float ResolverUpdate(uint32_t handle,float netYaw,uint64_t now){
+    ResolverEntry*slot=nullptr;ResolverEntry*oldest=&g_resolver[0];
+    for(auto&e:g_resolver){if(e.handle==handle){slot=&e;break;}if(e.seen<oldest->seen)oldest=&e;}
+    if(!slot){*oldest={};oldest->handle=handle;oldest->side=1;slot=oldest;}
+    slot->yaw[slot->idx]=netYaw;slot->idx=(slot->idx+1)&15;if(slot->count<16)++slot->count;slot->seen=now;
+    if(slot->count<4){slot->active=false;return 0.f;}
+    float dd[15]{};int dc=slot->count-1;
+    for(int i=0;i<dc;++i){int a=(slot->idx-slot->count+i)&15,b=(a+1)&15;float d=slot->yaw[b]-slot->yaw[a];
+        while(d>180.f)d-=360.f;while(d<-180.f)d+=360.f;dd[i]=d;}
+    int flips=0;float sumAbs=0;
+    for(int i=0;i<dc;++i){sumAbs+=std::fabs(dd[i]);if(i>0&&((dd[i]>5.f&&dd[i-1]<-5.f)||(dd[i]<-5.f&&dd[i-1]>5.f)))++flips;}
+    float avg=sumAbs/dc;
+    if(avg<10.f){slot->active=false;slot->delta=0;return 0.f;}
+    slot->active=true;
+    if(flips>=dc/2)slot->delta=slot->side*90.f;
+    else if(avg>30.f){float s=0;for(int i=0;i<dc;++i)s+=dd[i];slot->delta=slot->side*(180.f-std::fabs(s/dc));}
+    else slot->delta=slot->side*60.f;
+    return slot->delta;
+}
+static void ResolverFlip(uint32_t handle){for(auto&e:g_resolver)if(e.handle==handle){e.side=-e.side;break;}}
+// Resolver miss detection: track last aimed shot, flip on miss timeout
+static volatile LONG g_resolverShotHandle=0;
+static volatile LONG64 g_resolverShotStamp=0;
+inline void ResolverMarkShot(uint32_t handle){InterlockedExchange(&g_resolverShotHandle,static_cast<LONG>(handle));InterlockedExchange64(&g_resolverShotStamp,static_cast<LONG64>(GetTickCount64()));}
+inline void ResolverConfirmHit(uint32_t handle){if(static_cast<LONG>(handle)==InterlockedCompareExchange(&g_resolverShotHandle,0,static_cast<LONG>(handle)))InterlockedExchange64(&g_resolverShotStamp,0);}
+inline void ResolverCheckMiss(uint64_t now){LONG h=InterlockedCompareExchange(&g_resolverShotHandle,0,0);LONG64 t=InterlockedCompareExchange64(&g_resolverShotStamp,0,0);
+    if(h&&t&&static_cast<int64_t>(now)-t>300){ResolverFlip(static_cast<uint32_t>(h));InterlockedExchange(&g_resolverShotHandle,0);InterlockedExchange64(&g_resolverShotStamp,0);}}
+static void PublishAntiAim(const AntiAimCommand& value) {
+    if (!std::isfinite(value.pitch) || !std::isfinite(value.yawOffset)) return;
+    if (TryAcquireSRWLockExclusive(&g_antiAimLock)) {
+        g_antiAimCommand=value;
+        InterlockedExchange64(&g_antiAimStamp,static_cast<long long>(GetTickCount64()));
+        ReleaseSRWLockExclusive(&g_antiAimLock);
+    }
+}
+static void ClearAntiAimCommand() {
+    InterlockedExchange64(&g_antiAimStamp,0);
+    if (TryAcquireSRWLockExclusive(&g_antiAimLock)) { g_antiAimCommand={}; ReleaseSRWLockExclusive(&g_antiAimLock); }
+}
+static bool ReadAntiAimCommand(AntiAimCommand& out) {
+    if (!TryAcquireSRWLockShared(&g_antiAimLock)) return false;
+    LONG64 stamp=InterlockedCompareExchange64(&g_antiAimStamp,0,0);
+    bool fresh=stamp!=0&&(GetTickCount64()-static_cast<uint64_t>(stamp))<100&&g_antiAimCommand.active;
+    if (fresh) out=g_antiAimCommand;
+    ReleaseSRWLockShared(&g_antiAimLock);
+    return fresh;
+}
+
+// ============================================================================
+// T069: Perfect Silent Sub-tick & Firing Crosshair State
+// ============================================================================
+inline volatile LONG g_hookAttackDown = 0;
+static SRWLOCK g_firingAngleLock = SRWLOCK_INIT;
+static HazzureGame::Vec3 g_lastFiringAngle{};
+static volatile LONG64 g_lastFiringTick = 0;
+static volatile LONG g_perfectSilentApplied = 0;
+
+static void RecordFiringAngle(const HazzureGame::Vec3& angles) {
+    if (!std::isfinite(angles.x) || !std::isfinite(angles.y)) return;
+    if (TryAcquireSRWLockExclusive(&g_firingAngleLock)) {
+        g_lastFiringAngle = angles;
+        InterlockedExchange64(&g_lastFiringTick, static_cast<LONG64>(GetTickCount64()));
+        ReleaseSRWLockExclusive(&g_firingAngleLock);
+    }
+}
+
+static bool ReadFiringAngle(HazzureGame::Vec3& out, uint64_t maxAgeMs = 150) {
+    if (!TryAcquireSRWLockShared(&g_firingAngleLock)) return false;
+    LONG64 stamp = InterlockedCompareExchange64(&g_lastFiringTick, 0, 0);
+    uint64_t now = GetTickCount64();
+    bool fresh = stamp != 0 && (now >= static_cast<uint64_t>(stamp)) && ((now - static_cast<uint64_t>(stamp)) <= maxAgeMs);
+    if (fresh) out = g_lastFiringAngle;
+    ReleaseSRWLockShared(&g_firingAngleLock);
+    return fresh;
+}
+
+// Resolve entity by raw entity index (from m_iIDEntIndex), not by handle
+// Source 2 entity list: chunks of 512 entries, each entry 0x70 bytes (CEntityIdentity)
+static uintptr_t EntityByIndex(uintptr_t list, int32_t index) {
+    if (!list || index <= 0 || index > 0x7FFF) return 0;
+    uintptr_t chunk = 0;
+    // chunk = list + 0x10 + (index >> 9) * 8
+    if (!SafeRead(list + 0x10 + (index >> 9) * 8, &chunk) || !chunk) return 0;
+    // entity = chunk + (index & 0x1FF) * 0x70
+    uintptr_t entity = 0;
+    if (!SafeRead(chunk + (index & 0x1FF) * 0x70, &entity) || entity < 0x10000) return 0;
+    return entity;
+}
+
+static bool ReadCurrentAimView(uintptr_t client,HazzureGame::Vec3& view){
+    // Only the installed CCSGOInput history/fallback is a valid camera angle in
+    // this build; the legacy dwViewAngles and pawn+0x3600 paths are stale.
+    return HazzureInputView::ReadLive(client,view);
+}
+
+// Kept for RCS-only fallback when aim is disabled
+[[maybe_unused]] static bool SendRelativeMouse(LONG x,LONG y) {
+    if(!x&&!y)return true;
+#ifdef INTERNAL_SELF_TEST
+    return true;
+#else
+    DWORD foreground{};GetWindowThreadProcessId(GetForegroundWindow(),&foreground);
+    if(foreground!=GetCurrentProcessId())return false;
+    INPUT input{};input.type=INPUT_MOUSE;input.mi.dx=x;input.mi.dy=y;input.mi.dwFlags=MOUSEEVENTF_MOVE;
+    return SendInput(1,&input,sizeof(input))==1;
+#endif
+}
+
+// Transições reais de tecla. O log amostral de 2 s não distingue "não pressionou"
+// de "o processo não enxerga o pressionamento"; registrar somente bordas prova qual
+// dos dois acontece para aim, trigger e disparo físico.
+static void KeyEdges(bool aimDown,bool triggerDown,bool attackDown) {
+    static bool priorAim{},priorTrigger{},priorAttack{};
+    if(aimDown==priorAim&&triggerDown==priorTrigger&&attackDown==priorAttack)return;
+    priorAim=aimDown;priorTrigger=triggerDown;priorAttack=attackDown;
+    LogDebug("[KEYEDGE] aim=%d key=%d trigger=%d key=%d attack=%d held=%u",
+        aimDown?1:0,g_cfg.aimKey,triggerDown?1:0,g_cfg.triggerKey,attackDown?1:0,
+        static_cast<unsigned>(GetTickCount64()));
+}
+
+static void ProcessAim(uintptr_t client,const HazzureGame::Pawn& local,const HazzureGame::Vec3& target,
+                       bool haveTarget,bool menuOpen,const char* weaponClass,uintptr_t targetId=0,int targetBone=0) {
+    HazzurePerformance::Measure measurement(HazzurePerformance::Stage::Aim);
+    static HazzureGame::MouseRemainder remainder;
+    static HazzureGunplay::Acquisition acquisition;
+    static HazzureCombatRefine::AimDelay delays;
+    static HazzureGunplay::Curve curve;
+    static HazzureStable::AimTracker tracker;
+    static HazzureGunplay::RecoilControl recoil;
+    static uintptr_t previousPawn{},previousWeapon{};
+    static uint32_t seed=static_cast<uint32_t>(GetTickCount64())^0x79a31b45u;
+
+    // --- Installed build guard: only the entity list is required here ---
+    if(!client) return;
+    const uintptr_t entityList = HazzureOffsets::Globals::dwEntityList ? HazzureOffsets::Globals::dwEntityList : 0x271FBB8u;
+    if(!entityList) { g_frameDiagnostics.aimStatus="offset-invalid"; return; }
+
+    HazzureGame::Vec2 punch{};int32_t shots{};
+    bool punchValid=ReadLocalAimPunch(local.address,&punch,&shots)&&
+        std::isfinite(punch.x)&&std::isfinite(punch.y)&&std::fabs(punch.x)<90.f&&std::fabs(punch.y)<90.f;
+    uintptr_t aimList{};uint16_t aimDefinition{};
+    if(client&&SafeRead(client+entityList,&aimList))aimDefinition=ActiveWeaponDefinition(local.address,aimList);
+    // Diagnostics must describe this frame, not the last frame that reached the active
+    // path: the 2 s sample otherwise prints stale held/sensitivity values.
+    bool held=g_cfg.aimKey==0||(GetAsyncKeyState(g_cfg.aimKey)&0x8000)!=0;
+    bool rage=RuntimeBool("rageActive",g_cfg.rageActive,"enemy",weaponClass);
+    held=rage||held;
+    float sensitivity{};
+    g_frameDiagnostics.aimHeld=held;
+    g_frameDiagnostics.sensitivityValid=ReadSensitivity(client,sensitivity);
+    g_frameDiagnostics.aimDefinition=aimDefinition;
+    bool active=HazzureConvenience::CombatAllowed(local.health>0&&local.life==0&&local.anglesValid&&IsFirearm(aimDefinition)&&IsGameInputActive(menuOpen),HazzureMove::lineupBusy.load());
+    g_frameDiagnostics.aimActive=active;
+    uint8_t moveType{};bool ladderOverride=g_cfg.fastLadder&&SafeRead(local.address+0x525,&moveType)&&moveType==9;
+    if(ladderOverride)active=false;
+    g_frameDiagnostics.haveTarget=haveTarget;
+    // "ready" must mean the aim path is entered. Report the actual reason when it is not,
+    // so a knife (or any non-firearm) is not mistaken for an aim that silently no-ops.
+    const char* block="ready";
+    if(local.health<=0||local.life!=0)block="not-alive";
+    else if(!local.anglesValid)block="angles-invalid";
+    else if(HazzureMove::lineupBusy.load())block="lineup-active";
+    else if(!active){
+        const char* input=GameInputBlockReason(menuOpen);
+        block=strcmp(input,"ready")!=0?input:(ladderOverride?"fast-ladder":
+            (IsFirearm(aimDefinition)?"combat-blocked":"non-firearm"));
+    }
+    g_frameDiagnostics.aimStatus=block;
+    if(previousPawn!=local.address||!active){delays.Reset();recoil.Reset();previousWeapon=0;acquisition.Reset();curve.Reset();tracker.Reset();remainder.Reset();}
+    previousPawn=local.address;if(!active){ClearAimCommand();return;}
+    if(!g_frameDiagnostics.sensitivityValid){g_frameDiagnostics.aimStatus="sensitivity-unavailable";tracker.Reset();remainder.Reset();ClearAimCommand();return;}
+    HazzureGame::Vec3 currentView{};
+    if(!ReadCurrentAimView(client,currentView)){g_frameDiagnostics.aimStatus="view-unavailable";tracker.Reset();remainder.Reset();ClearAimCommand();return;}
+    bool aim=rage||RuntimeBool("aimActive",g_cfg.aimActive,"enemy",weaponClass);
+    bool rcs=RuntimeBool("rcsActive",g_cfg.rcsActive,"local",weaponClass);
+    uintptr_t weaponServices{};uint32_t weaponHandle=0xffffffffu;
+    bool weaponValid=SafeRead(local.address+HazzureOffsets::Schema::m_pWeaponServices,&weaponServices)&&weaponServices&&
+        SafeRead(weaponServices+HazzureOffsets::Schema::m_hActiveWeapon,&weaponHandle)&&weaponHandle!=0xffffffffu&&(weaponHandle&0x7fffu)!=0;
+    uintptr_t weaponIdentity=weaponValid?static_cast<uintptr_t>(weaponHandle):0;
+    if(previousWeapon!=weaponIdentity){recoil.Reset();curve.Reset();tracker.Reset();acquisition.Reset();remainder.Reset();previousWeapon=weaponIdentity;}
+    const char* missing=g_frameDiagnostics.visibilityUnavailable?"trace-unavailable":
+        (g_frameDiagnostics.visibilityPending?"trace-pending":(g_frameDiagnostics.occluded?"occluded":"outside-fov"));
+    g_frameDiagnostics.aimStatus=!aim?"disabled":(!held?"key-not-held":(!haveTarget?missing:"tracking"));
+    bool ready=aim&&held&&haveTarget;
+    if(ready&&!rage&&RuntimeBool("aimReactionDelay",g_cfg.aimReactionDelay,"enemy",weaponClass)){
+        uint32_t low=static_cast<uint32_t>(std::clamp(RuntimeFloat("aimReactionMinMs",static_cast<float>(g_cfg.aimReactionMinMs),"enemy",weaponClass),0.f,1000.f));
+        uint32_t high=static_cast<uint32_t>(std::clamp(RuntimeFloat("aimReactionMaxMs",static_cast<float>(g_cfg.aimReactionMaxMs),"enemy",weaponClass),0.f,1000.f));
+        if(low>high)std::swap(low,high);
+        ready=acquisition.Ready(targetId,GetTickCount64(),low,high,seed);
+        if(held&&!ready)g_frameDiagnostics.aimStatus="reaction-delay";
+    }else if(!ready)acquisition.Reset();
+    // Auto-stop em rage: sem tocar no comando, a mira passa a exigir velocidade
+    // abaixo do limite para travar o alvo. O que freia de verdade (WASD suprimido
+    // pelo counter-strafe) ja existe no trigger via HazzureBrake, e os dois usam o
+    // mesmo slot global — por isso a mira nao disputa o input aqui.
+    if(ready&&rage&&RuntimeBool("rageAutoStop",g_cfg.rageAutoStop,"enemy",weaponClass)){
+        float limit=std::clamp(RuntimeFloat("rageAutoStopSpeed",g_cfg.rageAutoStopSpeed,"enemy",weaponClass),0.f,300.f);
+        if(!local.velocityValid||std::hypot(local.velocity.x,local.velocity.y)>limit){
+            g_frameDiagnostics.aimStatus="auto-stop";
+        }
+    }
+    auto delayMs=[&](const char* key,int fallback){float value=RuntimeFloat(key,static_cast<float>(fallback),"enemy",weaponClass);
+        return static_cast<uint32_t>(std::isfinite(value)?std::clamp(value,0.f,1000.f):0.f);};
+    bool delayedReady=delays.Ready(aim&&held,local.address,HazzureTactical::Handle(aimList,local.address),weaponIdentity,targetId,
+        HazzureCombat::roundEpoch.load(),GetTickCount64(),HazzureCombatRefine::ReadKill(),
+        delayMs("aimKillDelayMs",g_cfg.aimKillDelayMs),delayMs("aimSwitchDelayMs",g_cfg.aimSwitchDelayMs));
+    if(ready&&!delayedReady){ready=false;g_frameDiagnostics.aimStatus=delays.wait==HazzureCombatRefine::AimWait::Kill?"kill-delay":"target-switch-delay";}
+    float dt=ImGui::GetIO().DeltaTime;
+    auto calib = HazzureCombatCalib::GetCalibratedRecoil(aimDefinition);
+    float pitchScale=RuntimeFloat("rcsScaleX",g_cfg.rcsScaleX,"local",weaponClass) * calib.pitchMultiplier;
+    float yawScale=RuntimeFloat("rcsScaleY",g_cfg.rcsScaleY,"local",weaponClass) * calib.yawMultiplier;
+    HazzureGunplay::RecoilSettings recoilOptions;
+    recoilOptions.bulletDelay=calib.bulletDelay;
+    recoilOptions.rampBullets=calib.rampBullets;
+    recoilOptions.strength=RuntimeFloat("rcsStrength",g_cfg.rcsStrength,"local",weaponClass);
+    recoilOptions.pitchScale=pitchScale;recoilOptions.yawScale=yawScale;
+    recoilOptions.smooth=std::max(RuntimeFloat("rcsSmooth",g_cfg.rcsSmooth,"local",weaponClass), calib.smoothFactor);
+    HazzureGame::Vec2 recoilStep{};
+    bool triggerFiring=g_triggerPause.lastShot&&GetTickCount64()>=g_triggerPause.lastShot&&GetTickCount64()-g_triggerPause.lastShot<150&&shots>0;
+    if(rcs&&punchValid)recoilStep=recoil.Step(punch,shots,(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0||triggerFiring,weaponIdentity,recoilOptions,dt);
+    else recoil.Reset();
+    float pitchDelta{},yawDelta{};bool moving=false;
+    if(aim&&held&&haveTarget&&ready){
+        HazzureGame::Vec2 angular{};
+        if(HazzureGame::AimAngles(local.eye,target,currentView,angular)){
+            if(rcs&&punchValid){
+                angular.x -= punch.x * 2.f * std::clamp(pitchScale, 0.f, 1.5f);
+                angular.y -= punch.y * 2.f * std::clamp(yawScale, 0.f, 1.5f);
+            }
+            if(rage){
+                if (g_cfg.rageSilentAim) {
+                    // Perfect Silent: tiro instantaneo no ponto vencedor sem smoothing artificial
+                    pitchDelta = angular.x;
+                    yawDelta = angular.y;
+                } else {
+                    float alpha=HazzureGame::SmoothAlpha(RuntimeFloat("rageSmooth",g_cfg.rageSmooth,"enemy",weaponClass),dt);
+                    pitchDelta=angular.x*alpha;yawDelta=angular.y*alpha;
+                }
+            }else{
+                float smooth=RuntimeFloat("aimSmooth",g_cfg.aimSmooth,"enemy",weaponClass);
+                bool bezier=RuntimeBool("aimBezier",g_cfg.aimBezier,"enemy",weaponClass);
+                bool eased=RuntimeBool("aimEase",g_cfg.aimEase,"enemy",weaponClass);
+                auto key=targetId^(static_cast<uintptr_t>(targetBone+1)<<48);
+                if(eased&&!bezier){
+                    curve.Reset();auto step=tracker.Step(key,angular,smooth,RuntimeFloat("aimEaseBias",g_cfg.aimEaseBias,"enemy",weaponClass),dt);
+                    pitchDelta=step.x;yawDelta=step.y;
+                }else if(bezier){
+                    tracker.Reset();auto step=curve.Step(key,{currentView.x,currentView.y},angular,smooth,
+                        bezier?RuntimeFloat("aimCurveJitter",g_cfg.aimCurveJitter,"enemy",weaponClass):0.f,dt,seed,eased,
+                        RuntimeFloat("aimEaseBias",g_cfg.aimEaseBias,"enemy",weaponClass));
+                    pitchDelta=step.x;yawDelta=step.y;
+                }else{tracker.Reset();curve.Reset();float alpha=HazzureGame::SmoothAlpha(smooth,dt);pitchDelta=angular.x*alpha;yawDelta=angular.y*alpha;}
+            }
+            moving=true;
+        }
+    }else{
+        curve.Reset();tracker.Reset();
+        pitchDelta=recoilStep.x;yawDelta=recoilStep.y;moving=pitchDelta!=0||yawDelta!=0;
+    }
+    if(!moving){ClearAimCommand();remainder.Reset();return;}
+
+    // Aplicacao exclusiva no hook pos-original de CCSGOInput::CreateMove:
+    // o render thread PUBLICA os angulos (smoothing/bezier/RCS); o hook grava no CUserCmd.
+    bool onTarget=false;float residualAngle=-1.f;
+    if (aim && held && haveTarget && ready) {
+        HazzureGame::Vec3 newView = currentView;
+        newView.x = std::clamp(newView.x + pitchDelta, -89.f, 89.f);
+        newView.y = HazzureGame::NormalizeAngle(newView.y + yawDelta);
+        PublishAimCommand(newView);
+        g_frameDiagnostics.aimStatus = "hook-command";
+        // "Mira no alvo" medida: o erro angular que ainda resta depois do passo deste
+        // frame contra o mesmo ponto que a selecao de alvo resolveu. Nao e "rage ligado".
+        HazzureGame::Vec2 residual{};
+        const float tolerance=std::clamp(RuntimeFloat("autoFireOnTargetDeg",g_cfg.autoFireOnTargetDeg,"enemy",weaponClass),0.05f,10.f);
+        if(HazzureGame::AimAngles(local.eye,target,newView,residual)){
+            residualAngle=std::hypot(residual.x,residual.y);
+            onTarget=residualAngle<=tolerance;
+        }
+    } else if (rcs && (GetAsyncKeyState(VK_LBUTTON)&0x8000)) {
+        HazzureGame::Vec3 rcsView = currentView;
+        rcsView.x = std::clamp(rcsView.x + pitchDelta, -89.f, 89.f);
+        rcsView.y = HazzureGame::NormalizeAngle(rcsView.y + yawDelta);
+        PublishAimCommand(rcsView);
+    } else ClearAimCommand();
+
+    // Auto-fire nao e mais um sub-item do rage: recurso proprio, ligado por ele, que so
+    // pede o angulo enviado sobre o alvo travado — vale para o aimbot com tecla tambem.
+    // Com o botao fisico pressionado quem atira e o jogador; nao se toca no canal porque
+    // o release de 40 ms do hook soltaria o clique real.
+    if (onTarget && RuntimeBool("autoFire", g_cfg.autoFire, "enemy", weaponClass) &&
+        !(GetAsyncKeyState(VK_LBUTTON)&0x8000)) {
+        SignalTriggerFire();
+        static uint64_t autoFireLogged{};
+        const uint64_t autoFireNow=GetTickCount64();
+        if(autoFireNow>=autoFireLogged){autoFireLogged=autoFireNow+1000;
+            LogDebug("[AUTOFIRE] sinal=1 alvo=0x%llX bone=%d rage=%d residual=%.2f",
+                static_cast<unsigned long long>(targetId),targetBone,rage?1:0,residualAngle);}
+    }
+}
+
+// Anti-aim: publica pitch falso e um OFFSET de yaw no canal do comando. A camera nao
+// e tocada — o hook aplica o angulo falso dentro de CCSGOInput::CreateMove e devolve o
+// real logo em seguida, entao o jogador continua mirando normalmente enquanto o servidor
+// ve outra direcao. Modos: estatico, jitter (novo sorteio a cada decisao) e spin.
+// NAO se cancela mais quando a mira esta travada: quem resolve a disputa e o hook, tick a
+// tick — o angulo do disparo (silent aim) vence apenas no tick em que ha disparo, e o
+// anti-aim reassume os ticks sem disparo. Cancelar aqui era o que fazia o AA "sumir" com
+// o rage ligado.
+static void ProcessAntiAim(uintptr_t client,const HazzureGame::Pawn& local,bool menuOpen){
+    // O motivo do anti-aim vive num campo PROPRIO. Escrever em aimStatus canibalizava
+    // o diagnostico do ProcessAim (rodou antes) e era por isso que o [GAMEPLAY] dizia
+    // "aim=anti-aim" em vez de dizer por que a mira nao entrou.
+    auto off=[](const char* why){ClearAntiAimCommand();g_frameDiagnostics.aaStatus=why;};
+    if(!RuntimeBool("rageAntiAim",g_cfg.rageAntiAim,"enemy","")){off("desligado");return;}
+    if(!client||!HazzureWorld::ready.load()||menuOpen){off("fora-de-partida");return;}
+    if(local.health<=0||local.life!=0){off("morto");return;}
+    if(RuntimeBool("rageAntiAimOnGroundOnly",g_cfg.rageAntiAimOnGroundOnly,"enemy","")){
+        int32_t flags{};
+        if(!SafeRead(local.address+HazzureOffsets::Schema::m_fFlags,&flags)||!(flags&1)){off("no-ar");return;}
+    }
+    HazzureGame::Vec3 view{};
+    if(!ReadCurrentAimView(client,view)){off("view-unavailable");return;}
+    float pitch=std::clamp(RuntimeFloat("rageAntiAimPitch",g_cfg.rageAntiAimPitch,"enemy",""),-89.f,89.f);
+    int mode=std::clamp(g_cfg.rageAntiAimMode,0,2);
+    float baseCenter=180.f;
+    if(RuntimeBool("rageAntiAimAtTargets",g_cfg.rageAntiAimAtTargets,"enemy","")){
+        uintptr_t list{};
+        if(SafeRead(client+HazzureOffsets::Globals::dwEntityList,&list)&&list){
+            float closestSep=FLT_MAX;float bestEnemyYaw=view.y;bool foundEnemy=false;
+            for(uint32_t idx=1;idx<=64;++idx){
+                uintptr_t ctrl=HazzureGame::Entity(list,idx);uint32_t h{};
+                if(!ctrl||!SafeRead(ctrl+HazzureOffsets::Schema::m_hPlayerPawn,&h))continue;
+                uintptr_t p=HazzureGame::Entity(list,h);if(!p||p==local.address)continue;
+                HazzureGame::Pawn ep{};if(!HazzureGame::ReadPawn(p,ep)||ep.team==local.team||ep.health<=0)continue;
+                HazzureGame::Vec2 ang{};
+                if(HazzureGame::AimAngles(local.eye,ep.eye,view,ang)){
+                    float sep=std::hypot(ang.x,ang.y);
+                    if(sep<closestSep){closestSep=sep;bestEnemyYaw=HazzureGame::NormalizeAngle(view.y+ang.y);foundEnemy=true;}
+                }
+            }
+            if(foundEnemy)baseCenter=HazzureGame::NormalizeAngle((bestEnemyYaw-view.y)+180.f);
+        }
+    }
+    if(RuntimeBool("rageAntiAimMouseOverride",g_cfg.rageAntiAimMouseOverride,"enemy","")){
+        static float s_mouseSide=0.f;
+        if(ImGui::GetCurrentContext()){
+            float dx=ImGui::GetIO().MouseDelta.x;
+            if(dx>2.5f)s_mouseSide=-90.f;
+            else if(dx<-2.5f)s_mouseSide=90.f;
+        }
+        if(s_mouseSide!=0.f)baseCenter=s_mouseSide;
+    }
+    float yawOffset=baseCenter;
+    static std::mt19937 rng(std::random_device{}());
+    static float spin{};
+    if(mode==0){
+        // Estatico: virado 180 de costas (backward) com offset
+        yawOffset=HazzureGame::NormalizeAngle(baseCenter+(g_cfg.rageAntiAimYaw-180.f));
+    }else if(mode==1){
+        // Jitter: virado 180 de costas e jitterando +- 35 graus
+        // Item 10 do Briefing: se o strafe optimizer / bhop estiver ativo no ar, desativa jitter caótico
+        // durante o voo para não sabotar o addspeed do strafe
+        int32_t pFlags{};
+        SafeRead(local.address + HazzureOffsets::Schema::m_fFlags, &pFlags);
+        bool inFlight = (local.address != 0) && ((pFlags & 1) == 0);
+        if (inFlight && (g_cfg.bhopActive || g_cfg.autoStrafePhysics || g_cfg.autoStrafe)) {
+            yawOffset = HazzureGame::NormalizeAngle(baseCenter);
+        } else {
+            float spreadRange = std::clamp(std::fabs(g_cfg.rageAntiAimJitterMax), 15.f, 60.f);
+            std::uniform_real_distribution<float> spread(-spreadRange, spreadRange);
+            yawOffset = HazzureGame::NormalizeAngle(baseCenter + spread(rng));
+        }
+    }else if(mode==2){
+        // Spin: rotacao continua 360
+        float step=std::clamp(RuntimeFloat("rageAntiAimSpinStep",g_cfg.rageAntiAimSpinStep,"enemy",""),1.f,180.f);
+        spin=HazzureGame::NormalizeAngle(spin+step);
+        yawOffset=spin;
+    }else{
+        spin=0.f;
+    }
+    static uint32_t s_aaTickCounter=0;
+    ++s_aaTickCounter;
+    if(RuntimeBool("rageAntiAimDefensive",g_cfg.rageAntiAimDefensive,"enemy","")){
+        int32_t flags{};SafeRead(local.address+HazzureOffsets::Schema::m_fFlags,&flags);
+        float horizSpeed=local.velocityValid?std::hypot(local.velocity.x,local.velocity.y):0.f;
+        if(!(flags&1)||horizSpeed>95.f){
+            yawOffset=HazzureGame::NormalizeAngle(yawOffset+((s_aaTickCounter&1)?58.f:-58.f));
+            if((s_aaTickCounter%3)==0)pitch=-pitch;
+        }
+    }
+    if(RuntimeBool("rageAntiAimPitchInvert",g_cfg.rageAntiAimPitchInvert,"enemy","")){
+        if((s_aaTickCounter&2)!=0)pitch=std::clamp(-pitch,-89.f,89.f);
+    }
+    AntiAimCommand command{true,pitch,HazzureGame::NormalizeAngle(yawOffset)};
+    PublishAntiAim(command);
+    g_frameDiagnostics.aaStatus="publicado";
+    static ULONGLONG nextReport{};
+    if(GetTickCount64()>=nextReport){
+        nextReport=GetTickCount64()+1000;
+        // applied/shotTick vêm do Hook_CreateMove: e a resposta de "o angulo falso chegou
+        // ao ultimo comando", nao a afirmação de quem apenas publicou o pedido.
+        // cmdOff=-1 enquanto o probe nao confirmou o campo do CUserCmd; cmdFake>0 e a
+        // prova de que o motor colocou o angulo falso dentro do comando serializado.
+        LogDebug("[ANTIAIM] mode=%d camera=%.2f/%.2f cmd=%.2f/%.2f offset=%.2f applied=%d shotTick=%d ok=%ld fail=%ld cmdOff=%ld cmdRuns=%ld cmdHits=%ld cmdVaried=%ld cmdFake=%ld cmdOk=%ld cmdFail=%ld cmdRead=%.2f/%.2f",
+            mode,view.x,view.y,pitch,HazzureGame::NormalizeAngle(view.y+command.yawOffset),command.yawOffset,
+            static_cast<long>(g_antiAimAppliedLast),static_cast<long>(g_shotTickLast),
+            InterlockedCompareExchange(&g_antiAimApplyOk,0,0),InterlockedCompareExchange(&g_antiAimApplyFail,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdOffset,-1,-1),
+            InterlockedCompareExchange(&g_antiAimCmdRuns,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdHits,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdVaried,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdFakeHits,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdOk,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdFail,0,0),
+            InterlockedCompareExchange(&g_antiAimCmdPitch,0,0)/100.0,
+            InterlockedCompareExchange(&g_antiAimCmdYaw,0,0)/100.0);
+    }
+}
+
+static void ProcessTriggerbot(uintptr_t client,uintptr_t localPawn,bool menuOpen) {
+    HazzurePerformance::Measure measurement(HazzurePerformance::Stage::Trigger);
+    using Reason=HazzureConvenience::TriggerReason;
+    auto explain=[&](Reason reason){g_frameDiagnostics.triggerStatus=HazzureConvenience::TriggerLabel(reason);};
+    explain(Reason::Context);
+
+    static HazzureCombatRefine::TriggerTiming clock;
+    static std::mt19937 rng(std::random_device{}());
+    HazzureGame::Pawn local{};
+    uintptr_t list{};
+    auto cancel=[&](){clock.Reset();HazzureBrake::Cancel();};
+
+    // --- Build 14194 guard: valid offsets ---
+    const uintptr_t entityList = HazzureOffsets::Globals::dwEntityList ? HazzureOffsets::Globals::dwEntityList : 0x271FBB8u;
+    const uintptr_t btnAttack  = HazzureOffsets::Buttons::attack ? HazzureOffsets::Buttons::attack : 0x2727F50u;
+    if(!client || !entityList || !btnAttack) { explain(Reason::Context); cancel(); return; }
+    if(!client){ReleaseScopeButton();g_scopeGate.Reset();g_zoomSettle.Reset();}
+    if(!ReleaseTriggerButton(!client||!HazzureWorld::ready.load()||HazzureMove::lineupBusy.load()||!IsGameInputActive(menuOpen))){explain(Reason::InputFailed);return;}
+    if(!RuntimeBool("triggerActive",g_cfg.triggerActive,"enemy","")){explain(Reason::Disabled);cancel();return;}
+    if(!client||!HazzureWorld::ready.load()||!HazzureGame::ReadPawn(localPawn,local)||!IsGameInputActive(menuOpen)||
+       !SafeRead(client+HazzureOffsets::Globals::dwEntityList,&list)){g_zoomSettle.Reset();cancel();return;}
+    if(HazzureMove::lineupBusy.load()){explain(Reason::Lineup);cancel();return;}
+    if(g_cfg.triggerKey!=0&&!(GetAsyncKeyState(g_cfg.triggerKey)&0x8000)){explain(Reason::Key);cancel();return;}
+    if(GetAsyncKeyState(VK_LBUTTON)&0x8000){explain(Reason::Manual);cancel();return;}
+    if(RuntimeBool("triggerAirCheck",g_cfg.triggerAirCheck,"local","")){
+        int32_t localFlags=0;
+        if(SafeRead(localPawn+HazzureOffsets::Schema::m_fFlags,&localFlags)&&!(localFlags&1)){explain(Reason::Brake);cancel();return;}
+    }
+    if(RuntimeBool("triggerFlashCheck",g_cfg.triggerFlashCheck,"local","")){
+        float flashAlpha=0.f;
+        uintptr_t flashOff=HazzureSchema::g_mFlashAlpha.offset?HazzureSchema::g_mFlashAlpha.offset:0x160Cu;
+        if(SafeRead(localPawn+flashOff,&flashAlpha)&&std::isfinite(flashAlpha)&&flashAlpha>0.35f){explain(Reason::Context);cancel();return;}
+    }
+    explain(Reason::Target);
+    int32_t index{};
+    uintptr_t target = 0;
+    HazzureGame::Pawn enemy{};
+    bool hasTarget = false;
+
+    // FIX: m_iIDEntIndex returns a raw entity index (0-65535), not a handle.
+    // Use EntityByIndex which properly resolves Source 2's chunked entity list.
+    if (SafeRead(localPawn+HazzureOffsets::Schema::m_iIDEntIndex,&index) && index > 0 && index <= 0x7FFF) {
+        target = EntityByIndex(list, index);
+        if (target && target != localPawn) {
+            if (HazzureGame::ReadPawn(target, enemy) && enemy.team != local.team && enemy.health > 0) {
+                hasTarget = true;
+            } else {
+                uint32_t ownerHandle = 0;
+                if (SafeRead(target + HazzureOffsets::Schema::m_hOwnerEntity, &ownerHandle) && ownerHandle != 0xFFFFFFFFu) {
+                    uintptr_t owner = HazzureGame::Entity(list, ownerHandle);
+                    if (owner && owner != localPawn && HazzureGame::ReadPawn(owner, enemy) && enemy.team != local.team && enemy.health > 0) {
+                        target = owner;
+                        hasTarget = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback por raycast de mira testando HazzureAccuracy::Intersects contra as capsulas dos inimigos visiveis
+    if (!hasTarget) {
+        HazzureGame::Vec3 view{}, forward{}, right{}, up{};
+        HazzureGame::Vec2 punch{}; int shots{};
+        if (ReadCurrentAimView(client, view) && ReadLocalAimPunch(localPawn, &punch, &shots)) {
+            if (std::isfinite(punch.x) && std::isfinite(punch.y)) {
+                view.x += punch.x * 2.f;
+                view.y += punch.y * 2.f;
+            }
+            if (HazzureAccuracy::Basis(view, forward, right, up)) {
+                const float maxRange = 8192.f;
+                float closestDist = FLT_MAX;
+                for (uint32_t playerIdx = 1; playerIdx <= 64; ++playerIdx) {
+                    uintptr_t controller = HazzureGame::Entity(list, playerIdx);
+                    if (!controller) continue;
+                    uint32_t handle = 0;
+                    if (!SafeRead(controller + HazzureOffsets::Schema::m_hPlayerPawn, &handle)) continue;
+                    uintptr_t candidatePawn = HazzureGame::Entity(list, handle);
+                    if (!candidatePawn || candidatePawn == localPawn) continue;
+                    HazzureGame::Pawn candidateEnemy{};
+                    if (!HazzureGame::ReadPawn(candidatePawn, candidateEnemy) || candidateEnemy.team == local.team || candidateEnemy.health <= 0) continue;
+                    uintptr_t bones = ResolveValidatedBoneArray(candidateEnemy.scene, candidateEnemy.origin);
+                    if (!bones) continue;
+                    auto capsules = ReadTargetCapsules(bones);
+                    for (size_t cIdx = 0; cIdx < capsules.count; ++cIdx) {
+                        if (HazzureAccuracy::Intersects(local.eye, forward, maxRange, capsules.values[cIdx])) {
+                            HazzureVisibility::Request visReq{localPawn, candidatePawn, local.eye, HazzureAccuracy::Scale(HazzureAccuracy::Add(capsules.values[cIdx].a, capsules.values[cIdx].b), 0.5f), static_cast<unsigned>(cIdx)};
+                            if (HazzureVisibility::Submit(visReq, GetTickCount64()) != HazzureVisibility::Verdict::Visible) continue;
+                            float dist = std::hypot(candidateEnemy.origin.x - local.origin.x, candidateEnemy.origin.y - local.origin.y);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                target = candidatePawn;
+                                enemy = candidateEnemy;
+                                hasTarget = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!hasTarget) {
+        cancel();
+        return;
+    }
+    // Fail closed: the trigger never fires through geometry. Unknown or
+    // unavailable traces keep the shot blocked instead of guessing.
+    {
+        HazzureVisibility::Request request{localPawn,target,local.eye,enemy.eye,0x3ffu};
+        if(HazzureVisibility::Submit(request,GetTickCount64())!=HazzureVisibility::Verdict::Visible){
+            explain(Reason::Accuracy);cancel();return;
+        }
+    }
+    uintptr_t weapon{};auto definition=ActiveWeaponDefinition(localPawn,list,&weapon);bool gun=false;
+    for(int selected:HazzureWeapons::definitions)if(selected&&selected==definition)gun=true;
+    int ammo{};if(!gun||!weapon||!SafeRead(weapon+0x1928,&ammo)||ammo<=0||ammo>250){explain(Reason::Weapon);cancel();return;}
+    auto now=GetTickCount64();HazzureGame::Vec2 punch{};int shots{};
+    const char* weaponClass=WeaponClass(definition);
+    if(g_cfg.autoScope&&HazzureConvenience::ScopedWeapon(definition)){
+        uint8_t scoped=0;if(!SafeRead(localPawn+(HazzureSchema::g_mIsScoped.offset ? HazzureSchema::g_mIsScoped.offset : 0x1ea0),&scoped)||!g_zoomSettle.Ready(localPawn,weapon,scoped==1,now)){explain(Reason::Scope);cancel();return;}
+    }else{
+        g_zoomSettle.Reset();
+    }
+    if(g_cfg.strictSmoke){
+        explain(Reason::SmokeUnknown);
+        HazzureGame::Vec3 view{},forward{},right{},up{};
+        if(!ReadCurrentAimView(client,view)||!ReadLocalAimPunch(localPawn,&punch,&shots)||!std::isfinite(punch.x)||!std::isfinite(punch.y)){cancel();return;}
+        view.x+=punch.x*2;view.y+=punch.y*2;
+        if(!HazzureAccuracy::Basis(view,forward,right,up)){cancel();return;}
+        float distance=std::sqrt(HazzureAccuracy::Dot(HazzureAccuracy::Sub(enemy.eye,local.eye),HazzureAccuracy::Sub(enemy.eye,local.eye)));
+        auto end=HazzureAccuracy::Add(local.eye,HazzureAccuracy::Scale(forward,distance));
+        auto smoke=HazzureSmoke::Submit({localPawn,target,local.eye,end,0},now);
+        if(!HazzureSmoke::Allows(smoke)){explain(smoke==HazzureSmoke::Verdict::Blocked?Reason::SmokeBlocked:Reason::SmokeUnknown);cancel();return;}
+    }
+    bool settled=ReadLocalAimPunch(localPawn,&punch,&shots)&&std::isfinite(punch.x)&&std::isfinite(punch.y)&&std::hypot(punch.x,punch.y)<=.45f;
+    if(!g_triggerPause.Ready(now,weapon,settled)){explain(now<g_triggerPause.until?Reason::Pause:Reason::Recoil);cancel();return;}
+    if(RuntimeBool("shotStop",g_cfg.shotStop,"local",weaponClass)){
+        HazzureBrake::Request request{localPawn,weapon,target,now,
+            RuntimeBool("shotFullStop",g_cfg.shotFullStop,"local",weaponClass)?0.f:RuntimeFloat("shotStopSpeed",g_cfg.shotStopSpeed,"local",weaponClass),true,
+            RuntimeBool("shotStopEdgeGuard",g_cfg.shotStopEdgeGuard,"local",weaponClass)};
+        HazzureBrake::Configure(request);
+        if(!HazzureBrake::Ready(request,now)){g_frameDiagnostics.triggerStatus=HazzureBrake::Label();return;}
+        float limit=request.limit==0?HazzureStable::restSpeed:request.limit;
+        if(!local.velocityValid||std::hypot(local.velocity.x,local.velocity.y)>limit){explain(Reason::Brake);return;}
+    }else HazzureBrake::Cancel();
+    static HazzureGame::Vec3 s_prevAimAngles{}; static uint64_t s_prevAngleTick = 0;
+    HazzureGame::Vec3 curAimView{};
+    if (ReadCurrentAimView(client, curAimView)) {
+        float dt = (s_prevAngleTick && now >= s_prevAngleTick) ? (now - s_prevAngleTick) * 0.001f : 0.016f;
+        bool aimTracking = g_frameDiagnostics.aimHeld && g_frameDiagnostics.haveTarget;
+        if (!aimTracking && !HazzureCombatCalib::IsCrosshairMotionStable(curAimView, s_prevAimAngles, 180.f, dt)) {
+            s_prevAimAngles = curAimView; s_prevAngleTick = now;
+            explain(Reason::Brake); cancel(); return;
+        }
+        s_prevAimAngles = curAimView; s_prevAngleTick = now;
+    }
+    const float metres=std::hypot(std::hypot(enemy.origin.x-local.origin.x,enemy.origin.y-local.origin.y),enemy.origin.z-local.origin.z)/39.37f;
+    auto mode=HazzureCombatRefine::TriggerDelayMode(g_cfg.humanizedTrigger,g_cfg.triggerDistanceDelay);
+    auto range=HazzureCombatRefine::BalancedWindow();
+    if(mode==HazzureCombatRefine::TriggerMode::Distance){
+        range=HazzureCombatRefine::ReactionWindow(metres);if(!range.maximum){cancel();return;}
+    }else if(mode==HazzureCombatRefine::TriggerMode::Manual){
+        auto manual=static_cast<uint32_t>(std::lround(std::clamp(RuntimeFloat("triggerDelayMs",g_cfg.triggerDelayMs,"enemy",""),0.f,150.f)));
+        range={manual,manual};
+    }else if(g_cfg.humanizedTrigger){
+        static uint32_t s_bioSeed = static_cast<uint32_t>(now);
+        uint32_t bioDelay = HazzureCombatCalib::HumanReactionGenerator::GenerateDelayMs(165.f, 25.f, 120, 240, s_bioSeed);
+        range={bioDelay, bioDelay};
+    }
+    if(!clock.Ready(target,weapon,mode,now,range,rng)){explain(Reason::Reaction);return;}
+    if(RuntimeBool("hitchanceEnabled",g_cfg.hitchanceEnabled,"enemy",weaponClass)){
+        explain(Reason::Accuracy);
+        auto accuracy=LocalAccuracy(local,list);HazzureGame::Vec3 view{};
+        auto bones=ResolveValidatedBoneArray(enemy.scene,enemy.origin);auto capsules=ReadTargetCapsules(bones);
+        if(!accuracy.valid||!capsules.count||!ReadCurrentAimView(client,view)||!settled)return;
+        view.x+=punch.x*2;view.y+=punch.y*2;
+        TargetCapsules visible{};
+        for(size_t i=0;i<capsules.count;++i){const auto& capsule=capsules.values[i];
+            HazzureVisibility::Request request{localPawn,target,local.eye,HazzureAccuracy::Scale(HazzureAccuracy::Add(capsule.a,capsule.b),.5f),static_cast<unsigned>(240+i)};
+            if(HazzureVisibility::Submit(request,now)==HazzureVisibility::Verdict::Visible)visible.values[visible.count++]=capsule;
+        }
+        // Fail closed: no confirmed visible capsule means no hitchance sample.
+        if(!visible.count)return;
+        auto chance=HazzureAccuracy::Evaluate(local.eye,view,accuracy.inaccuracy,accuracy.spread,accuracy.range,
+            visible.values.data(),visible.count,static_cast<unsigned>(std::clamp(g_cfg.hitchanceSamples,32,256)));
+        g_frameDiagnostics.hitchance=chance.valid?chance.percent:-1;
+        if(!HazzureAccuracy::Pass(chance,RuntimeFloat("hitchancePercent",g_cfg.hitchancePercent,"enemy",weaponClass))){explain(Reason::Hitchance);return;}
+    }
+#ifndef INTERNAL_SELF_TEST
+    if(!HazzureConvenience::CombatAllowed(HazzureWorld::ready.load()&&IsGameInputActive(menuOpen),HazzureMove::lineupBusy.load())){explain(Reason::Context);cancel();return;}
+#endif
+
+    // One request per decision. The CreateMove hook owns IN_ATTACK press and a
+    // fixed 40 ms release, so no mouse_event and no per-frame duplicate signal.
+    SignalTriggerFire();
+    g_triggerOwnsDown=true;
+    HazzurePistol::triggerOwned=true;
+    g_triggerButtonClient=client;
+    g_triggerButtonSince=now;
+    g_triggerPause.Fired(now,weapon,static_cast<uint32_t>(std::clamp(g_cfg.triggerPauseMs,80,1500)));
+    HazzureBrake::Cancel();
+    HazzureTelemetry::RecordTriggerClick(static_cast<int>(clock.delay));clock.Reset();
+    explain(Reason::Sent);
+}
+#include "CombatRender.h"
+static void RenderDroppedWeapons(ImDrawList* draw,uintptr_t list,const HazzureGame::Pawn& local,const HazzureGame::Matrix4& matrix,int width,int height){
+    if((!g_cfg.droppedWeapons&&!g_cfg.espDefuserHostage)||!list||!draw)return;
+    for(uint32_t i=65;i<=1024;++i){
+        uintptr_t ent=HazzureGame::Entity(list,i);
+        if(!ent)continue;
+        if(g_cfg.espDefuserHostage){
+            bool isHostage=HazzureTactical::DesignerName(ent,"hostage_entity")||HazzureTactical::DesignerName(ent,"cs_hostage_able");
+            bool isDefuser=HazzureTactical::DesignerName(ent,"item_defuser")||HazzureTactical::DesignerName(ent,"item_cutters");
+            if(isHostage||isDefuser){
+                uintptr_t scene=0;HazzureGame::Vec3 origin{};
+                if(SafeRead(ent+HazzureOffsets::Schema::m_pGameSceneNode,&scene)&&scene&&
+                   SafeRead(scene+HazzureOffsets::Schema::m_vecAbsOrigin,&origin)&&HazzureGame::Finite(origin)){
+                    float distM=std::hypot(std::hypot(origin.x-local.origin.x,origin.y-local.origin.y),origin.z-local.origin.z)/39.37f;
+                    HazzureGame::Vec2 screen{};
+                    if(distM<=120.f&&WorldToScreen(origin,matrix,width,height,screen)){
+                        char tag[64];sprintf_s(tag,"%s [%.0fm]",isHostage?"REFEM / RESGATE":"DEFUSE KIT",distM);
+                        auto sz=ImGui::CalcTextSize(tag);
+                        ImU32 col=isHostage?IM_COL32(250,204,21,245):IM_COL32(56,189,248,245);
+                        draw->AddRectFilled({screen.x-sz.x*0.5f-5.f,screen.y-2.f},{screen.x+sz.x*0.5f+5.f,screen.y+sz.y+2.f},IM_COL32(12,14,18,200),3.0f);
+                        draw->AddRect({screen.x-sz.x*0.5f-5.f,screen.y-2.f},{screen.x+sz.x*0.5f+5.f,screen.y+sz.y+2.f},col,3.0f,0,1.0f);
+                        draw->AddText({screen.x-sz.x*0.5f,screen.y},col,tag);
+                    }
+                }
+                continue;
+            }
+        }
+        if(!g_cfg.droppedWeapons)continue;
+        uint32_t owner=0;
+        if(!SafeRead(ent+HazzureOffsets::Schema::m_hOwnerEntity,&owner))continue;
+        if(owner!=0&&owner!=0xffffffffu)continue;
+        uint16_t defIndex=0;
+        if(!SafeRead(ent+HazzureOffsets::Schema::m_iItemDefinitionIndex,&defIndex)||defIndex==0)continue;
+        const char* label=WeaponLabel(defIndex);
+        if(!label||!label[0]||!strcmp(label,"Arma"))continue;
+        uintptr_t scene=0;
+        if(!SafeRead(ent+HazzureOffsets::Schema::m_pGameSceneNode,&scene)||!scene)continue;
+        HazzureGame::Vec3 origin{};
+        if(!SafeRead(scene+HazzureOffsets::Schema::m_vecAbsOrigin,&origin)||!HazzureGame::Finite(origin))continue;
+        float distMetres=std::hypot(std::hypot(origin.x-local.origin.x,origin.y-local.origin.y),origin.z-local.origin.z)/39.37f;
+        if(distMetres>60.f)continue;
+        HazzureGame::Vec2 screen{};
+        if(!WorldToScreen(origin,matrix,width,height,screen))continue;
+        char text[64];sprintf_s(text,"%s [%.0fm]",label,distMetres);
+        auto textSize=ImGui::CalcTextSize(text);
+        draw->AddRectFilled({screen.x-textSize.x*0.5f-5.f,screen.y-2.f},{screen.x+textSize.x*0.5f+5.f,screen.y+textSize.y+2.f},IM_COL32(12,14,18,180),3.0f);
+        draw->AddRect({screen.x-textSize.x*0.5f-5.f,screen.y-2.f},{screen.x+textSize.x*0.5f+5.f,screen.y+textSize.y+2.f},IM_COL32(255,255,255,100),3.0f,0,1.0f);
+        draw->AddText({screen.x-textSize.x*0.5f,screen.y},IM_COL32(250,250,255,240),text);
+    }
+}
+static void RenderInGameESP(Shared* shared,uintptr_t client,bool menuOpen,int width,int height) {
+    HazzureTypography::Scope font(HazzureTypography::overlay);
+    g_frameDiagnostics={};
+    if(!client||width<=0||height<=0)return;
+    uintptr_t localPawn=HazzureGame::LocalPawn(client),list{};
+    HazzureGame::Pawn local{};
+    g_frameDiagnostics.localPawn=localPawn;
+    g_frameDiagnostics.localValid=HazzureGame::ReadPawn(localPawn,local,false);
+    if(!g_frameDiagnostics.localValid||!SafeRead(client+HazzureOffsets::Globals::dwEntityList,&list)||!list){HazzureCombat::Reset();return;}
+    if(!HazzureWorld::ready.load()){g_retainedAimPawn=0;g_retainedAimHandle=0;ProcessAim(client,{}, {},false,true,"");return;}
+    local.anglesValid=ReadCurrentAimView(client,local.angles);
+    HazzureGame::Matrix4 matrix{};
+    if(!SafeRead(client+HazzureOffsets::Globals::dwViewMatrix,&matrix)){ClearAimCommand();return;}
+    for(const auto& row:matrix.m)for(float v:row)if(!std::isfinite(v))return;
+    g_frameDiagnostics.matrixValid=true;
+    float simulation{};SafeRead(localPawn+0x3b8,&simulation);
+    HazzureCombat::history.Begin(list,simulation);const auto combatNow=GetTickCount64();
+    uintptr_t activeWeapon{};uint16_t weapon=ActiveWeaponDefinition(localPawn,list,&activeWeapon);const char* weaponClass=WeaponClass(weapon);
+    uintptr_t scopeTarget{};float scopeAngle=FLT_MAX;
+    auto accuracy=LocalAccuracy(local,list);
+    bool esp=RuntimeBool("espEnabled",g_cfg.espEnabled,"enemy",weaponClass);
+    bool rage=RuntimeBool("rageActive",g_cfg.rageActive,"enemy",weaponClass);
+    float fov=rage?std::clamp(RuntimeFloat("rageFov",g_cfg.rageFov,"enemy",weaponClass),.1f,360.f)
+                 :std::clamp(RuntimeFloat("aimFov",g_cfg.aimFov,"enemy",weaponClass),.1f,45.f);
+    bool aimEnabled=rage||RuntimeBool("aimActive",g_cfg.aimActive,"enemy",weaponClass);
+    ImDrawList* draw=ImGui::GetBackgroundDrawList();
+    ImVec2 center(width*.5f,height*.5f);
+    if(g_cfg.espFovCircle&&RuntimeBool("aimActive",g_cfg.aimActive,"enemy",weaponClass)){
+        float radius=HazzureGame::FovRadius(fov,matrix,width);
+        if(radius>0&&radius<width*2.f)draw->AddCircle(center,radius,Float4ToImU32(g_cfg.colFov),64,1.f);
+    }
+    bool glow=RuntimeBool("glowOutline",g_cfg.glowOutline,"enemy",weaponClass);
+    if(!glow&&!HazzureState::g_glowingPawns.empty())HazzureState::ResetAllGlow(client);
+    KeyEdges(g_cfg.aimKey!=0&&(GetAsyncKeyState(g_cfg.aimKey)&0x8000)!=0,
+        g_cfg.triggerKey!=0&&(GetAsyncKeyState(g_cfg.triggerKey)&0x8000)!=0,(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0);
+    bool aimHeld=aimEnabled&&IsGameInputActive(menuOpen)&&(rage||g_cfg.aimKey==0||(GetAsyncKeyState(g_cfg.aimKey)&0x8000)!=0);
+    if(!aimHeld){g_retainedAimPawn=0;g_retainedAimHandle=0;}
+    uintptr_t seen[64]{};int count{};HazzureGame::Vec3 bestWorld{};float bestScore=FLT_MAX;bool haveTarget=false;uintptr_t bestPawn{};int bestBone{};uint32_t bestHandle{};
+    for(uint32_t playerIndex=1;playerIndex<=64;++playerIndex){
+        uintptr_t controller=HazzureGame::Entity(list,playerIndex);uint32_t handle{};
+        if(!controller||!SafeRead(controller+HazzureOffsets::Schema::m_hPlayerPawn,&handle))continue;
+        uintptr_t pawn=HazzureGame::Entity(list,handle);
+        if(!pawn||pawn==localPawn)continue;
+        bool duplicate=false;for(int i=0;i<count;++i)if(seen[i]==pawn)duplicate=true;
+        if(duplicate||count>=64)continue;
+        HazzureGame::Pawn player{};if(!HazzureGame::ReadPawn(pawn,player)){HazzureCombat::history.Forget(handle);continue;}
+        seen[count++]=pawn;++g_frameDiagnostics.players;
+        bool enemy=player.team!=local.team;const char* context=enemy?"enemy":"ally";
+        if(glow&&enemy)SetPlayerGlow(list,handle,pawn,Float4ToIpcCol(g_cfg.colEnemy),
+            static_cast<int>(RuntimeFloat("glowRange",5000.f,context,weaponClass)));
+        uintptr_t bones=ResolveValidatedBoneArray(player.scene,player.origin);
+        if(bones)++g_frameDiagnostics.bones;
+        float resolverDelta=0.f;
+        if(rage&&g_cfg.rageResolver&&enemy&&player.anglesValid)resolverDelta=ResolverUpdate(handle,player.angles.y,combatNow);
+        if(rage&&g_cfg.rageBacktrack&&enemy&&bones){float simT{};SafeRead(pawn+0x3b8,&simT);BacktrackStore(handle,player.origin,bones,simT,combatNow);}
+        if(g_cfg.autoScope&&HazzureConvenience::ScopedWeapon(weapon)&&enemy&&local.health>0&&local.life==0&&local.anglesValid&&bones){
+            for(int bone:{BONE_HEAD,BONE_SPINE_2}){HazzureGame::Vec3 point{};HazzureGame::Vec2 angular{};
+                if(!ReadBonePos(bones,bone,&point)||!HazzureGame::AimAngles(local.eye,point,local.angles,angular))continue;
+                float separation=std::hypot(angular.x,angular.y);if(separation>fov||separation>=scopeAngle)continue;
+                if(HazzureVisibility::Submit({localPawn,pawn,local.eye,point,static_cast<unsigned>(bone)},combatNow)!=HazzureVisibility::Verdict::Visible)continue;
+                if(g_cfg.strictSmoke&&!HazzureSmoke::Allows(HazzureSmoke::Submit({localPawn,pawn,local.eye,point,static_cast<unsigned>(300+bone)},combatNow)))continue;
+                scopeTarget=pawn;scopeAngle=separation;
+            }
+        }
+        if(aimEnabled&&enemy&&local.health>0&&local.life==0&&local.anglesValid&&bones){
+            const int aimBones[]={BONE_HEAD,BONE_NECK,BONE_SPINE_2,BONE_PELVIS,9,14,10,15};
+            int fixed=static_cast<int>(std::clamp(RuntimeFloat("aimBone",static_cast<float>(g_cfg.aimBone),context,weaponClass),0.f,3.f));
+            int mode=static_cast<int>(std::clamp(RuntimeFloat("aimTargetMode",static_cast<float>(g_cfg.aimTargetMode),context,weaponClass),0.f,2.f));
+            bool forceBaim=RuntimeBool("forceBodyAim",g_cfg.forceBodyAim,context,weaponClass)&&(g_cfg.forceBodyAimKey==0||(GetAsyncKeyState(g_cfg.forceBodyAimKey)&0x8000)!=0);
+            if(!forceBaim&&RuntimeBool("baimOnPeek",g_cfg.baimOnPeek,context,weaponClass)&&player.velocityValid&&std::hypot(player.velocity.x,player.velocity.y)>115.f){
+                forceBaim=true;
+            }
+            if(forceBaim){fixed=2;mode=0;}
+            float metres=std::hypot(std::hypot(player.origin.x-local.origin.x,player.origin.y-local.origin.y),player.origin.z-local.origin.z)/39.37f;
+            float candidateFov=fov;
+            if(RuntimeBool("aimDistanceFov",g_cfg.aimDistanceFov,context,weaponClass))candidateFov=HazzureGunplay::DistanceFov(fov,metres,
+                RuntimeFloat("aimFovReferenceMetres",g_cfg.aimFovReferenceMetres,context,weaponClass),
+                RuntimeFloat("aimFovMinimumScale",g_cfg.aimFovMinimumScale,context,weaponClass));
+            HazzureGame::Vec3 chosen{};float chosenAngle=candidateFov;int chosenBone{};bool chosenValid=false;
+            bool autowall=RuntimeBool("autowallEnabled",g_cfg.autowallEnabled,context,weaponClass);
+            for(int index=0;index<(mode==0?1:8);++index){
+                int bone=aimBones[mode==0?fixed:index];HazzureGame::Vec3 world{};
+                if(!ReadBonePos(bones,bone,&world))continue;
+                if(resolverDelta!=0.f)RotatePointYaw(world,player.origin,resolverDelta);
+                HazzureGame::Vec2 angle{};
+                if(!HazzureGame::AimAngles(local.eye,world,local.angles,angle))continue;
+                float separation=std::hypot(angle.x,angle.y);
+                if(separation>=std::min(chosenAngle,candidateFov))continue;
+                // A candidate needs a direct Visible trace, or—with autowall on—a layered
+                // probe that ends the ray on the target. Pending, unknown and unavailable
+                // still reject: the feature never trades a missing answer for a guess.
+                {
+                    HazzureVisibility::Request request{localPawn,pawn,{local.eye.x,local.eye.y,local.eye.z},{world.x,world.y,world.z},static_cast<unsigned>(bone)};
+                    auto result=HazzureVisibility::Submit(request,GetTickCount64());
+                    if(result!=HazzureVisibility::Verdict::Visible){
+                        HazzureAutowall::Answer reach{};
+                        bool pierce=autowall&&HazzureAutowall::Submit({localPawn,pawn,local.eye,world,static_cast<unsigned>(bone)},
+                            GetTickCount64(),reach)==HazzureVisibility::Verdict::Reached;
+                        if(!pierce){
+                            if(result==HazzureVisibility::Verdict::Unknown)++g_frameDiagnostics.visibilityPending;
+                            else if(result==HazzureVisibility::Verdict::Unavailable)++g_frameDiagnostics.visibilityUnavailable;
+                            else ++g_frameDiagnostics.occluded;
+                            continue;
+                        }
+                    }
+                }
+                if(!rage&&g_cfg.strictSmoke&&!HazzureSmoke::Allows(HazzureSmoke::Submit({localPawn,pawn,local.eye,world,static_cast<unsigned>(bone)},combatNow)))continue;
+                chosen=world;chosenAngle=separation;chosenBone=bone;chosenValid=true;
+                if(mode==2&&index==0)break;
+            }
+            int safeMode=static_cast<int>(std::clamp(RuntimeFloat("safePointMode",static_cast<float>(g_cfg.safePointMode),context,weaponClass),0.f,2.f));
+            if(RuntimeBool("aimMultipoint",g_cfg.aimMultipoint,context,weaponClass)||RuntimeBool("aimBodyFallback",g_cfg.aimBodyFallback,context,weaponClass)||safeMode>0){
+                HazzureGame::Vec3 accPoint = chosen; int accBone = chosenBone; float accAngle = chosenAngle;
+                if(SelectAccuracyPoint(localPawn,pawn,local,bones,accuracy,weaponClass,candidateFov,accPoint,accBone,accAngle,resolverDelta)){
+                    chosen = accPoint; chosenBone = accBone; chosenAngle = accAngle; chosenValid = true;
+                }else if(safeMode==2){
+                    chosenValid = false;
+                }
+            }
+            if(chosenValid&&player.velocityValid&&RuntimeBool("aimExtrapolation",g_cfg.aimExtrapolation,context,weaponClass)){
+                int pingMs=0;uintptr_t localCtrl=0;
+                if(SafeRead(client+HazzureOffsets::Globals::dwLocalPlayerController,&localCtrl)&&localCtrl&&HazzureSchema::IsPingValid()){
+                    SafeRead(localCtrl+HazzureSchema::g_mPing.offset,&pingMs);
+                }
+                pingMs=std::clamp(pingMs,0,250);
+                float scale=std::clamp(RuntimeFloat("aimExtrapolationScale",g_cfg.aimExtrapolationScale,context,weaponClass),0.f,3.f);
+                float dt=(static_cast<float>(pingMs)*0.001f+0.015625f)*scale;
+                HazzureGame::Vec3 shift{std::clamp(player.velocity.x*dt,-64.f,64.f),std::clamp(player.velocity.y*dt,-64.f,64.f),std::clamp(player.velocity.z*dt*0.5f,-32.f,32.f)};
+                chosen={chosen.x+shift.x,chosen.y+shift.y,chosen.z+shift.z};
+            }
+            // Backtrack: evaluate historical positions if current miss or historical is closer
+            if(rage&&g_cfg.rageBacktrack&&!forceBaim){
+                BacktrackRecord btRec[12]{};int btCount=BacktrackFind(handle,g_cfg.rageBacktrackTicks,combatNow,btRec,12);
+                for(int bt=0;bt<btCount;++bt){
+                    if(!btRec[bt].valid)continue;
+                    for(const Vec3* bp:{&btRec[bt].head,&btRec[bt].chest}){
+                        Vec3 w=*bp;if(!HazzureGame::Finite(w))continue;
+                        if(resolverDelta!=0.f)RotatePointYaw(w,btRec[bt].origin,resolverDelta);
+                        HazzureGame::Vec2 ang{};if(!HazzureGame::AimAngles(local.eye,w,local.angles,ang))continue;
+                        float sep=std::hypot(ang.x,ang.y);if(sep>=std::min(chosenAngle,candidateFov))continue;
+                        HazzureVisibility::Request req{localPawn,pawn,local.eye,w,static_cast<unsigned>(bp==&btRec[bt].head?BONE_HEAD:BONE_SPINE_2)};
+                        if(HazzureVisibility::Submit(req,combatNow)!=HazzureVisibility::Verdict::Visible)continue;
+                        chosen=w;chosenAngle=sep;chosenBone=(bp==&btRec[bt].head?BONE_HEAD:BONE_SPINE_2);chosenValid=true;
+                    }
+                }
+            }
+            bool isLocked = HazzureCombatCalib::g_aimRetention.IsLocked(pawn, combatNow, 250);
+            float score=HazzureStable::TargetScore(chosenAngle, (pawn==g_retainedAimPawn&&handle==g_retainedAimHandle) || isLocked);
+            if(isLocked) score *= 0.5f;
+            if(chosenValid&&score<bestScore){bestScore=score;bestWorld=chosen;bestPawn=pawn;bestHandle=handle;bestBone=chosenBone;haveTarget=true;}
+        }
+        auto snapshot=CaptureCombatGhost(pawn,handle,controller,player,bones,list,combatNow);
+        HazzureCombat::history.Store(snapshot);
+        if(g_cfg.poseHistory&&enemy)HazzurePoses::Store(list,snapshot);
+        bool enemiesOnly=shared?InterlockedCompareExchange(&shared->teamFilter,0,0)!=0:g_cfg.enemyOnly;
+        if(esp&&(!enemiesOnly||enemy))DrawCombatGhost(draw,snapshot,local,matrix,width,height,1.f,weaponClass);
+    }
+    for(auto& ghost:HazzureCombat::history.players){
+        if(!ghost.handle||ghost.visited)continue;
+        int health{};
+        if(HazzureGame::Entity(list,ghost.handle)!=ghost.pawn||
+           (SafeRead(ghost.pawn+HazzureOffsets::Schema::m_iHealth,&health)&&health<=0)){ghost={};continue;}
+        float alpha=HazzureCombat::Fade(HazzureCombat::Age(combatNow,ghost.seen),g_cfg.dormantSeconds);
+        if(alpha<=0){ghost={};continue;}
+        bool enemiesOnly=shared?InterlockedCompareExchange(&shared->teamFilter,0,0)!=0:g_cfg.enemyOnly;
+        if(esp&&g_cfg.dormantFade&&(!enemiesOnly||ghost.team!=local.team))DrawCombatGhost(draw,ghost,local,matrix,width,height,alpha,weaponClass);
+    }
+    if(esp){DrawCombatEffects(draw,matrix,local.origin,width,height,combatNow,local.angles.y);RenderDroppedWeapons(draw,list,local,matrix,width,height);}
+    DrawGrenadeZones(draw,matrix,width,height,combatNow);
+    if(g_cfg.poseHistory)HazzurePoses::Visit(combatNow,static_cast<unsigned>(g_cfg.poseHistoryMs),[&](const auto& frame,float alpha){
+        int health{};
+        if(HazzureTactical::ExactEntity(list,frame.handle)!=frame.pawn||!SafeRead(frame.pawn+HazzureOffsets::Schema::m_iHealth,&health)||health<=0)return;
+        for(size_t i=0;i<frame.boneCount;++i)CombatLine(draw,frame.bones[i].a,frame.bones[i].b,matrix,width,height,
+            CombatAlpha(IM_COL32(90,165,255,155),alpha),1.f);
+    });
+    if (aimHeld && haveTarget) {
+        g_retainedAimPawn = bestPawn;
+        g_retainedAimHandle = bestHandle;
+        HazzureCombatCalib::g_aimRetention.Lock(bestPawn, bestHandle, bestBone, combatNow);
+    } else {
+        g_retainedAimPawn = 0;
+        g_retainedAimHandle = 0;
+        HazzureCombatCalib::g_aimRetention.Unlock();
+    }
+    ProcessAutoScope(client,local,activeWeapon,weapon,scopeTarget,menuOpen);
+    ProcessAim(client,local,bestWorld,haveTarget,menuOpen,weaponClass,bestPawn^(static_cast<uintptr_t>(bestHandle)<<32),bestBone);
+    ProcessAntiAim(client,local,menuOpen);
+    ProcessTriggerbot(client,localPawn,menuOpen);
+    // Resolver miss detection: mark shot target when firing, check timeout each frame
+    if(g_cfg.rageResolver&&haveTarget&&bestHandle&&PeekTriggerFire())ResolverMarkShot(bestHandle);
+    if(g_cfg.rageResolver)ResolverCheckMiss(combatNow);
+    static ULONGLONG logged{};ULONGLONG now=GetTickCount64();
+    if(now-logged>=2000){logged=now;LogDebug("[GAMEPLAY] pawn=0x%llX health=%d players=%d projected=%d bones=%d ESP=%d sensitivity=%d aim=%s aa=%s key=%d held=%d def=%d active=%d target=%d blocked=%d tracePending=%d traceUnavailable=%d visual=%d visualFrames=%llu trigger=%s trigKey=%d trigHeld=%d",
+        localPawn,local.health,g_frameDiagnostics.players,g_frameDiagnostics.projected,g_frameDiagnostics.bones,esp,g_frameDiagnostics.sensitivityValid,
+        g_frameDiagnostics.aimStatus,g_frameDiagnostics.aaStatus,g_cfg.aimKey,g_frameDiagnostics.aimHeld,g_frameDiagnostics.aimDefinition,g_frameDiagnostics.aimActive?1:0,
+        g_frameDiagnostics.haveTarget,g_frameDiagnostics.occluded,
+        g_frameDiagnostics.visibilityPending,g_frameDiagnostics.visibilityUnavailable,g_cfg.noVisualRecoil,
+        static_cast<unsigned long long>(HazzureVisual::renderedFrames.load()),g_frameDiagnostics.triggerStatus,
+        g_cfg.triggerKey,(GetAsyncKeyState(g_cfg.triggerKey)&0x8000)!=0?1:0);}
+}

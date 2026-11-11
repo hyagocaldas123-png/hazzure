@@ -1,0 +1,9 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "relative",
+  "useMarkdownLinks": false,
+  "attachmentFolderPath": "90_Anexos",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "20_Tarefas",
+  "readableLineLength": false
+}

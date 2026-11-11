@@ -1,0 +1,738 @@
+// InventoryPanel.inl — Tela unificada do Inventory (Colecao, Catalogo e Agentes integrados)
+// Layout em 2 colunas: Grade + Agentes + Sincronizacao nativa a esquerda; Item selecionado + Equipamento a direita
+#pragma once
+
+static uint64_t g_inventorySelected{};
+static bool g_inventoryOpenEditor{};
+static int g_inventorySubTab = 0; // 0=Colecao, 1=Agentes, 2=Containers(oculto), 3=Tools(oculto), 4=Catalogo
+static int g_graphicArtSubTab = 0; // 0=Knives, 1=Pistols, 2=Mid-Tier, 3=Rifles, 4=Misc, 5=Agents, 6=Gloves
+
+static const char* const g_inventoryTabs[5] = {
+    "Profile", "Equipment", "Containers", "Tools", "Graphic Art"
+};
+
+static const char* const g_graphicArtTabs[7] = {
+    "Knives", "Pistols", "Mid-Tier", "Rifles", "Misc", "Agents", "Gloves"
+};
+
+static void DrawInventoryTabButtons() {
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 4.0f);
+    ImGui::BeginChild("##invTabs", ImVec2(0, 34.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+    if (g_inventorySubTab < 0 || g_inventorySubTab > 4) g_inventorySubTab = 0;
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImVec2 winMin = ImGui::GetWindowPos();
+    ImVec2 winSize = ImGui::GetWindowSize();
+    d->AddLine(ImVec2(winMin.x, winMin.y + winSize.y - 1.f), ImVec2(winMin.x + winSize.x, winMin.y + winSize.y - 1.f), GSWidgets::IM_COL(GS_BORDER), 1.0f);
+    for (int i = 0; i < 5; ++i) {
+        if (i == 2 || i == 3) continue;
+        if (i > 0) ImGui::SameLine(0, 24.0f);
+        bool selected = (g_inventorySubTab == i);
+        ImGui::PushID(i);
+        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(255, 255, 255, 8));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(255, 255, 255, 16));
+        ImGui::PushStyleColor(ImGuiCol_Text, selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(180, 182, 192, 255));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        if (ImGui::Button(g_inventoryTabs[i], ImVec2(0, 28.0f))) {
+            g_inventorySubTab = i;
+        }
+        if (selected) {
+            ImVec2 bMin = ImGui::GetItemRectMin();
+            ImVec2 bMax = ImGui::GetItemRectMax();
+            d->AddLine(ImVec2(bMin.x + 2.f, winMin.y + winSize.y - 2.f), ImVec2(bMax.x - 2.f, winMin.y + winSize.y - 2.f), IM_COL32(255, 255, 255, 255), 2.0f);
+        }
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(4);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::Dummy(ImVec2(0, 2.0f));
+}
+
+static void DrawGraphicArtTabButtons() {
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 4.0f);
+    ImGui::BeginChild("##graphicArtTabs", ImVec2(0, 32.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImVec2 winMin = ImGui::GetWindowPos();
+    ImVec2 winSize = ImGui::GetWindowSize();
+    d->AddLine(ImVec2(winMin.x, winMin.y + winSize.y - 1.f), ImVec2(winMin.x + winSize.x, winMin.y + winSize.y - 1.f), GSWidgets::IM_COL(GS_BORDER), 1.0f);
+    for (int i = 0; i < 7; ++i) {
+        if (i) ImGui::SameLine(0, 18.0f);
+        bool selected = (g_graphicArtSubTab == i);
+        ImGui::PushID(i);
+        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(255, 255, 255, 8));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(255, 255, 255, 16));
+        ImGui::PushStyleColor(ImGuiCol_Text, selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(180, 182, 192, 255));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        if (ImGui::Button(g_graphicArtTabs[i], ImVec2(0, 26.0f))) {
+            g_graphicArtSubTab = i;
+        }
+        if (selected) {
+            ImVec2 bMin = ImGui::GetItemRectMin();
+            ImVec2 bMax = ImGui::GetItemRectMax();
+            d->AddLine(ImVec2(bMin.x + 2.f, winMin.y + winSize.y - 2.f), ImVec2(bMax.x - 2.f, winMin.y + winSize.y - 2.f), IM_COL32(255, 255, 255, 255), 2.0f);
+        }
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(4);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::Dummy(ImVec2(0, 4.0f));
+}
+
+static const char* InventoryPaint(const HazzureInventory::Item& item) {
+    int def = HazzureNativeInventory::NativeDefinition(item);
+    for (const auto& choice : kSkins) if (choice.def == def && choice.kit == item.skin.paint) return choice.name;
+    if (HazzureInventory::Glove(def)) {
+        if (const char* gName = HazzureGloves::PaintName(def, item.skin.paint)) return gName;
+    }
+    if (HazzureArmory::KnifeDefinition(def)) {
+        if (const char* kName = HazzureKnifeFinishes::PaintName(def, item.skin.paint)) return kName;
+        for (const auto& choice : kSkins) if (choice.def == -1 && choice.kit == item.skin.paint) return choice.name;
+    }
+    return "Pintura personalizada";
+}
+
+static const char* InventoryWeapon(const HazzureInventory::Item& item) {
+    int def = HazzureNativeInventory::NativeDefinition(item);
+    for (int i = 0; i < HazzureWeapons::count; ++i) if (HazzureWeapons::definitions[i] == def) return HazzureWeapons::names[i];
+    if (HazzureArmory::KnifeDefinition(def)) {
+        for (size_t i = 1; i < IM_ARRAYSIZE(kKnifeDefs); ++i) if (kKnifeDefs[i] == def) return kKnifeNames[i];
+        return "Faca";
+    }
+    if (HazzureInventory::Glove(def)) return HazzureGloves::FamilyName(def);
+    return HazzureInventory::Category(item.skin) == 0 ? "Faca" : HazzureInventory::Category(item.skin) == 1 ? "Luvas" : "Arma";
+}
+
+static HazzureInventory::Item g_inventoryDraft{};
+
+static std::vector<size_t> InventoryFiltered(const HazzureInventory::Collection& collection, const char* query, int category, int sort) {
+    std::vector<size_t> result;
+    if (!HazzureInventory::Valid(collection)) return result;
+    for (size_t n = 0; n < collection.count; ++n) {
+        const auto& item = collection.items[n];
+        if (category && HazzureInventory::Category(item.skin) != category - 1) continue;
+        std::string words = std::string(item.label) + " " + InventoryWeapon(item) + " " + InventoryPaint(item) + " " + std::to_string(item.skin.definition) + " " + std::to_string(item.skin.paint);
+        if (Workflow::Matches(words.c_str(), query)) result.push_back(n);
+    }
+    std::stable_sort(result.begin(), result.end(), [&](size_t a, size_t b) {
+        const auto& x = collection.items[a]; const auto& y = collection.items[b];
+        if (sort == 1) return x.id > y.id;
+        if (sort == 2 && x.skin.wear != y.skin.wear) return x.skin.wear < y.skin.wear;
+        if (sort == 3 && x.skin.definition != y.skin.definition) return x.skin.definition < y.skin.definition;
+        if (sort == 0) { auto left = Workflow::Fold(x.label), right = Workflow::Fold(y.label); if (left != right) return left < right; }
+        return x.id < y.id;
+    });
+    return result;
+}
+
+// Capture the ID when opening the modal, never a filtered index or current selection.
+static uint64_t g_inventoryDeletePending{};
+static std::string g_inventoryDeleteContext;
+static bool InventoryContext(const HazzureInventory::Collection& collection, std::string& text) {
+    rapidjson::Document document; document.SetObject(); std::string error;
+    if (!HazzureInventory::WriteJSON(document, document.GetAllocator(), collection, error)) return false;
+    rapidjson::StringBuffer buffer; rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    if (!document.Accept(writer)) return false;
+    text.assign(buffer.GetString(), buffer.GetSize()); return true;
+}
+static bool BeginInventoryDelete(const HazzureInventory::Collection& collection, uint64_t id) {
+    g_inventoryDeletePending = 0; g_inventoryDeleteContext.clear();
+    if (!InventoryContext(collection, g_inventoryDeleteContext) || HazzureInventory::Find(collection, id) < 0) { g_inventoryDeleteContext.clear(); return false; }
+    g_inventoryDeletePending = id; return true;
+}
+static bool InventoryDeleteContextMatches(const HazzureInventory::Collection& collection) {
+    std::string current;
+    return g_inventoryDeletePending && InventoryContext(collection, current) && current == g_inventoryDeleteContext;
+}
+static bool ConfirmInventoryDelete(HazzureInventory::Collection& collection, bool confirm) {
+    bool matches = confirm && InventoryDeleteContextMatches(collection);
+    auto id = g_inventoryDeletePending; g_inventoryDeletePending = 0;
+    g_inventoryDeleteContext.clear();
+    if (!matches || !id) return false;
+    bool erased = HazzureInventory::Erase(collection, id);
+    if (erased && g_inventorySelected == id) g_inventorySelected = 0;
+    if (erased && g_inventoryDraft.id == id) g_inventoryDraft = {};
+    return erased;
+}
+
+static const HazzureNativeInventory::EquippedEntry* FindNativeItemStatus(const HazzureNativeInventory::RuntimeSnapshot& snap, uint64_t localItemID) {
+    for (size_t i = 0; i < snap.itemCount && i < snap.items.size(); ++i) {
+        if (snap.items[i].localItemID == localItemID) return &snap.items[i];
+    }
+    return nullptr;
+}
+
+static const char* NativeItemStatusBadge(const HazzureNativeInventory::EquippedEntry* entry) {
+    if (!entry) return nullptr;
+    if (entry->equippedT && entry->equippedCT) return "Equipado CT+TR";
+    if (entry->equippedCT) return "Equipado CT";
+    if (entry->equippedT) return "Equipado TR";
+    return "Sincronizado";
+}
+
+static const char* SlotTeamIndicator(const HazzureNativeInventory::EquippedEntry* entry) {
+    if (!entry) return nullptr;
+    if (entry->equippedT && entry->equippedCT) return "CT / TR";
+    if (entry->equippedCT) return "CT";
+    if (entry->equippedT) return "TR";
+    return nullptr;
+}
+
+static void DrawSelectedItemColumn(HazzureInventory::Collection& collection, const HazzureNativeInventory::RuntimeSnapshot& nativeSnap) {
+    GSWidgets::GS_SectionHeader("Item selecionado");
+
+    int selIdx = HazzureInventory::Find(collection, g_inventorySelected);
+    if (selIdx >= 0 && !g_inventoryOpenEditor && g_inventoryDraft.id != g_inventorySelected) {
+        g_inventoryDraft = collection.items[selIdx];
+    }
+    auto& item = g_inventoryDraft;
+    if (!item.skin.definition) {
+        item.skin = { 507, 415, 1, 507, 0.01f, 1, 1, 0 };
+        item.attributes.definition = 507;
+        strcpy_s(item.label, "Karambit | Doppler");
+    }
+
+    ImGui::TextColored(GS_TEXT, "%s", InventoryWeapon(item));
+    ImGui::SameLine(0, 6.0f);
+    ImGui::TextColored(GS_TEXT_MUTED, "| %s", InventoryPaint(item));
+
+    auto editorThumb = HazzurePreviewAssets::GetWeaponThumbnail(item.skin.definition, item.skin.paint);
+    if (editorThumb.view) {
+        float previewW = std::min(150.f, ImGui::GetContentRegionAvail().x);
+        float previewH = 48.f;
+        if (editorThumb.width && editorThumb.height) {
+            float scale = std::min(previewW / editorThumb.width, previewH / editorThumb.height);
+            previewW = editorThumb.width * scale;
+            previewH = editorThumb.height * scale;
+        }
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float offsetX = (ImGui::GetContentRegionAvail().x - previewW) * 0.5f;
+        ImGui::SetCursorScreenPos(ImVec2(p.x + offsetX, p.y + 2.f));
+        ImGui::Image(reinterpret_cast<ImTextureID>(editorThumb.view), ImVec2(previewW, previewH));
+        ImGui::Dummy(ImVec2(0, 4.f));
+    }
+
+    static int weapon = 1, knife = 3, glove = 0;
+    int type = HazzureInventory::Category(item.skin) == 0 ? 1 : HazzureInventory::Category(item.skin) == 1 ? 2 : 0;
+    const char* types[] = { "Arma", "Faca", "Luvas" };
+    bool changed = GSWidgets::GS_Combo("Tipo", &type, types, 3);
+
+    static const int knives[] = { 500,505,506,507,508,509,512,514,515,516,517,518,519,520,521,522,523,525,526 };
+    static const char* knifeNames[] = {
+        "Bayonet","Flip Knife","Gut Knife","Karambit","M9 Bayonet","Huntsman Knife",
+        "Falchion Knife","Bowie Knife","Butterfly Knife","Shadow Daggers","Paracord Knife",
+        "Survival Knife","Ursus Knife","Navaja Knife","Nomad Knife","Stiletto Knife",
+        "Talon Knife","Skeleton Knife","Kukri Knife"
+    };
+    static const int gloves[] = { 5030,5034,5031,5033,5032,5027,5035,4725 };
+    static const char* gloveNames[] = {
+        "Sport Gloves","Specialist Gloves","Driver Gloves","Moto Gloves",
+        "Hand Wraps","Bloodhound Gloves","Hydra Gloves","Broken Fang Gloves"
+    };
+
+    if (type == 0) {
+        for (int n = 0; n < HazzureWeapons::count; ++n) if (HazzureWeapons::definitions[n] == item.skin.definition) weapon = n;
+        changed |= GSWidgets::GS_Combo("Modelo", &weapon, HazzureWeapons::names, HazzureWeapons::count);
+    } else if (type == 1) {
+        for (int n = 0; n < IM_ARRAYSIZE(knives); ++n) if (knives[n] == item.skin.definition) knife = n;
+        changed |= GSWidgets::GS_Combo("Modelo", &knife, knifeNames, IM_ARRAYSIZE(knives));
+    } else {
+        for (int n = 0; n < IM_ARRAYSIZE(gloves); ++n) if (gloves[n] == item.skin.definition) glove = n;
+        changed |= GSWidgets::GS_Combo("Modelo", &glove, gloveNames, IM_ARRAYSIZE(gloves));
+    }
+
+    if (changed) {
+        int definition = type == 0 ? HazzureWeapons::definitions[std::max(1, weapon)] : type == 1 ? knives[knife] : gloves[glove];
+        item.skin.definition = definition;
+        item.skin.model = type ? definition : 0;
+        item.skin.paint = FirstPaintFor(definition);
+        item.attributes = {};
+        item.attributes.definition = definition;
+        snprintf(item.label, sizeof(item.label), "%s | %s", InventoryWeapon(item), InventoryPaint(item));
+    }
+
+    std::vector<const char*> names;
+    std::vector<int> paints;
+    int selectedPaint = 0;
+    if (type == 0) {
+        for (const auto& choice : kSkins) if (choice.def == item.skin.definition) {
+            if (choice.kit == item.skin.paint) selectedPaint = static_cast<int>(paints.size());
+            names.push_back(choice.name); paints.push_back(choice.kit);
+        }
+    } else if (type == 1) {
+        int kDef = HazzureNativeInventory::NativeDefinition(item);
+        for (const auto& kf : HazzureKnifeFinishes::kCatalog) {
+            if (kf.definition != 0 && kf.definition != kDef) continue;
+            if (kf.paint == item.skin.paint) selectedPaint = static_cast<int>(paints.size());
+            names.push_back(kf.name); paints.push_back(kf.paint);
+        }
+        for (const auto& choice : kSkins) if (choice.def == -1 || choice.def == kDef) {
+            bool exists = false;
+            for (int p : paints) if (p == choice.kit) { exists = true; break; }
+            if (!exists) {
+                if (choice.kit == item.skin.paint) selectedPaint = static_cast<int>(paints.size());
+                names.push_back(choice.name); paints.push_back(choice.kit);
+            }
+        }
+    } else {
+        for (const auto& gf : HazzureGloves::kCatalog) if (gf.definition == item.skin.definition) {
+            if (gf.paint == item.skin.paint) selectedPaint = static_cast<int>(paints.size());
+            names.push_back(gf.name); paints.push_back(gf.paint);
+        }
+    }
+
+    if (!names.empty() && GSWidgets::GS_Combo("Pintura", &selectedPaint, names.data(), static_cast<int>(names.size()))) {
+        item.skin.paint = paints[selectedPaint];
+        snprintf(item.label, sizeof(item.label), "%s | %s", InventoryWeapon(item), InventoryPaint(item));
+    }
+
+    ImGui::TextColored(GS_TEXT_MUTED, "Nome");
+    ImGui::SetNextItemWidth(std::max(1.f, ImGui::GetContentRegionAvail().x));
+    ImGui::InputText("##variantName", item.label, sizeof(item.label));
+    HAZZURE_OBSERVE_CONTROL("variantName", item.label);
+
+    GSWidgets::GS_SliderFloat("Wear", &item.skin.wear, 0.f, 1.f, "%.6f");
+    ImGui::InputInt("Seed", &item.skin.seed);
+    item.skin.seed = std::clamp(item.skin.seed, 0, 1000);
+    if (ImGui::CollapsingHeader("Atributos do item")) {
+        const float oldWidth = g_cleanCardContentW;
+        g_cleanCardContentW = std::max(1.f, ImGui::GetContentRegionAvail().x);
+        DrawInventoryAttributes(item.attributes);
+        g_cleanCardContentW = oldWidth;
+    }
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    const float btnW = std::max(1.f, ImGui::GetContentRegionAvail().x);
+    if (selIdx >= 0 && !g_inventoryOpenEditor) {
+        bool isEqCT = collection.items[selIdx].equippedCT;
+        bool isEqT = collection.items[selIdx].equippedT;
+        const float halfBtnW = std::max(40.f, (btnW - 8.f) * 0.5f);
+        if (ImGui::Button(isEqCT ? "Equipado CT [X]" : "Equipar CT", ImVec2(halfBtnW, 26.f))) {
+            HazzureInventory::EquipItem(collection, collection.items[selIdx].id, true, false);
+            HazzureNativeInventory::RequestEquip(collection.items[selIdx].id, 3);
+            sprintf_s(g_configStatusMsg, "Equipado para CT: %s", collection.items[selIdx].label);
+        }
+        ImGui::SameLine(0, 8.f);
+        if (ImGui::Button(isEqT ? "Equipado TR [X]" : "Equipar TR", ImVec2(halfBtnW, 26.f))) {
+            HazzureInventory::EquipItem(collection, collection.items[selIdx].id, false, true);
+            HazzureNativeInventory::RequestEquip(collection.items[selIdx].id, 2);
+            sprintf_s(g_configStatusMsg, "Equipado para TR: %s", collection.items[selIdx].label);
+        }
+        if (ImGui::Button((isEqCT && isEqT) ? "Equipado Ambos [X]" : "Equipar Ambos (CT + TR)", ImVec2(btnW, 26.f))) {
+            HazzureInventory::EquipItem(collection, collection.items[selIdx].id, true, true);
+            HazzureNativeInventory::RequestEquipBoth(collection.items[selIdx].id);
+            sprintf_s(g_configStatusMsg, "Equipado CT + TR: %s", collection.items[selIdx].label);
+        }
+        ImGui::Dummy(ImVec2(0.f, 4.f));
+        bool clickedSalvar = ImGui::Button("Salvar", ImVec2(halfBtnW, 26.f));
+        HAZZURE_OBSERVE_CONTROL("Salvar", &item);
+        if (clickedSalvar) {
+            item.id = g_inventorySelected;
+            bool ok = HazzureInventory::Update(collection, item);
+            sprintf_s(g_configStatusMsg, ok ? "Item salvo na colecao" : "Item invalido; colecao preservada");
+        }
+        ImGui::SameLine(0, 8.f);
+        bool clickedRemover = ImGui::Button("Remover", ImVec2(halfBtnW, 26.f));
+        HAZZURE_OBSERVE_CONTROL("Remover", &item);
+        if (clickedRemover) {
+            if (BeginInventoryDelete(collection, g_inventorySelected)) {
+                ImGui::OpenPopup("Excluir variante?");
+            }
+        }
+    } else {
+        bool clickedSalvaritem = ImGui::Button("Salvar item", ImVec2(btnW, 26.f));
+        HAZZURE_OBSERVE_CONTROL("Salvar item", &item);
+        if (clickedSalvaritem) {
+            uint64_t createdId = 0;
+            bool ok = HazzureInventory::Add(collection, item, &createdId);
+            if (ok) {
+                g_inventorySelected = createdId;
+                item.id = createdId;
+                g_inventoryOpenEditor = false;
+                HazzureInventory::EquipItem(collection, createdId, true, true);
+                HazzureNativeInventory::Request(collection);
+                HazzureNativeInventory::RequestEquipBoth(createdId);
+            }
+            sprintf_s(g_configStatusMsg, ok ? "Item adicionado e equipado" : "Colecao cheia ou item invalido");
+        }
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(std::min(340.f, ImGui::GetIO().DisplaySize.x - 16), 0), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Excluir variante?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        int pending = HazzureInventory::Find(collection, g_inventoryDeletePending);
+        bool sameContext = InventoryDeleteContextMatches(collection);
+        if (!sameContext) ImGui::TextWrapped("A colecao mudou. Cancele e selecione o item novamente.");
+        else if (pending >= 0) ImGui::TextWrapped("Remover '%s' da colecao local?", collection.items[pending].label);
+        else ImGui::TextWrapped("O item ja nao existe na colecao.");
+        ImGui::BeginDisabled(pending < 0 || !sameContext);
+        bool confirmed = ImGui::Button("Confirmar exclusao");
+        HAZZURE_OBSERVE_CONTROL("Confirmar exclusao", &g_inventoryDeletePending);
+        if (confirmed) { ConfirmInventoryDelete(collection, true); ImGui::CloseCurrentPopup(); }
+        ImGui::EndDisabled();
+        ImGui::SameLine(0, 8.f);
+        if (ImGui::Button("Cancelar")) { ConfirmInventoryDelete(collection, false); ImGui::CloseCurrentPopup(); }
+        ImGui::EndPopup();
+    }
+}
+
+static void DrawAgentsInlineSection(Shared* shared) {
+    GSWidgets::GS_SectionHeader("Agentes");
+    if (GSWidgets::GS_Toggle("Agent changer", &g_cfg.agentEnabled)) {
+        ApplySharedConfig(shared);
+    }
+    const char* ctNames[IM_ARRAYSIZE(kPreviewAgentsCT)]{};
+    for (size_t i = 0; i < IM_ARRAYSIZE(kPreviewAgentsCT); ++i) ctNames[i] = kPreviewAgentsCT[i].name;
+    g_cfg.agentCT = std::clamp(g_cfg.agentCT, 0, static_cast<int>(IM_ARRAYSIZE(kPreviewAgentsCT)) - 1);
+
+    const char* tNames[IM_ARRAYSIZE(kPreviewAgentsT)]{};
+    for (size_t i = 0; i < IM_ARRAYSIZE(kPreviewAgentsT); ++i) tNames[i] = kPreviewAgentsT[i].name;
+    g_cfg.agentT = std::clamp(g_cfg.agentT, 0, static_cast<int>(IM_ARRAYSIZE(kPreviewAgentsT)) - 1);
+
+    const float availW = ImGui::GetContentRegionAvail().x;
+    if (availW >= 320.f) {
+        const float halfW = (availW - 12.f) * 0.5f;
+        ImGui::BeginGroup();
+        ImGui::TextColored(GS_TEXT_MUTED, "Agente CT");
+        ImGui::SetNextItemWidth(halfW);
+        if (ImGui::Combo("##agentCTInline", &g_cfg.agentCT, ctNames, IM_ARRAYSIZE(kPreviewAgentsCT))) {
+            ApplySharedConfig(shared);
+        }
+        ImGui::EndGroup();
+        ImGui::SameLine(0, 12.f);
+        ImGui::BeginGroup();
+        ImGui::TextColored(GS_TEXT_MUTED, "Agente TR");
+        ImGui::SetNextItemWidth(halfW);
+        if (ImGui::Combo("##agentTRInline", &g_cfg.agentT, tNames, IM_ARRAYSIZE(kPreviewAgentsT))) {
+            ApplySharedConfig(shared);
+        }
+        ImGui::EndGroup();
+    } else {
+        if (GSWidgets::GS_Combo("Agente CT", &g_cfg.agentCT, ctNames, IM_ARRAYSIZE(kPreviewAgentsCT))) ApplySharedConfig(shared);
+        if (GSWidgets::GS_Combo("Agente TR", &g_cfg.agentT, tNames, IM_ARRAYSIZE(kPreviewAgentsT))) ApplySharedConfig(shared);
+    }
+}
+
+static void DrawNativeSyncRow(HazzureInventory::Collection& collection, const HazzureNativeInventory::RuntimeSnapshot& nativeSnap) {
+    (void)collection; (void)nativeSnap;
+    return; // Unified 100% Internal: auto-sync in background, no manual debug footer
+    ImGui::Dummy(ImVec2(0, 2.0f));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 2.0f));
+    bool active = nativeSnap.enabled;
+    const float availW = ImGui::GetContentRegionAvail().x;
+    const float btnW = 106.0f;
+    ImGui::BeginDisabled(!nativeSnap.available);
+    ImGui::BeginGroup();
+    if (availW > btnW + 140.f) {
+        float oldW = g_cleanCardContentW;
+        g_cleanCardContentW = availW - btnW - 12.f;
+        if (CleanToggle("Sincronizacao nativa", &active)) {
+            bool ok = active ? HazzureNativeInventory::Request(collection) : HazzureNativeInventory::RequestStop();
+            if (!ok) sprintf_s(g_configStatusMsg, "Solicitacao indisponivel; colecao preservada");
+        }
+        g_cleanCardContentW = oldW;
+    } else {
+        if (GSWidgets::GS_Toggle("Sincronizacao nativa", &active)) {
+            bool ok = active ? HazzureNativeInventory::Request(collection) : HazzureNativeInventory::RequestStop();
+            if (!ok) sprintf_s(g_configStatusMsg, "Solicitacao indisponivel; colecao preservada");
+        }
+    }
+    ImGui::EndGroup();
+    if (availW > btnW + 140.f) {
+        ImGui::SameLine(availW - btnW);
+    }
+    ImGui::BeginDisabled(!active);
+    if (ImGui::Button("Sincronizar", ImVec2(btnW, 24.0f))) {
+        if (!HazzureNativeInventory::Request(collection)) {
+            sprintf_s(g_configStatusMsg, "Colecao invalida ou solicitacao indisponivel");
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Desativar a sincronizacao restaura o loadout anterior.");
+    ImGui::TextWrapped("%s", HazzureNativeInventory::Label(nativeSnap.diagnostic.status));
+    ImGui::TextWrapped("Ao desativar: solicita restauracao do loadout anterior.");
+    if (g_configStatusMsg[0]) ImGui::TextWrapped("%s", g_configStatusMsg);
+
+}
+
+static void DrawProfileTab(Shared* shared) {
+    (void)shared;
+    auto& collection = g_cfg.inventory;
+    auto nativeSnap = HazzureNativeInventory::Snapshot();
+    if (nativeSnap.available && !nativeSnap.enabled && collection.count > 0) {
+        HazzureNativeInventory::Request(collection);
+        nativeSnap = HazzureNativeInventory::Snapshot();
+    }
+
+    DrawGraphicArtTabButtons();
+
+    float availGridW = ImGui::GetContentRegionAvail().x;
+    const float slotSize = 140.0f;
+    const float spacing = 10.0f;
+    int columns = static_cast<int>(std::max(1.0f, std::floor((availGridW + spacing) / (slotSize + spacing))));
+
+    const float availY = ImGui::GetContentRegionAvail().y;
+    const float gridHeight = std::max(180.0f, availY - 4.0f);
+    ImGui::BeginChild("##profileGrid", ImVec2(0, gridHeight), false);
+
+    ImGui::Columns(columns, "##profilecols", false);
+
+    // Card 0: Adicionar item
+    if (GSWidgets::GS_AddItemSlotCard("profile_add_card", "Adicionar item pelo Catalogo")) {
+        g_inventorySubTab = 4;
+    }
+    ImGui::NextColumn();
+
+    for (size_t n = 0; n < collection.count; ++n) {
+        auto& item = collection.items[n];
+
+        char slotId[48];
+        sprintf_s(slotId, "profile_slot_%llu", static_cast<unsigned long long>(item.id));
+        const char* skinName = InventoryPaint(item);
+        const auto* nativeEntry = FindNativeItemStatus(nativeSnap, item.id);
+        const char* badge = nullptr;
+        if (item.equippedCT && item.equippedT) badge = "CT / TR";
+        else if (item.equippedCT) badge = "CT";
+        else if (item.equippedT) badge = "TR";
+        else badge = SlotTeamIndicator(nativeEntry);
+        auto thumbnail = HazzurePreviewAssets::GetWeaponThumbnail(item.skin.definition, item.skin.paint);
+        bool isSelected = (g_inventorySelected == item.id);
+        if (GSWidgets::GS_InventorySlot(slotId, InventoryWeapon(item), skinName, &isSelected, reinterpret_cast<ImTextureID>(thumbnail.view), item.skin.wear, item.skin.seed, thumbnail.width, thumbnail.height, badge)) {
+            g_inventorySelected = item.id;
+            g_inventoryDraft = item;
+            g_inventoryOpenEditor = false;
+            g_inventorySubTab = 1;
+        }
+        ImGui::NextColumn();
+    }
+
+    ImGui::Columns(1);
+    ImGui::EndChild();
+
+    DrawNativeSyncRow(collection, nativeSnap);
+}
+
+static void DrawEquipmentTab(Shared* shared) {
+    (void)shared;
+    auto snap = HazzureNativeInventory::Snapshot();
+    DrawSelectedItemColumn(g_cfg.inventory, snap);
+    if (ImGui::Button("Nova variante")) {
+        g_inventorySelected = 0;
+        g_inventoryDraft = {};
+        g_inventoryOpenEditor = true;
+    }
+    DrawNativeSyncRow(g_cfg.inventory, snap);
+}
+
+static void DrawContainersTab(Shared* shared) { (void)shared; }
+static void DrawToolsTab(Shared* shared) { (void)shared; }
+
+static bool CatalogWeaponInSubTab(int def, int subTab) {
+    if (subTab == 0) return HazzureArmory::KnifeDefinition(def);
+    if (subTab == 6) return HazzureInventory::Glove(def);
+    if (subTab == 1) {
+        switch (def) { case 1: case 2: case 3: case 4: case 30: case 32: case 36: case 61: case 63: case 64: return true; default: return false; }
+    }
+    if (subTab == 2) {
+        switch (def) { case 14: case 17: case 19: case 23: case 24: case 25: case 26: case 27: case 28: case 29: case 33: case 34: case 35: return true; default: return false; }
+    }
+    if (subTab == 3) {
+        switch (def) { case 7: case 8: case 10: case 13: case 16: case 39: case 60: return true; default: return false; }
+    }
+    if (subTab == 4) {
+        switch (def) { case 9: case 11: case 31: case 38: case 40: return true; default: return false; }
+    }
+    return false;
+}
+
+static const char* WeaponLabelByDef(int def) {
+    for (int i = 0; i < HazzureWeapons::count; ++i) {
+        if (HazzureWeapons::definitions[i] == def) return HazzureWeapons::names[i];
+    }
+    for (size_t i = 1; i < IM_ARRAYSIZE(kKnifeDefs); ++i) {
+        if (kKnifeDefs[i] == def) return kKnifeNames[i];
+    }
+    if (HazzureInventory::Glove(def)) return HazzureGloves::FamilyName(def);
+    return "Arma";
+}
+
+static void AddCatalogItemToCollection(int def, int paint, float wear, const char* weaponName, const char* paintName) {
+    HazzureInventory::Item item{};
+    item.skin.definition = def;
+    item.skin.model = (HazzureArmory::KnifeDefinition(def) || HazzureInventory::Glove(def)) ? def : 0;
+    item.skin.paint = paint;
+    item.skin.wear = std::clamp(wear, 0.0f, 1.0f);
+    item.skin.seed = 1;
+    item.skin.enabled = 1;
+    item.attributes.definition = def;
+    snprintf(item.label, sizeof(item.label), "%s | %s", weaponName ? weaponName : "Item", paintName ? paintName : "Custom");
+    for (char* p = item.label; *p; ++p) {
+        if (static_cast<unsigned char>(*p) < 32 || static_cast<unsigned char>(*p) == 127) *p = ' ';
+    }
+    uint64_t createdId = 0;
+    if (HazzureInventory::Add(g_cfg.inventory, item, &createdId)) {
+        g_inventorySelected = createdId;
+        g_inventoryDraft = item;
+        g_inventoryDraft.id = createdId;
+        g_inventoryOpenEditor = false;
+        g_inventorySubTab = 0;
+        HazzureInventory::EquipItem(g_cfg.inventory, createdId, true, true);
+        HazzureNativeInventory::Request(g_cfg.inventory);
+        HazzureNativeInventory::RequestEquipBoth(createdId);
+        sprintf_s(g_configStatusMsg, "Adicionado e equipado: %s", item.label);
+    } else {
+        sprintf_s(g_configStatusMsg, "Colecao cheia (96/96) ou item invalido");
+    }
+}
+
+static void DrawGraphicArtTab(Shared* shared) {
+    DrawGraphicArtTabButtons();
+    static char catSearch[80]{};
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+    ImGui::InputTextWithHint("##CatalogSearch", "Buscar no catalogo...", catSearch, sizeof(catSearch));
+
+    static int selectedKnifeIdx = 3; // Karambit default
+    static const int knives19[] = { 500,505,506,507,508,509,512,514,515,516,517,518,519,520,521,522,523,525,526 };
+    static const char* knifeNames19[] = {
+        "Bayonet","Flip Knife","Gut Knife","Karambit","M9 Bayonet","Huntsman Knife",
+        "Falchion Knife","Bowie Knife","Butterfly Knife","Shadow Daggers","Paracord Knife",
+        "Survival Knife","Ursus Knife","Navaja Knife","Nomad Knife","Stiletto Knife",
+        "Talon Knife","Skeleton Knife","Kukri Knife"
+    };
+    if (g_graphicArtSubTab == 0) {
+        GSWidgets::GS_Combo("Modelo da faca", &selectedKnifeIdx, knifeNames19, IM_ARRAYSIZE(knives19));
+        bool secretAnim = RuntimeBool("secretKnifeAnim", g_cfg.secretKnifeAnim, "enemy", "");
+        if (ImGui::Checkbox("Animações Secretas", &secretAnim)) {
+            g_cfg.secretKnifeAnim = secretAnim;
+            ApplySharedConfig(shared);
+        }
+    }
+
+    if (g_graphicArtSubTab == 5) DrawAgentsInlineSection(shared);
+
+    float availW = ImGui::GetContentRegionAvail().x;
+    const float slotSize = 136.0f;
+    const float spacing = 10.0f;
+    int columns = static_cast<int>(std::max(1.0f, std::floor((availW + spacing) / (slotSize + spacing))));
+    const float gridH = std::max(160.f, ImGui::GetContentRegionAvail().y - 8.f);
+
+    ImGui::BeginChild("##catalogBrowserGrid", ImVec2(0, gridH), false);
+    ImGui::Columns(columns, "##catcols", false);
+
+    size_t shown = 0;
+    if (g_graphicArtSubTab == 0) {
+        int kDef = knives19[std::clamp(selectedKnifeIdx, 0, static_cast<int>(IM_ARRAYSIZE(knives19)) - 1)];
+        const char* kLabel = knifeNames19[std::clamp(selectedKnifeIdx, 0, static_cast<int>(IM_ARRAYSIZE(knifeNames19)) - 1)];
+        for (size_t i = 0; i < IM_ARRAYSIZE(HazzureKnifeFinishes::kCatalog); ++i) {
+            const auto& kf = HazzureKnifeFinishes::kCatalog[i];
+            if (kf.definition != 0 && kf.definition != kDef) continue;
+            std::string matchText = std::string(kLabel) + " " + kf.name + " " + std::to_string(kf.paint);
+            if (catSearch[0] && !Workflow::Matches(matchText.c_str(), catSearch)) continue;
+            ++shown;
+            char slotId[48];
+            sprintf_s(slotId, "cat_knife_%d_%d", kDef, kf.paint);
+            auto thumb = HazzurePreviewAssets::GetWeaponThumbnail(kDef, kf.paint);
+            bool sel = false;
+            if (GSWidgets::GS_InventorySlot(slotId, kLabel, kf.name, &sel, reinterpret_cast<ImTextureID>(thumb.view), kf.defaultWear, 1, thumb.width, thumb.height, "+")) {
+                AddCatalogItemToCollection(kDef, kf.paint, kf.defaultWear, kLabel, kf.name);
+            }
+            ImGui::NextColumn();
+        }
+    } else if (g_graphicArtSubTab == 6) {
+        for (size_t i = 0; i < IM_ARRAYSIZE(HazzureGloves::kCatalog); ++i) {
+            const auto& gf = HazzureGloves::kCatalog[i];
+            const char* fam = HazzureGloves::FamilyName(gf.definition);
+            std::string matchText = std::string(fam) + " " + gf.name + " " + std::to_string(gf.paint);
+            if (catSearch[0] && !Workflow::Matches(matchText.c_str(), catSearch)) continue;
+            ++shown;
+            char slotId[48];
+            sprintf_s(slotId, "cat_glove_%d_%d", gf.definition, gf.paint);
+            auto thumb = HazzurePreviewAssets::GetWeaponThumbnail(gf.definition, gf.paint);
+            bool sel = false;
+            const char* shortPaint = strchr(gf.name, '|');
+            shortPaint = shortPaint ? (shortPaint + 2) : gf.name;
+            if (GSWidgets::GS_InventorySlot(slotId, fam, shortPaint, &sel, reinterpret_cast<ImTextureID>(thumb.view), 0.08f, 1, thumb.width, thumb.height, "+")) {
+                AddCatalogItemToCollection(gf.definition, gf.paint, 0.08f, fam, shortPaint);
+            }
+            ImGui::NextColumn();
+        }
+    } else if (g_graphicArtSubTab == 5) {
+        for (size_t i = 1; i < IM_ARRAYSIZE(kPreviewAgentsCT); ++i) {
+            const auto& ag = kPreviewAgentsCT[i];
+            if (!ag.model[0]) continue;
+            if (catSearch[0] && !Workflow::Matches(ag.name, catSearch)) continue;
+            ++shown;
+            char slotId[48];
+            sprintf_s(slotId, "cat_agent_ct_%zu", i);
+            auto thumb = HazzurePreviewAssets::Get(ag.asset);
+            bool active = g_cfg.agentEnabled && g_cfg.agentCT == static_cast<int>(i);
+            if (GSWidgets::GS_InventorySlot(slotId, ag.name, "Contra-Terrorista", &active, reinterpret_cast<ImTextureID>(thumb.view), 0.0f, static_cast<int>(i), thumb.width, thumb.height, active ? "CT" : nullptr)) {
+                // Card ativo de novo = desligar; sem isso nao havia nenhuma forma de sair do agent changer.
+                g_cfg.agentEnabled = !(g_cfg.agentEnabled && g_cfg.agentCT == static_cast<int>(i));
+                g_cfg.agentCT = static_cast<int>(i);
+                ApplySharedConfig(shared);
+            }
+            ImGui::NextColumn();
+        }
+        for (size_t i = 1; i < IM_ARRAYSIZE(kPreviewAgentsT); ++i) {
+            const auto& ag = kPreviewAgentsT[i];
+            if (!ag.model[0]) continue;
+            if (catSearch[0] && !Workflow::Matches(ag.name, catSearch)) continue;
+            ++shown;
+            char slotId[48];
+            sprintf_s(slotId, "cat_agent_t_%zu", i);
+            auto thumb = HazzurePreviewAssets::Get(ag.asset);
+            bool active = g_cfg.agentEnabled && g_cfg.agentT == static_cast<int>(i);
+            if (GSWidgets::GS_InventorySlot(slotId, ag.name, "Terrorista", &active, reinterpret_cast<ImTextureID>(thumb.view), 0.0f, static_cast<int>(i), thumb.width, thumb.height, active ? "TR" : nullptr)) {
+                g_cfg.agentEnabled = !(g_cfg.agentEnabled && g_cfg.agentT == static_cast<int>(i));
+                g_cfg.agentT = static_cast<int>(i);
+                ApplySharedConfig(shared);
+            }
+            ImGui::NextColumn();
+        }
+    } else {
+        for (size_t i = 0; i < IM_ARRAYSIZE(kSkins); ++i) {
+            const auto& sk = kSkins[i];
+            if (!CatalogWeaponInSubTab(sk.def, g_graphicArtSubTab)) continue;
+            const char* wName = WeaponLabelByDef(sk.def);
+            std::string matchText = std::string(wName) + " " + sk.name + " " + std::to_string(sk.kit);
+            if (catSearch[0] && !Workflow::Matches(matchText.c_str(), catSearch)) continue;
+            ++shown;
+            char slotId[48];
+            sprintf_s(slotId, "cat_wep_%d_%d_%zu", sk.def, sk.kit, i);
+            auto thumb = HazzurePreviewAssets::GetWeaponThumbnail(sk.def, sk.kit);
+            bool sel = false;
+            const char* shortPaint = strchr(sk.name, '|');
+            shortPaint = shortPaint ? (shortPaint + 2) : sk.name;
+            if (GSWidgets::GS_InventorySlot(slotId, wName, shortPaint, &sel, reinterpret_cast<ImTextureID>(thumb.view), sk.wear, sk.seed, thumb.width, thumb.height, "+")) {
+                AddCatalogItemToCollection(sk.def, sk.kit, sk.wear, wName, shortPaint);
+            }
+            ImGui::NextColumn();
+        }
+    }
+
+    ImGui::Columns(1);
+    if (!shown) {
+        ImGui::TextDisabled("Nenhum item do catalogo corresponde ao filtro.");
+    }
+    ImGui::EndChild();
+}
+
+static void DrawLocalInventory(Shared* shared) {
+    if (g_inventorySubTab < 0 || g_inventorySubTab > 4 || g_inventorySubTab == 2 || g_inventorySubTab == 3) g_inventorySubTab = 0;
+    g_graphicArtSubTab = std::clamp(g_graphicArtSubTab, 0, 6);
+    DrawInventoryTabButtons();
+
+    switch (g_inventorySubTab) {
+        case 0: DrawProfileTab(shared); break;
+        case 1: DrawEquipmentTab(shared); break;
+        case 2: DrawContainersTab(shared); break;
+        case 3: DrawToolsTab(shared); break;
+        case 4: DrawGraphicArtTab(shared); break;
+    }
+}

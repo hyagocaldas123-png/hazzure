@@ -1,0 +1,45 @@
+// Fire: union of received cell footprints, separated by elevation. Smoke/HE and
+// missing fire data: labelled radius estimates, never a measured smoke hull.
+static void DrawGrenadeZones(ImDrawList* draw,const Matrix4& matrix,int width,int height,uint64_t now){
+    if(!g_cfg.grenadeZones)return;
+    for(const auto& zone:HazzureZones::Snapshot(now)){
+        if(!zone.start)continue;using Kind=HazzureZones::Kind;
+        float elapsed=static_cast<float>(now-zone.start)*.001f,radius=HazzureZones::Radius(zone.kind),duration=HazzureZones::Duration(zone.kind);
+        ImU32 color=zone.kind==Kind::Smoke?IM_COL32(180,210,225,175):zone.kind==Kind::Fire?IM_COL32(255,145,70,195):IM_COL32(250,100,100,145);
+        if(zone.kind==Kind::Smoke)radius*=std::clamp(elapsed/1.5f,.1f,1.f);
+        auto cells=zone.kind==Kind::Fire?HazzureInferno::Snapshot(zone.id,now):HazzureInferno::Cells{};
+        bool nativeCells=HazzureInferno::Validate(cells);
+        if(nativeCells){
+            struct Cache {uint64_t key{};HazzureVisualGeometry::Mesh mesh;};static std::array<Cache,32> cache;
+            uint64_t key=14695981039346656037ull;
+            auto hash=[&](const void* data,size_t length){auto p=static_cast<const unsigned char*>(data);for(size_t i=0;i<length;++i)key=(key^p[i])*1099511628211ull;};
+            hash(&cells.handle,sizeof(cells.handle));hash(&cells.halfWidth,sizeof(cells.halfWidth));hash(&cells.count,sizeof(cells.count));
+            hash(cells.positions.data(),cells.count*sizeof(Vec3));
+            auto& item=cache[static_cast<unsigned>(zone.id)%cache.size()];
+            if(item.key!=key){std::array<HazzureVisualGeometry::Rect,64> rectangles{};
+                for(size_t i=0;i<cells.count;++i){const auto& p=cells.positions[i];float r=cells.halfWidth;
+                    rectangles[i]={p.x-r,p.y-r,p.x+r,p.y+r,p.z+2.f};}
+                HazzureVisualGeometry::Build(rectangles.data(),cells.count,item.mesh);item.key=key;
+            }
+            if(item.mesh.valid){
+                if(g_cfg.grenadeAreaFill)for(const auto& r:item.mesh.fill){Vec3 corners[]={{r.left,r.bottom,r.z},{r.right,r.bottom,r.z},{r.right,r.top,r.z},{r.left,r.top,r.z}};
+                    VisualFill(draw,corners,matrix,width,height,VisualAlpha(color,g_cfg.grenadeAreaOpacity));}
+                for(const auto& e:item.mesh.outline)VisualLine(draw,{e.x0,e.y0,e.z},{e.x1,e.y1,e.z},matrix,width,height,color,g_cfg.grenadeAreaWidth,g_cfg.grenadeAreaGlow);
+            }else nativeCells=false;
+        }
+        int rings=nativeCells?0:zone.kind==Kind::Fire?1:3;
+        for(int axis=0;axis<rings;++axis)for(int segment=0;segment<40;++segment){
+            auto world=[&](float angle){float c=std::cos(angle)*radius,s=std::sin(angle)*radius;
+                return axis==0?Vec3{zone.point.x+c,zone.point.y+s,zone.point.z+2}:
+                    axis==1?Vec3{zone.point.x+c,zone.point.y,zone.point.z+s}:Vec3{zone.point.x,zone.point.y+c,zone.point.z+s};};
+            CombatLine(draw,world(segment*6.283185307f/40),world((segment+1)*6.283185307f/40),matrix,width,height,color,1.f);
+        }
+        Vec2 at{};if(!WorldToScreen(zone.point,matrix,width,height,at))continue;
+        char label[96];sprintf_s(label,"%s | %s | %.1fs",zone.kind==Kind::Smoke?"SMOKE":zone.kind==Kind::Fire?"FOGO":"HE",
+            nativeCells?"celulas recebidas":"area estimada",std::max(0.f,duration-elapsed));
+        CombatText(draw,{at.x,at.y},color,label,1);
+        float fraction=std::clamp(1.f-elapsed/duration,0.f,1.f);
+        draw->AddRectFilled({at.x,at.y+16},{at.x+100,at.y+20},IM_COL32(0,0,0,180));
+        draw->AddRectFilled({at.x,at.y+16},{at.x+fraction*100,at.y+20},color);
+    }
+}

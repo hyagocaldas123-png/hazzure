@@ -1,0 +1,242 @@
+// ---------- Ponto de Entrada da Renderizacao do Frame ----------
+static void ConsumeAudioEvents(Shared* shared) {
+    static LONG64 previousHead=-1,previousBody=-1;static LONG previousKill=-1;
+    if(!shared||InterlockedCompareExchange(&shared->audioProtocol,0,0)!=1){
+        previousHead=previousBody=-1;previousKill=-1;return;
+    }
+    LONG64 head=InterlockedCompareExchange64(&shared->headshots,0,0);
+    LONG64 body=InterlockedCompareExchange64(&shared->bodyHits,0,0);
+    LONG kills=InterlockedCompareExchange(&shared->kills,0,0);
+    bool hs=previousHead>=0&&head>previousHead;
+    bool hit=previousBody>=0&&body>previousBody;
+    bool kill=previousKill>=0&&kills>previousKill;
+    previousHead=head;previousBody=body;previousKill=kills;
+    DispatchCombatAudio(hs,hit,kill);
+}
+
+static const char* OverlayKeyName(int key,char* text,size_t size){
+    switch(key){case 0:return "SEM TECLA";case VK_LBUTTON:return "M1";case VK_RBUTTON:return "M2";
+        case VK_MBUTTON:return "M3";case VK_XBUTTON1:return "M4";case VK_XBUTTON2:return "M5";
+        case VK_MENU:return "ALT";case VK_CONTROL:return "CTRL";case VK_SHIFT:return "SHIFT";
+        case VK_SPACE:return "SPACE";case VK_CAPITAL:return "CAPS";default:break;}
+    if(key>='A'&&key<='Z')sprintf_s(text,size,"%c",key);else sprintf_s(text,size,"VK %02X",key);return text;
+}
+static void RenderKeybindsOverlay(int width){
+    if(!g_cfg.showKeybindsOverlay||width<260)return;
+    ImDrawList* draw=ImGui::GetForegroundDrawList();float x=static_cast<float>(width)-232.f,y=72.f;
+    draw->AddRectFilled(ImVec2(x,y),ImVec2(x+216,y+132),IM_COL32(17,17,22,220),5.f);
+    draw->AddText(ImVec2(x+10,y+8),IM_COL32(230,230,238,255),"ATALHOS");
+    auto row=[&](int index,const char* name,int key,bool on){char keyText[24]{},line[96]{};
+        sprintf_s(line,"%s [%s] %s",name,OverlayKeyName(key,keyText,sizeof(keyText)),on?"ON":"OFF");
+        draw->AddText(ImVec2(x+10,y+30+index*19.f),on?IM_COL32(235,235,245,255):IM_COL32(120,120,135,255),line);
+    };
+    row(0,"Aimbot",g_cfg.aimKey,g_cfg.aimActive);row(1,"Trigger",g_cfg.triggerKey,g_cfg.triggerActive);
+    row(2,"Bhop",VK_SPACE,g_cfg.bhopActive);row(3,"RCS",VK_LBUTTON,g_cfg.rcsActive);
+    row(4,"Chams",0,g_cfg.chamsVisible||g_cfg.chamsHidden||g_cfg.chamsArms);
+}
+static void RenderFrame(Shared* shared, uintptr_t client, bool* pShowMenu, int screenW, int screenH) {
+    g_settingsShared=shared;
+    static bool initialized=false;
+    if(!initialized){
+        InitializeContextDefaults();
+#ifndef INTERNAL_SELF_TEST
+        HazzureSchema::InitializeSchemaResolver();
+        LoadConfigFile();
+#endif
+        ApplySharedConfig(shared);
+        initialized=true;
+    }
+#ifndef INTERNAL_SELF_TEST
+    PollAndHotReloadConfig("C:\\HazzureKernel\\hazzure_config.json", GetTickCount64());
+#endif
+    if(!client)client=reinterpret_cast<uintptr_t>(GetModuleHandleW(L"client.dll"));
+    if(HazzureState::g_unloadRequested.exchange(false)){
+        HazzureRenderOptions::Publish(false,false);
+        HazzureSmoke::enabled.store(false);HazzureSmoke::Clear();
+        HazzureAutowall::enabled.store(false);HazzureAutowall::Clear();
+        ProcessMovementMechanics(0,0,true);
+        ProcessTriggerbot(0,0,true);
+        HazzureGrenade::Clear();
+        HazzureCombat::enabled.store(0);HazzureCombat::Reset();
+        HazzureState::PerformProductUnload(shared,client);
+        if(pShowMenu)*pShowMenu=false;
+    }
+    if(HazzureState::g_unloading.load())return;
+    ReleaseScopeButton();
+    ReleaseTriggerButton(!HazzureWorld::ready.load()||!IsGameInputActive(pShowMenu&&*pShowMenu));
+    HazzureState::Prune(client);
+    if(shared){
+        InterlockedExchange64(&shared->heartbeat,static_cast<LONG64>(GetTickCount64()));
+        // The menu owns these bits; explicit false settings clear them too.
+        LONG mask=(g_cfg.espEnabled?8:0)|(g_cfg.espBoxes?16:0)|(g_cfg.espSkeleton?32:0);
+        LONG before=InterlockedCompareExchange(&shared->flags,0,0);
+        while(InterlockedCompareExchange(&shared->flags,(before&~0x38)|mask,before)!=before)
+            before=InterlockedCompareExchange(&shared->flags,0,0);
+        InterlockedExchange(&shared->materialStyle,g_cfg.materialStyle);
+        InterlockedExchange(&shared->chamsVisibleStyle,g_cfg.chamsVisibleStyle);
+        InterlockedExchange(&shared->chamsHiddenStyle,g_cfg.chamsHiddenStyle);
+        InterlockedExchange(&shared->outlineGlow,g_cfg.glowOutline?1:0);
+        InterlockedExchange(&shared->snowEnabled,g_cfg.snowParticles?1:0);
+        InterlockedExchange(&shared->removeWeather,g_cfg.removeOriginalWeather?1:0);
+        InterlockedExchange(&shared->cleanMap,0);
+        shared->fogDensity=g_cfg.fogDensity;shared->fogColour=Float4ToIpcCol(g_cfg.colFog);
+        if (g_cfg.tsukuyomiTheme) {
+            InterlockedExchange(&shared->climateFlags, 3);
+            // Domo mais carmesim: o tint e lido como Color32 em memoria (byte baixo = R),
+            // entao 0x001E12D8 entrega (216,18,30) para o material da sky. Brilho sobe de
+            // 0.35 para 0.55 porque o vermelho precisa iluminar as nuvens, nao so o horizonte.
+            shared->skyBrightness = 0.55f;
+            shared->worldBrightness = (g_cfg.worldBrightness <= 0.20f) ? g_cfg.worldBrightness : 0.08f;
+            shared->skyColour = 0x001E12D8u;
+            // So tem efeito se o usuario ja usa fog (fogOn pede densidade > 0): a mesma
+            // referencia do RedShark tem o ar tingido de sangue, nao apenas o teto.
+            shared->fogColour = 0x00160E6Eu;
+            g_cfg.weather3d = true;
+            g_cfg.weatherKind = 2;
+        } else {
+            LONG climate = (g_cfg.skyActive ? 1 : 0) | (g_cfg.darkWorld ? 2 : 0);
+            InterlockedExchange(&shared->climateFlags, climate);
+            shared->skyBrightness = g_cfg.skyBrightness;
+            shared->worldBrightness = g_cfg.worldBrightness;
+            shared->skyColour = Float4ToIpcCol(g_cfg.colSky);
+        }
+    }
+    bool menuOpen=pShowMenu&&*pShowMenu;
+    g_menuOpen = menuOpen;
+    if (!menuOpen) g_bindingTarget = nullptr;
+    HazzureRenderOptions::Publish(g_cfg.chamsWeapon,g_cfg.chamsDualLayer,g_cfg.droppedWeapons);
+    HazzureSmoke::enabled.store(g_cfg.strictSmoke);
+    // Reach decisions are only computed while the feature is on; ProcessPending drops the
+    // whole table the moment it is not, so a disabled autowall costs zero native rays.
+    HazzureAutowall::enabled.store(g_cfg.autowallEnabled);
+    HazzureAutowall::maxLayers.store(std::clamp(g_cfg.autowallMaxLayers,1,4));
+    static bool poseWasActive=false;static uint64_t poseEpoch{};
+    auto currentPoseEpoch=HazzureWorld::epoch.load();
+    if((poseWasActive&&!g_cfg.poseHistory)||poseEpoch!=currentPoseEpoch){HazzurePoses::Clear();poseEpoch=currentPoseEpoch;}
+    poseWasActive=g_cfg.poseHistory;
+    if(g_cfg.lineupAutoMap){if(HazzureWorld::ready.load())HazzureMap::ObserveEngine();else HazzureMap::Clear();
+        char map[64]{};if(HazzureMap::Read(map))strcpy_s(g_cfg.lineups.map,map);}
+    bool needsAccuracy=g_cfg.showSpreadCircle;for(const char* group:{"rifles","pistols","snipers"})
+        needsAccuracy=needsAccuracy||RuntimeBool("hitchanceEnabled",g_cfg.hitchanceEnabled,"enemy",group)||
+            RuntimeBool("aimMultipoint",g_cfg.aimMultipoint,"enemy",group)||RuntimeBool("aimBodyFallback",g_cfg.aimBodyFallback,"enemy",group);
+    HazzureWeaponAccuracy::enabled.store(needsAccuracy);
+    bool zonesNeeded=g_cfg.grenadeZones||g_cfg.fireGlowEnabled||g_cfg.smokeGlowEnabled||g_cfg.strictSmoke;
+    HazzureZones::enabled.store(zonesNeeded);
+    static uint64_t zoneEpoch{};auto worldEpoch=HazzureWorld::epoch.load();
+    if(!zonesNeeded||!HazzureWorld::ready.load()||zoneEpoch!=worldEpoch){HazzureZones::Clear();zoneEpoch=worldEpoch;}
+    if(!HazzureWorld::ready.load()||!IsGameInputActive(menuOpen)){HazzureBrake::Cancel();HazzureWeaponAccuracy::Clear();}
+    static uint64_t inputEpoch{};auto epoch=HazzureWorld::epoch.load();
+    if(inputEpoch!=epoch){inputEpoch=epoch;g_triggerPause.Reset();g_scopeGate.Reset();g_zoomSettle.Reset();HazzureSmoke::Clear();g_retainedAimPawn=0;g_retainedAimHandle=0;}
+    HazzureVisual::enabled.store(g_cfg.noVisualRecoil);
+    HazzureTuning::Settings tuning;
+    tuning.flash=RuntimeBool("limitFlash",g_cfg.limitFlash,"local","");
+    tuning.radar=RuntimeBool("nativeRadar",g_cfg.nativeRadar,"enemy","");
+    tuning.camera=RuntimeBool("cameraFovOverride",g_cfg.cameraFovOverride,"local","");
+    tuning.viewmodel=RuntimeBool("customViewmodel",g_cfg.customViewmodel,"local","");
+    tuning.flashAlpha=RuntimeFloat("flashAlphaLimit",g_cfg.flashAlphaLimit,"local","");
+    tuning.cameraFov=RuntimeFloat("cameraFov",g_cfg.cameraFov,"local","");
+    tuning.x=RuntimeFloat("viewmodelX",g_cfg.viewmodelX,"local","");tuning.y=RuntimeFloat("viewmodelY",g_cfg.viewmodelY,"local","");
+    tuning.z=RuntimeFloat("viewmodelZ",g_cfg.viewmodelZ,"local","");tuning.handFov=RuntimeFloat("viewmodelFov",g_cfg.viewmodelFov,"local","");
+    HazzureTuning::Configure(tuning);
+    const bool cameraAllowed=!HazzureState::g_unloading.load()&&HazzureWorld::ready.load()&&IsGameInputActive(menuOpen);
+    static HazzureNativeCamera::Activation cameraBind;
+    bool cameraKeyDown=false;
+#ifndef INTERNAL_SELF_TEST
+    if(cameraAllowed&&g_cfg.thirdpersonKey>0)cameraKeyDown=(GetAsyncKeyState(g_cfg.thirdpersonKey)&0x8000)!=0;
+#endif
+    HazzureNativeCamera::Settings cameraOptions;
+    cameraOptions.thirdperson=cameraBind.Update(g_cfg.thirdpersonEnabled,g_cfg.thirdpersonKey,cameraKeyDown,cameraAllowed);
+    cameraOptions.aspectOverride=g_cfg.aspectRatioOverride;cameraOptions.customViewmodel=g_cfg.customViewmodel;cameraOptions.viewmodelFov=g_cfg.viewmodelFov;cameraOptions.allowed=cameraAllowed;
+    cameraOptions.customCameraFov=g_cfg.cameraFovOverride;cameraOptions.cameraFov=g_cfg.cameraFov;
+    cameraOptions.distance=g_cfg.thirdpersonDistance;cameraOptions.ratio=g_cfg.aspectRatio;
+    HazzureNativeCamera::Configure(cameraOptions,GetTickCount64());
+
+    HazzureWeather::Settings weather{};weather.enabled=g_cfg.weather3d;
+    weather.kind=g_cfg.weatherKind;weather.count=g_cfg.weatherCount;weather.speed=g_cfg.weatherSpeed;
+    weather.windX=g_cfg.weatherWindX;weather.windY=g_cfg.weatherWindY;
+    HazzureWeather::Configure(weather); // Publishing only; native queries run in FrameHook.
+
+    bool needsKills=g_cfg.killEffects||g_cfg.killfeedEnabled;
+    for(const char* group:{"rifles","pistols","snipers"})needsKills=needsKills||RuntimeFloat("aimKillDelayMs",static_cast<float>(g_cfg.aimKillDelayMs),"enemy",group)>0;
+    unsigned combatFeatures=(((g_cfg.soundEsp||g_cfg.soundRadar)?HazzureCombat::Sounds:0)|(g_cfg.worldDamage?HazzureCombat::DamageText:0)|
+        (g_cfg.bulletTracers?HazzureCombat::Tracers:0)|(g_cfg.impactBoxes?HazzureCombat::Impacts:0)|(needsKills?HazzureCombat::Kills:0));
+    static unsigned previousCombat{};if(combatFeatures!=previousCombat){HazzureCombat::Reset();previousCombat=combatFeatures;}
+    HazzureCombat::enabled.store(combatFeatures);
+    static uint64_t combatEpoch{};auto nextEpoch=HazzureCombat::roundEpoch.load();
+    if(combatEpoch!=nextEpoch){combatEpoch=nextEpoch;HazzureCombat::effects.Clear();HazzureCombat::history.Clear();HazzurePoses::Clear();}
+    std::array<HazzureCombat::Event,256> combatEvents;auto combatCount=HazzureCombat::inbox.Drain(combatEvents);
+    for(size_t i=0;i<combatCount;++i){if(combatEvents[i].kind==HazzureCombat::Kind::Reset)HazzureCombat::history.Clear();HazzureCombat::effects.Add(combatEvents[i]);}
+    uintptr_t localPawn=HazzureGame::LocalPawn(client);
+    HazzureGame::Pawn local{};
+    bool alive=HazzureGame::ReadPawn(localPawn,local);
+    ProcessMovementMechanics(client,alive?localPawn:0,menuOpen);
+    RenderInGameESP(shared,client,menuOpen,screenW,screenH);
+
+    // Crosshair customizado (desenha no BackgroundDrawList)
+    ImDrawList* draw=ImGui::GetBackgroundDrawList();
+    if(alive && localPawn) {
+        RenderCrosshair(draw, screenW, screenH, localPawn);
+        // Minimapa 2D (canto esquerdo) - apenas quando vivo e menu fechado
+        if (!menuOpen && g_frameDiagnostics.matrixValid) {
+            local.anglesValid=ReadCurrentAimView(client,local.angles);
+            RenderMinimap(draw, screenW, screenH, local);
+        }
+        // Floor glow effects (fire & smoke) - apenas quando vivo e menu fechado
+        if (!menuOpen) {
+            Matrix4 matrix{};
+            if (SafeRead(client + HazzureOffsets::Globals::dwViewMatrix, &matrix)) {
+                uint64_t now = GetTickCount64();
+                RenderFireFloor(draw, matrix, screenW, screenH, now);
+                RenderSmokeFloor(draw, matrix, screenW, screenH, now);
+            }
+        }
+    }
+    // Aim e Triggerbot agora são aplicados exclusivamente no hook pós-original de CCSGOInput::CreateMove.
+    // UIFrame mantém apenas cálculo de targeting e visual overlay.
+    if(alive){
+        RenderSpeedometer(draw,localPawn,screenW,screenH);
+        if(g_cfg.lineupHelper){Matrix4 matrix{};if(SafeRead(client+HazzureOffsets::Globals::dwViewMatrix,&matrix))
+            RenderLineups(draw,client,local,matrix,screenW,screenH);}
+        if(g_cfg.showSpreadCircle){Matrix4 spreadMatrix{};if(SafeRead(client+HazzureOffsets::Globals::dwViewMatrix,&spreadMatrix))
+            RenderSpreadCircle(draw,localPawn,spreadMatrix,screenW,screenH);}
+        uintptr_t list{};SafeRead(client+HazzureOffsets::Globals::dwEntityList,&list);
+        uint16_t definition=ActiveWeaponDefinition(localPawn,list);
+        if(definition>=43&&definition<=48){Matrix4 matrix{};
+            if(SafeRead(client+HazzureOffsets::Globals::dwViewMatrix,&matrix))
+                RenderGrenadeTrajectory(draw,localPawn,matrix,screenW,screenH);
+            else HazzureGrenade::Clear();
+        }else HazzureGrenade::Clear();
+    }else HazzureGrenade::Clear();
+    RenderSnowParticles(draw,screenW,screenH);
+    RenderVignette(draw,screenW,screenH);
+    if(client){
+        Matrix4 matrix{};
+        if(SafeRead(client+HazzureOffsets::Globals::dwViewMatrix,&matrix))
+        {
+            RenderTsukuyomiSky(draw,client,matrix,screenW,screenH,local);
+            Render3DWeather(draw,client,matrix,screenW,screenH);
+        }
+    }
+    if(client)RenderSpectatorsHUD(client,localPawn,screenW,screenH);
+    if(client)RenderBombTimerHUD(client,screenW,screenH);
+    if(client)RenderBombPlantedNotify(client,screenW,screenH);
+    RenderPersistentKillFeedHUD(screenW,screenH);
+    ConsumeAudioEvents(shared);
+    if(g_cfg.showHitmarker)RenderHitmarker(ImGui::GetForegroundDrawList(),screenW,screenH);
+    RenderTelemetryHUD(client,screenW,screenH);
+    RenderKeybindsOverlay(screenW);
+    if(menuOpen) {
+        __try {
+            if (g_useGSLayout) {
+                HazzureUI::GSLayout::DrawGSPanel(shared, pShowMenu, screenW, screenH);
+            } else {
+                DrawPanel(shared, pShowMenu, screenW, screenH);
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            GSWidgets::GS_Log("[GUI] EXCEPTION in UIFrame menu rendering (code=0x%X)", GetExceptionCode());
+        }
+    }
+    FinishEquipmentPreviewFrame();
+    HazzureTelemetry::UpdateTelemetryRates();
+}
+

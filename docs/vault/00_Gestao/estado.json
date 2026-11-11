@@ -1,0 +1,40 @@
+{
+  "aviso": "ARQUIVO CONGELADO em 2026-11-03 e nao lido por nenhuma ferramenta deste repo (unico leitor historico: work/clean_estado.py). Nao usar como estado. Fonte real: 00_Gestao/Estado.md; fila: 00_Gestao/Fila.md; inventario gerado: 30_Inventario/.",
+  "atualizado": "2026-11-03",
+  "fase": "T018_cs2_hotfix_0x6AE91E98_implantado",
+  "fonte_estados": "00_Gestao/Estado.md (desde 2026-11-07; o campo antigo apontava C:/Codex2/gpt/ESTADO_ATUAL.md, hoje um ponteiro)",
+  "reserva_autoritativa": "00_Gestao/Reservas.md",
+  "max_executores_tecnicos": 1,
+  "max_subagentes_codex": 1,
+  "despacho_automatico": false,
+  "release_publicada": "gui-polish-20261029-v1",
+  "candidata_kernel": "BDC1958AD4445169A51D017C4AD6E96D9F7AA15FE5E1D2D93CF392F5825E778A",
+  "workspace_edicao": "C:/Codex2/gpt/work/hazzure-corrections-20261030",
+  "fonte_backend_instalada": "C:/Codex2/gpt/work/inventory-rework-20261029",
+  "restricao_input": "mouse e teclado liberados por AN0N para conduzir testes",
+  "handoff_rule": {
+    "destination": "Antigravity",
+    "threshold_remaining_percent": 10,
+    "trigger": "qualquer janela observada; sem despacho automatico",
+    "last_remaining": {
+      "weekly": 10,
+      "five_hour": 77
+    },
+    "suspended_by_user": true
+  },
+  "proximas_tarefas": [
+    "T012 Aim/Trigger",
+    "T016 Bhop integrado e m\u00e1scara sniper",
+    "T015 aguardando \u00e1rvoreTR"
+  ],
+  "ultima_revisao": "Build BDC1958AD4445169A51D017C4AD6E96D9F7AA15FE5E1D2D93CF392F5825E778A instalado em C:/HazzureKernel. Crash analisado via minidump 02:02:22: causa identificada em chamada redundante de SkinSetVisualModel sem viewmodel handle no loop m_hMyWeapons, que colidia com a pipeline MaterializeInventoryCosmetics e causava dereference nula (RIP=0). Loop redundante expurgado, pipeline nativa restaurada com idempotencia e cache.",
+  "executor_ativo": "nenhum",
+  "lider": "Codex",
+  "escritor_ativo": "nenhum",
+  "build_ativo": false,
+  "candidata_nao_publicada": "ca9ab2e9ff4f704edefdc2aaaaea7861cf64df8355e71a7d987b0a0e22fb410a",
+  "checkpoint": "C:\\Codex2\\gpt\\work\\hazzure-corrections-20261030\\work\\gloves-team-14194\\checkpoint.md",
+  "cliente_candidato": "757C631DCDD6200F59B4CDE7DCB8D1073959B82815F3CDD3D00CB73F970DA15A",
+  "candidata_dll_hash": "BDC1958AD4445169A51D017C4AD6E96D9F7AA15FE5E1D2D93CF392F5825E778A",
+  "candidata_data": "2026-11-03"
+}

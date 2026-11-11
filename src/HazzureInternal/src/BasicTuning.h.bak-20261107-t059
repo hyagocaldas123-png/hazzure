@@ -1,0 +1,110 @@
+// C++ / BasicTuning.h / MSVC x64 C++17 / class-qualified build 14192 render settings
+#pragma once
+#include "Visibility.h"
+#include <array>
+namespace HazzureTuning {
+struct Settings {
+    bool flash{},radar{},camera{},viewmodel{};
+    float flashAlpha=.25f,cameraFov=105.f,x=1.f,y=1.f,z=-1.f,handFov=68.f;
+};
+inline SRWLOCK settingsLock=SRWLOCK_INIT;
+inline Settings settings{};
+inline void Configure(const Settings& value){AcquireSRWLockExclusive(&settingsLock);settings=value;ReleaseSRWLockExclusive(&settingsLock);}
+template<class T>struct Patch {
+    uintptr_t address{};T original{},last{};bool active{};
+    void Discard(){active=false;address=0;}
+    T Baseline(uintptr_t at,const T& current)const{return active&&at==address&&!memcmp(&current,&last,sizeof(T))?original:current;}
+    bool Apply(uintptr_t at,const T& desired){
+        T current{};if(!HazzureGame::Read(at,current))return false;
+        if(!active||at!=address||memcmp(&current,&last,sizeof(T)))original=current;
+        __try{memcpy(reinterpret_cast<void*>(at),&desired,sizeof(T));}
+        __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+        address=at;last=desired;active=true;return true;
+    }
+    bool Restore(bool identity){
+        if(!active)return true;
+        if(!identity){Discard();return true;}
+        T current{};if(!HazzureGame::Read(address,current))return false;
+        if(!memcmp(&current,&last,sizeof(T))){
+            __try{memcpy(reinterpret_cast<void*>(address),&original,sizeof(T));}
+            __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+        }
+        Discard();return true;
+    }
+};
+inline bool Matches(uintptr_t list,uint32_t handle,uintptr_t pawn){
+    if(!list||!handle||handle==0xffffffffu||!pawn)return false;
+    unsigned index=handle&0x7fff;uintptr_t block{},actual{};uint32_t serial{},flags{};
+    return index&&HazzureGame::Read(list+0x10+(index>>9)*8,block)&&block&&
+        HazzureGame::Read(block+(index&0x1ff)*0x70,actual)&&actual==pawn&&
+        HazzureGame::Read(block+(index&0x1ff)*0x70+0x10,serial)&&
+        HazzureGame::Read(block+(index&0x1ff)*0x70+0x30,flags)&&HazzureGame::CanonicalHandle(serial,flags)==handle;
+}
+inline bool PlayerClass(uintptr_t entity){
+    uintptr_t table{},locator{};uint32_t signature{},self{},type{};char name[64]{};
+    if(!HazzureGame::Read(entity,table)||!HazzureGame::Read(table-8,locator)||
+       !HazzureGame::Read(locator,signature)||signature!=1||!HazzureGame::Read(locator+20,self)||
+       !HazzureGame::Read(locator+12,type)||!HazzureGame::ReadBytes(locator-self+type+16,name,sizeof(name)))return false;
+    name[63]=0;return !strcmp(name,".?AVC_CSPlayerPawn@@")||!strcmp(name,".?AVC_CSPlayerPawnBase@@");
+}
+inline uintptr_t localPawn{};inline uint32_t localHandle{};
+inline Patch<float> flashMax,flashOverlay;
+inline std::array<Patch<float>,4> viewmodel;
+struct Radar {uintptr_t pawn{};uint32_t handle{};Patch<uint8_t> spotted;bool seen{};};
+inline std::array<Radar,64> radar;
+inline void RestoreLocal(uintptr_t list){
+    bool valid=Matches(list,localHandle,localPawn);
+    flashMax.Restore(valid);flashOverlay.Restore(valid);
+    for(auto& field:viewmodel)field.Restore(valid);
+    if(!flashMax.active&&!flashOverlay.active&&
+       std::none_of(viewmodel.begin(),viewmodel.end(),[](const auto& p){return p.active;})){localPawn=0;localHandle=0;}
+}
+inline void Restore(uintptr_t client){
+    uintptr_t list{};HazzureGame::Read(client+HazzureOffsets::Globals::dwEntityList,list);RestoreLocal(list);
+    for(auto& entry:radar)if(entry.pawn&&entry.spotted.Restore(Matches(list,entry.handle,entry.pawn)))entry={};
+}
+using ClassCheck=bool(*)(uintptr_t);
+inline void Frame(uintptr_t client,ClassCheck check=PlayerClass){
+    if(!HazzureVisibility::BuildMatches(client)){Restore(client);return;}
+    AcquireSRWLockShared(&settingsLock);Settings option=settings;ReleaseSRWLockShared(&settingsLock);
+    uintptr_t list{},pawn=HazzureGame::LocalPawn(client),identity{};uint32_t handle{},flags{};HazzureGame::Pawn local{};
+    if(!HazzureGame::Read(client+HazzureOffsets::Globals::dwEntityList,list)||!list||
+       !HazzureGame::ReadPawn(pawn,local)||!check(pawn)||!HazzureGame::Read(pawn+0x10,identity)||
+       !HazzureGame::Read(identity+0x10,handle)||!HazzureGame::Read(identity+0x30,flags)||
+       !Matches(list,handle=HazzureGame::CanonicalHandle(handle,flags),pawn)){Restore(client);return;}
+    if(localPawn&&(localPawn!=pawn||localHandle!=handle))RestoreLocal(list);
+    if(localPawn&&localPawn!=pawn)return;
+    localPawn=pawn;localHandle=handle;
+    if(option.flash&&std::isfinite(option.flashAlpha)&&option.flashAlpha>=0&&option.flashAlpha<=1){
+        float maximum{},overlay{};
+        if(HazzureGame::Read(pawn+0x150c,maximum)&&std::isfinite(maximum)&&maximum>=0&&maximum<=255)
+            flashMax.Apply(pawn+0x150c,std::min(flashMax.Baseline(pawn+0x150c,maximum),option.flashAlpha*255.f));
+        if(HazzureGame::Read(pawn+0x1504,overlay)&&std::isfinite(overlay)&&overlay>=0&&overlay<=255)
+            flashOverlay.Apply(pawn+0x1504,std::min(flashOverlay.Baseline(pawn+0x1504,overlay),option.flashAlpha*255.f));
+    }else{flashMax.Restore(true);flashOverlay.Restore(true);}
+    // Third-person needs a validated camera callback. Observer services belong
+    // to spectating and must never be written to emulate a live camera.
+    // Camera FOV is resolved at the native getter's final return (CameraFov.h).
+    // Writing these network fields before the weapon/zoom calculation was insufficient.
+    const float values[]={option.x,option.y,option.z,option.handFov};
+    bool validView=option.viewmodel;
+    for(unsigned i=0;i<4;++i)validView=validView&&std::isfinite(values[i])&&(i==3?(values[i]>=40&&values[i]<=120):std::fabs(values[i])<=10);
+    for(unsigned i=0;i<4;++i){
+        if(validView){float current{};auto at=pawn+0x1dc0+i*4;
+            if(HazzureGame::Read(at,current)&&std::isfinite(current)&&std::fabs(current)<=1000)viewmodel[i].Apply(at,values[i]);
+        }else viewmodel[i].Restore(true);
+    }
+    for(auto& entry:radar)entry.seen=false;
+    if(option.radar)for(uint32_t i=1;i<=64;i++){
+        auto controller=HazzureGame::Entity(list,i);uint32_t targetHandle{};
+        if(!controller||!HazzureGame::Read(controller+HazzureOffsets::Schema::m_hPlayerPawn,targetHandle))continue;
+        auto enemy=HazzureGame::Entity(list,targetHandle);HazzureGame::Pawn target{};
+        if(enemy==pawn||!Matches(list,targetHandle,enemy)||!HazzureGame::ReadPawn(enemy,target)||target.team==local.team||!check(enemy))continue;
+        Radar* saved=nullptr;for(auto& entry:radar)if(entry.pawn==enemy&&entry.handle==targetHandle){saved=&entry;break;}
+        if(!saved)for(auto& entry:radar)if(!entry.pawn){entry.pawn=enemy;entry.handle=targetHandle;saved=&entry;break;}
+        uint8_t spotted{};
+        if(saved&&HazzureGame::Read(enemy+0x1e90,spotted)&&spotted<=1){saved->seen=true;saved->spotted.Apply(enemy+0x1e90,uint8_t(1));}
+    }
+    for(auto& entry:radar)if(entry.pawn&&!entry.seen&&entry.spotted.Restore(Matches(list,entry.handle,entry.pawn)))entry={};
+}
+} // namespace HazzureTuning

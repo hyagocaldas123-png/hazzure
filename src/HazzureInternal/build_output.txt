@@ -1,0 +1,250 @@
+hook.c
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(377): warning C4310: convers∆o trunca valor constante
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(393): warning C4244: '=': convers∆o de 'BOOL' para 'UINT8', poss°vel perda de dados
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(394): warning C4244: '=': convers∆o de 'BOOL' para 'UINT8', poss°vel perda de dados
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(568): warning C4244: '=': convers∆o de 'BOOL' para 'UINT8', poss°vel perda de dados
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(748): warning C4244: '=': convers∆o de 'BOOL' para 'UINT8', poss°vel perda de dados
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hook.c(755): warning C4244: '=': convers∆o de 'BOOL' para 'UINT8', poss°vel perda de dados
+buffer.c
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\buffer.c(49): warning C4201: extens∆o n∆o padr∆o usada: struct/union sem nome
+trampoline.c
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\trampoline.c(281): warning C4244: '+=': convers∆o de 'UINT' para 'UINT8', poss°vel perda de dados
+hde64.c
+Gerando C¢digo...
+C:\Codex2\gpt\HazzureInternal\references\Aspasia\Includes\kiero\minhook\src\hde\hde64.c(63) : warning C4701: vari†vel local possivelmente n∆o inicializada 'c' usada
+imgui_bundle.cpp
+Internal.cpp
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(19): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(20): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(24): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(25): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(26): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(27): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(28): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(29): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(30): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(31): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(37): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(185): warning C4100: 'nativeSnap': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\ArmoryBackend.h(8): warning C4244: 'inicializando': convers∆o de 'const _Elem' para 'uint16_t', poss°vel perda de dados
+        with
+        [
+            _Elem=int
+        ]
+C:\Codex2\gpt\HazzureInternal\src\SkinEngine.h(797): warning C4459: a declaraá∆o de 'client' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(46): note: consulte a declaraá∆o de 'client'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): warning C4459: a declaraá∆o de 'shared' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(36): note: consulte a declaraá∆o de 'shared'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(34): note: consulte a referància Ö instanciaá∆o 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>' do modelo da classe que est† sendo compilada
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): note: ao compilar a funá∆o de membro 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::ChunkHeader *rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkHead(rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::SharedData *)' do modelo da classe
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(183): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkHead' em 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::MemoryPoolAllocator'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2531): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::MemoryPoolAllocator' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::GenericDocument'
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(160): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::GenericDocument' em 'HazzureConfig::SetRaw'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): warning C4459: a declaraá∆o de 'shared' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(36): note: consulte a declaraá∆o de 'shared'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): note: ao compilar a funá∆o de membro 'uint8_t *rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkBuffer(rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::SharedData *)' do modelo da classe
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(353): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkBuffer' em 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::Realloc'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(1697): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::Realloc' em 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::Reserve'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(1716): note: veja a primeira referància a 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::Reserve' em 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::PushBack'
+C:\Codex2\gpt\HazzureInternal\src\ArmoryJSON.h(46): note: veja a primeira referància a 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::PushBack' em 'HazzureArmory::WriteProfile'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): warning C4459: a declaraá∆o de 'original' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(535): note: consulte a declaraá∆o de 'original'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse<6>(const char *,size_t)' do modelo que est† sendo compilada
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'HazzureConfig::ParseValue'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2742): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse<6,Encoding>(const char *,size_t)' do modelo que est† sendo compilada
+        with
+        [
+            Encoding=rapidjson::UTF8<char>
+        ]
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2736): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream<6,SourceEncoding,rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            SourceEncoding=rapidjson::UTF8<char>,
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2647): note: consulte a referància Ö instanciaá∆o 'rapidjson::ParseResult rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse<6,InputStream,rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>>(InputStream &,Handler &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>,
+            Handler=rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(567): note: consulte a referància Ö instanciaá∆o 'void rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments<6,InputStream>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(712): note: consulte a referància Ö instanciaá∆o 'void rapidjson::SkipWhitespace<InputStream>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(267): note: consulte a referància Ö instanciaá∆o 'rapidjson::internal::StreamLocalCopy<InputStream,0>' do modelo da classe que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): note: ao compilar a funá∆o de membro 'rapidjson::internal::StreamLocalCopy<InputStream,0>::StreamLocalCopy(Stream &)' do modelo da classe
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>,
+            Stream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(267): note: veja a primeira referància a 'rapidjson::internal::StreamLocalCopy<InputStream,0>::StreamLocalCopy' em 'rapidjson::SkipWhitespace'
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(712): note: veja a primeira referància a 'rapidjson::SkipWhitespace' em 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(567): note: veja a primeira referància a 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments' em 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2647): note: veja a primeira referància a 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2736): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2742): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'HazzureConfig::ParseValue'
+C:\Codex2\gpt\HazzureInternal\src\UIAudio.inl(153): warning C4505: 'HazzureUI::TestCustomAudio': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\UIAudio.inl(157): warning C4505: 'HazzureUI::PlayProceduralHit': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\UIPlayerGeometry.inl(2): warning C4505: 'HazzureUI::ComputeDynamicPlayerBox': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GameplayRuntime.h(123): warning C4505: 'HazzureUI::WriteViewAngles': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(450): warning C4505: 'HazzureUI::Workflow::Poll': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(455): warning C4505: 'HazzureUI::Workflow::ProfileName': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(460): warning C4505: 'HazzureUI::Workflow::Approach': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(245): warning C4505: 'HazzureUI::GSWidgets::GS_ToggleWithKeybind': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(651): warning C4505: 'HazzureUI::GSWidgets::GS_ImagePreview': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(756): warning C4505: 'HazzureUI::GSWidgets::GS_InventoryGrid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(112): warning C4505: 'HazzureUI::InventoryFiltered': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(169): warning C4505: 'HazzureUI::NativeItemStatusBadge': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\Climate.h(377): warning C4505: 'DiscardFogSession': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\Climate.h(583): warning C4505: 'SkyDrawHook': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\SkinEngine.h(259): warning C4505: 'SkinAddressesValid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\SkinEngine.h(264): warning C4505: 'SnapshotSettings': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\AudioEvents.h(16): warning C4505: 'IsLocalHeadshot': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\AudioEvents.h(22): warning C4505: 'AudioAddressesValid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\AudioEvents.h(73): warning C4505: 'AudioEventHook': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+kiero.cpp
+NativeInventoryRuntime.cpp
+Gerando C¢digo...
+imgui_bundle.cpp
+Internal.cpp
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(19): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(20): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(24): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(25): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(26): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(27): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(28): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(29): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(30): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(31): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\UISettingsCards.inl(37): warning C4100: 'shared': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(185): warning C4100: 'nativeSnap': parÉmetro n∆oˇreferenciado
+C:\Codex2\gpt\HazzureInternal\src\ArmoryBackend.h(8): warning C4244: 'inicializando': convers∆o de 'const _Elem' para 'uint16_t', poss°vel perda de dados
+        with
+        [
+            _Elem=int
+        ]
+C:\Codex2\gpt\HazzureInternal\src\SkinEngine.h(797): warning C4459: a declaraá∆o de 'client' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(46): note: consulte a declaraá∆o de 'client'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): warning C4459: a declaraá∆o de 'shared' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(36): note: consulte a declaraá∆o de 'shared'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(34): note: consulte a referància Ö instanciaá∆o 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>' do modelo da classe que est† sendo compilada
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(150): note: ao compilar a funá∆o de membro 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::ChunkHeader *rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkHead(rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::SharedData *)' do modelo da classe
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(183): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkHead' em 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::MemoryPoolAllocator'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2531): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::MemoryPoolAllocator' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::GenericDocument'
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(160): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::GenericDocument' em 'HazzureConfig::SetRaw'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): warning C4459: a declaraá∆o de 'shared' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(36): note: consulte a declaraá∆o de 'shared'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(154): note: ao compilar a funá∆o de membro 'uint8_t *rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkBuffer(rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::SharedData *)' do modelo da classe
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\allocators.h(353): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::GetChunkBuffer' em 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::Realloc'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(1697): note: veja a primeira referància a 'rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>::Realloc' em 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::Reserve'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(1716): note: veja a primeira referància a 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::Reserve' em 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::PushBack'
+C:\Codex2\gpt\HazzureInternal\src\ArmoryJSON.h(46): note: veja a primeira referància a 'rapidjson::GenericValue<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>>::PushBack' em 'HazzureArmory::WriteProfile'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): warning C4459: a declaraá∆o de 'original' oculta uma declaraá∆o global
+C:\Codex2\gpt\HazzureInternal\src\InternalPresentation.inl(535): note: consulte a declaraá∆o de 'original'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): note: o contexto de instanciaá∆o do modelo (o mais antigo primeiro) Ç
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse<6>(const char *,size_t)' do modelo que est† sendo compilada
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'HazzureConfig::ParseValue'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2742): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse<6,Encoding>(const char *,size_t)' do modelo que est† sendo compilada
+        with
+        [
+            Encoding=rapidjson::UTF8<char>
+        ]
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2736): note: consulte a referància Ö instanciaá∆o 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator> &rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream<6,SourceEncoding,rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            SourceEncoding=rapidjson::UTF8<char>,
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2647): note: consulte a referància Ö instanciaá∆o 'rapidjson::ParseResult rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse<6,InputStream,rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>>(InputStream &,Handler &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>,
+            Handler=rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(567): note: consulte a referància Ö instanciaá∆o 'void rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments<6,InputStream>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(712): note: consulte a referància Ö instanciaá∆o 'void rapidjson::SkipWhitespace<InputStream>(InputStream &)' do modelo que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(267): note: consulte a referància Ö instanciaá∆o 'rapidjson::internal::StreamLocalCopy<InputStream,0>' do modelo da classe que est† sendo compilada
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(248): note: ao compilar a funá∆o de membro 'rapidjson::internal::StreamLocalCopy<InputStream,0>::StreamLocalCopy(Stream &)' do modelo da classe
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>,
+            Stream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(267): note: veja a primeira referància a 'rapidjson::internal::StreamLocalCopy<InputStream,0>::StreamLocalCopy' em 'rapidjson::SkipWhitespace'
+        with
+        [
+            InputStream=rapidjson::EncodedInputStream<rapidjson::UTF8<char>,rapidjson::MemoryStream>
+        ]
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(712): note: veja a primeira referància a 'rapidjson::SkipWhitespace' em 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments'
+C:\Codex2\gpt\HazzureInternal\references\Andromeda-CS2-Base\Andromeda-CS2-Base\Andromeda-CS2-Base\Common\Include\rapidjson\reader.h(567): note: veja a primeira referància a 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::SkipWhitespaceAndComments' em 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2647): note: veja a primeira referància a 'rapidjson::GenericReader<rapidjson::UTF8<char>,rapidjson::UTF8<char>,rapidjson::CrtAllocator>::Parse' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2736): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::ParseStream' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\../references/Andromeda-CS2-Base/Andromeda-CS2-Base/Andromeda-CS2-Base/Common/Include/rapidjson/document.h(2742): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse'
+C:\Codex2\gpt\HazzureInternal\src\ConfigStorage.h(114): note: veja a primeira referància a 'rapidjson::GenericDocument<rapidjson::UTF8<char>,rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>,rapidjson::CrtAllocator>::Parse' em 'HazzureConfig::ParseValue'
+C:\Codex2\gpt\HazzureInternal\src\UIAudio.inl(153): warning C4505: 'HazzureUI::TestCustomAudio': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\UIAudio.inl(157): warning C4505: 'HazzureUI::PlayProceduralHit': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\UIPlayerGeometry.inl(2): warning C4505: 'HazzureUI::ComputeDynamicPlayerBox': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GameplayRuntime.h(123): warning C4505: 'HazzureUI::WriteViewAngles': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(450): warning C4505: 'HazzureUI::Workflow::Poll': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(455): warning C4505: 'HazzureUI::Workflow::ProfileName': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(460): warning C4505: 'HazzureUI::Workflow::Approach': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\OverlayPersistence.h(556): warning C4505: 'HazzureUI::PollAndHotReloadConfig': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(245): warning C4505: 'HazzureUI::GSWidgets::GS_ToggleWithKeybind': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(651): warning C4505: 'HazzureUI::GSWidgets::GS_ImagePreview': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\GSWidgets.inl(756): warning C4505: 'HazzureUI::GSWidgets::GS_InventoryGrid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(112): warning C4505: 'HazzureUI::InventoryFiltered': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\InventoryPanel.inl(169): warning C4505: 'HazzureUI::NativeItemStatusBadge': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\Climate.h(377): warning C4505: 'DiscardFogSession': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\Climate.h(583): warning C4505: 'SkyDrawHook': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\SkinEngine.h(259): warning C4505: 'SkinAddressesValid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\AudioEvents.h(22): warning C4505: 'AudioAddressesValid': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\AudioEvents.h(73): warning C4505: 'AudioEventHook': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+C:\Codex2\gpt\HazzureInternal\src\InternalStartup.inl(168): warning C4505: 'Start': a funá∆o n∆o referenciada com vinculaá∆o interna foi removida
+kiero.cpp
+NativeInventoryRuntime.cpp
+Gerando C¢digo...
+PASS: exposure scales linear and log bounds consistently, preserves source and rejects invalid inputs.
+PASS: skin configuration rejects torn/invalid snapshots; measured subclass hashes; IPC offsets.
+PASS: gradient colour mixing clamps and reproduces the endpoints; unreadable bounds decline the pass.
+PASS: typed camera getter hook preserves the pointer argument, native call and float return; removed in own process.
+PASS: native view void(this,view) and body bool(this,entity) hooks preserve both arguments and native results in own process.
+PASS: local non-lethal headshot accepted; body, other attacker, death, zero damage and self damage rejected.
+PASS: schema fallback offsets remain bounded in the isolated test process.
+PASS: state registry clears synthetic tracking and suspends resident feature state.
+PASS: feature telemetry tracks real events; integrated trigger acquisition samples stay within [40, 90] ms.
+PASS: material and RGBA restoration; invalid mesh rejection; x64 eight-argument trampoline, original call and hook removal in own process.

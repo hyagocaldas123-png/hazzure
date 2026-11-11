@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "C:\\Codex2\\gpt\\HazzureInternal\\obj\\Internal.obj",
+            "outputs": [
+                "C:\\Codex2\\gpt\\HazzureInternal\\obj\\Internal.cpp.ifc.dt.module.json",
+                "C:\\Codex2\\gpt\\HazzureInternal\\obj\\Internal.cpp.ifc.dt.d.json",
+                "C:\\Codex2\\gpt\\HazzureInternal\\obj\\HazzureInternal.pch"
+            ],
+            "requires": []
+        }
+    ]
+}

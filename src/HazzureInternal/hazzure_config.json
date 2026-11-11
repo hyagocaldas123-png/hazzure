@@ -1,0 +1,4682 @@
+{
+  "espEnabled": true,
+  "espBoxes": true,
+  "espSkeleton": false,
+  "espHealth": true,
+  "espName": false,
+  "espWeapon": false,
+  "espDistance": false,
+  "espSnaplines": false,
+  "espFovCircle": false,
+  "offScreenArrows": true,
+  "showGrenadeTrajectory": true,
+  "showSpreadCircle": false,
+  "showSpectators": true,
+  "showBombTimer": true,
+  "showHitmarker": true,
+  "backgroundVignette": false,
+  "aimActive": true,
+  "rcsActive": true,
+  "triggerActive": true,
+  "humanizedTrigger": false,
+  "glowOutline": false,
+  "chamsVisible": true,
+  "chamsHidden": false,
+  "chamsArms": false,
+  "enemyOnly": true,
+  "chamsGradient": false,
+  "removeOriginalWeather": true,
+  "cleanMap": false,
+  "snowParticles": false,
+  "skyActive": false,
+  "darkWorld": true,
+  "agentEnabled": true,
+  "skinsEnabled": true,
+  "glassBlur": true,
+  "showTelemetryHUD": true,
+  "bhopActive": true,
+  "autoStrafe": false,
+  "showSpeedometer": true,
+  "showMovementGraph": true,
+  "jumpthrowActive": true,
+  "autoPistol": false,
+  "hitSound": false,
+  "killSound": false,
+  "proceduralAudio": true,
+  "bombBeepAudio": true,
+  "espBoxType": 1,
+  "aimBone": 0,
+  "triggerKey": 0,
+  "materialStyle": 0,
+  "skyboxIndex": 0,
+  "agentCT": 1,
+  "agentT": 15,
+  "knifeIndex": 4,
+  "knifeFinishIndex": 0,
+  "gloveIndex": 3,
+  "weaponIndex": 4,
+  "akFinishIndex": 0,
+  "awpFinishIndex": 0,
+  "m4FinishIndex": 0,
+  "deagleFinishIndex": 0,
+  "jumpthrowKey": 88,
+  "menuKey": 45,
+  "aimKey": 1,
+  "aimFov": 4.5,
+  "espMaxDistance": 8000.0,
+  "aimSmooth": 4.5,
+  "rcsScaleX": 1.0,
+  "rcsScaleY": 1.0,
+  "mouseYawScale": 0.02199999988079071,
+  "mousePitchScale": 0.02199999988079071,
+  "triggerDelayMs": 29.093198776245117,
+  "fogDensity": 0.17870722711086273,
+  "skyBrightness": 0.699999988079071,
+  "worldBrightness": 0.25,
+  "soundVolume": 0.800000011920929,
+  "colVisible": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "colHidden": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "colArms": [
+    0.8980392217636108,
+    0.8980392217636108,
+    0.9490196108818054,
+    0.3490196168422699
+  ],
+  "colGradient": [
+    0.27843138575553894,
+    0.6470588445663452,
+    0.9764705896377563,
+    1.0
+  ],
+  "colFog": [
+    0.6980392336845398,
+    0.7490196228027344,
+    0.8196078538894653,
+    1.0
+  ],
+  "colSky": [
+    0.49803921580314636,
+    0.49803921580314636,
+    0.49803921580314636,
+    1.0
+  ],
+  "colEnemy": [
+    0.0062111616134643555,
+    0.0003086289798375219,
+    0.0003086289798375219,
+    1.0
+  ],
+  "colTeam": [
+    0.3225955665111542,
+    0.5230658054351807,
+    0.7018633484840393,
+    1.0
+  ],
+  "colSkeleton": [
+    0.949999988079071,
+    0.949999988079071,
+    0.9700000286102295,
+    0.8999999761581421
+  ],
+  "colFov": [
+    0.8999999761581421,
+    0.8999999761581421,
+    0.9399999976158142,
+    0.20000000298023224
+  ],
+  "colSnaplines": [
+    0.8199999928474426,
+    0.8199999928474426,
+    0.8799999952316284,
+    0.44999998807907104
+  ],
+  "skins": [
+    {
+      "definition": 42,
+      "paint": 416,
+      "seed": 1,
+      "model": 500,
+      "wear": 0.00800000037997961,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 5031,
+      "paint": 10013,
+      "seed": 1,
+      "model": 5031,
+      "wear": 0.009999999776482582,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 7,
+      "paint": 959,
+      "seed": 1,
+      "model": 0,
+      "wear": 0.05000000074505806,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 60,
+      "paint": 984,
+      "seed": 1,
+      "model": 0,
+      "wear": 0.05000000074505806,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 16,
+      "paint": 844,
+      "seed": 1,
+      "model": 0,
+      "wear": 0.05000000074505806,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 1,
+      "paint": 962,
+      "seed": 1,
+      "model": 0,
+      "wear": 0.05000000074505806,
+      "legacy": 1,
+      "enabled": 1,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    },
+    {
+      "definition": 0,
+      "paint": 0,
+      "seed": 0,
+      "model": 0,
+      "wear": 0.0,
+      "legacy": 0,
+      "enabled": 0,
+      "reserved": 0
+    }
+  ],
+  "contexts": {
+    "ally": {},
+    "enemy": {},
+    "local": {}
+  },
+  "weaponClasses": {
+    "pistols": {},
+    "rifles": {},
+    "snipers": {}
+  },
+  "profiles": [
+    {
+      "name": "Legit Matchmaking",
+      "overrides": {},
+      "contexts": {
+        "ally": {},
+        "enemy": {},
+        "local": {}
+      },
+      "weaponClasses": {
+        "pistols": {},
+        "rifles": {},
+        "snipers": {}
+      }
+    },
+    {
+      "name": "Semi-Rage Premier",
+      "overrides": {},
+      "contexts": {
+        "ally": {},
+        "enemy": {},
+        "local": {}
+      },
+      "weaponClasses": {
+        "pistols": {},
+        "rifles": {},
+        "snipers": {}
+      }
+    },
+    {
+      "name": "Custom Slots",
+      "overrides": {},
+      "contexts": {
+        "ally": {},
+        "enemy": {},
+        "local": {}
+      },
+      "weaponClasses": {
+        "pistols": {},
+        "rifles": {},
+        "snipers": {}
+      }
+    }
+  ],
+  "activeProfile": "Legit Matchmaking",
+  "activeProfileIndex": 0,
+  "schemaVersion": 3,
+  "armory": [
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 1,
+      "stickers": true,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 9,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    },
+    {
+      "definition": 0,
+      "stickers": false,
+      "charm": false,
+      "stat": false,
+      "increment": true,
+      "nametag": false,
+      "counter": 0,
+      "charmId": 0,
+      "charmSeed": 0,
+      "charmX": 0.0,
+      "charmY": 0.0,
+      "charmZ": 0.0,
+      "name": "",
+      "slots": [
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        },
+        {
+          "id": 0,
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "wear": 0.0,
+          "scale": 1.0
+        }
+      ]
+    }
+  ],
+  "soundEsp": true,
+  "worldDamage": true,
+  "bulletTracers": true,
+  "impactBoxes": true,
+  "dormantFade": true,
+  "edgeJump": false,
+  "fastLadder": true,
+  "aimVisibleOnly": false,
+  "noVisualRecoil": true,
+  "aimBezier": false,
+  "aimDistanceFov": false,
+  "aimReactionDelay": false,
+  "limitFlash": false,
+  "nativeRadar": false,
+  "cameraFovOverride": true,
+  "customViewmodel": false,
+  "showKeybindsOverlay": false,
+  "aimTargetMode": 0,
+  "aimReactionMinMs": 80,
+  "aimReactionMaxMs": 180,
+  "soundDuration": 1.0,
+  "soundRadius": 72.0,
+  "damageDuration": 1.2000000476837158,
+  "tracerDuration": 1.0,
+  "dormantSeconds": 2.5,
+  "rcsSmooth": 2.011406898498535,
+  "aimCurveJitter": 0.02500000037252903,
+  "aimFovReferenceMetres": 20.0,
+  "aimFovMinimumScale": 0.25,
+  "flashAlphaLimit": 0.25,
+  "cameraFov": 124.7908706665039,
+  "viewmodelX": 1.0,
+  "viewmodelY": 1.0,
+  "viewmodelZ": -1.0,
+  "viewmodelFov": 68.0,
+  "triggerDistanceDelay": false,
+  "hitSoundFile": "",
+  "headshotSoundFile": "",
+  "killSoundFile": "",
+  "lineups": {
+    "map": "de_vertigo",
+    "entries": []
+  },
+  "grenadeAreaFill": false,
+  "grenadeAreaGlow": false,
+  "trajectoryGlow": false,
+  "trajectoryShimmer": false,
+  "tracerGlow": true,
+  "impactGlow": false,
+  "impactFill": false,
+  "impactSparks": false,
+  "killEffects": false,
+  "sceneColorEnabled": false,
+  "espWeaponImages": true,
+  "movingAccuracy": false,
+  "customHitSound": false,
+  "customHeadshotSound": false,
+  "customKillSound": false,
+  "hitchanceEnabled": true,
+  "aimMultipoint": true,
+  "aimBodyFallback": false,
+  "shotStop": false,
+  "shotStopEdgeGuard": true,
+  "soundRadar": true,
+  "shotFullStop": false,
+  "autoScope": true,
+  "strictSmoke": false,
+  "streamProof": false,
+  "lineupHelper": false,
+  "lineupAutoAlign": false,
+  "lineupAutoMap": true,
+  "grenadeZones": true,
+  "poseHistory": false,
+  "autoStrafePhysics": false,
+  "jumpBug": false,
+  "edgeBug": false,
+  "pixelSurf": false,
+  "espWeaponIcons": true,
+  "aimEase": true,
+  "chamsWeapon": false,
+  "chamsDualLayer": false,
+  "weather3d": false,
+  "killfeedEnabled": true,
+  "killfeedLocalOnly": false,
+  "thirdpersonEnabled": false,
+  "aspectRatioOverride": false,
+  "sceneColorCurve": 0,
+  "uiFontFamily": 0,
+  "uiTheme": 1,
+  "hitchanceSamples": 128,
+  "poseHistoryMs": 160,
+  "jumpBugKey": 67,
+  "edgeBugKey": 86,
+  "pixelSurfKey": 90,
+  "rcsBulletDelay": 2,
+  "rcsRampBullets": 3,
+  "triggerPauseMs": 350,
+  "weatherKind": 0,
+  "weatherCount": 96,
+  "killfeedLines": 6,
+  "thirdpersonKey": 0,
+  "grenadeAreaOpacity": 0.18000000715255737,
+  "grenadeAreaWidth": 1.5,
+  "trajectoryWidth": 1.7999999523162842,
+  "trajectoryPointSize": 3.4000000953674316,
+  "trajectoryOpacity": 0.8799999952316284,
+  "tracerWidth": 1.5,
+  "impactWidth": 1.0,
+  "impactSize": 2.0,
+  "impactDuration": 1.0,
+  "impactOpacity": 1.0,
+  "killEffectDuration": 0.8999999761581421,
+  "killEffectSize": 28.0,
+  "killEffectIntensity": 0.699999988079071,
+  "sceneSaturation": 1.0,
+  "sceneContrast": 1.0,
+  "sceneTemperature": 0.0,
+  "sceneTint": 0.0,
+  "uiFontSize": 14.0,
+  "espFontSize": 13.0,
+  "movingAccuracyPercent": 80.0,
+  "hitSoundGain": 1.0,
+  "headshotSoundGain": 1.0,
+  "killSoundGain": 1.0,
+  "hitchancePercent": 70.0,
+  "multipointScale": 0.5,
+  "bodyFallbackBelow": 40.0,
+  "shotStopSpeed": 75.0,
+  "aimEaseBias": 0.3499999940395355,
+  "rcsStrength": 0.9399999976158142,
+  "weatherSpeed": 550.0,
+  "weatherWindX": 18.0,
+  "weatherWindY": 5.0,
+  "killfeedDuration": 15.0,
+  "thirdpersonDistance": 120.0,
+  "aspectRatio": 1.333299994468689,
+  "colTrajectory": [
+    0.6299999952316284,
+    0.8799999952316284,
+    1.0,
+    1.0
+  ],
+  "colTrajectoryCollision": [
+    1.0,
+    0.699999988079071,
+    0.25,
+    1.0
+  ],
+  "colTracer": [
+    0.33000001311302185,
+    0.8199999928474426,
+    1.0,
+    1.0
+  ],
+  "colImpact": [
+    0.33000001311302185,
+    0.8199999928474426,
+    1.0,
+    1.0
+  ],
+  "colKillEffect": [
+    1.0,
+    0.4000000059604645,
+    0.20000000298023224,
+    1.0
+  ],
+  "uiAccent": [
+    0.949999988079071,
+    0.3100000023841858,
+    0.3400000035762787,
+    1.0
+  ],
+  "colSmoke": [
+    0.800000011920929,
+    0.8199999928474426,
+    0.8799999952316284,
+    0.6000000238418579
+  ],
+  "colMolotov": [
+    0.9800000190734863,
+    0.41999998688697815,
+    0.11999999731779099,
+    0.75
+  ],
+  "colMuzzle": [
+    1.0,
+    0.8500000238418579,
+    0.4000000059604645,
+    0.800000011920929
+  ]
+}

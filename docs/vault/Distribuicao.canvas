@@ -1,0 +1,32 @@
+{
+	"nodes":[
+		{"id":"group-codex","type":"group","x":0,"y":0,"width":470,"height":1770,"color":"6","label":"Codex — coordenação e contratos"},
+		{"id":"group-opencode","type":"group","x":500,"y":0,"width":470,"height":1770,"color":"5","label":"OpenCode — implementação"},
+		{"id":"group-antigravity","type":"group","x":1000,"y":0,"width":470,"height":1770,"color":"4","label":"Antigravity — revisão visual"},
+		{"id":"agent-codex","type":"file","file":"10_Agentes/Codex.md","x":20,"y":50,"width":430,"height":370,"color":"6"},
+		{"id":"T006","type":"file","file":"20_Tarefas/T006.md","x":20,"y":450,"width":430,"height":290},
+		{"id":"T007","type":"file","file":"20_Tarefas/T007.md","x":20,"y":770,"width":430,"height":290},
+		{"id":"T008","type":"file","file":"20_Tarefas/T008.md","x":20,"y":1090,"width":430,"height":290},
+		{"id":"T009","type":"file","file":"20_Tarefas/T009.md","x":20,"y":1410,"width":430,"height":290},
+		{"id":"agent-opencode","type":"file","file":"10_Agentes/OpenCode.md","x":520,"y":50,"width":430,"height":370,"color":"5"},
+		{"id":"T001","type":"file","file":"20_Tarefas/T001.md","x":520,"y":450,"width":430,"height":290},
+		{"id":"T002","type":"file","file":"20_Tarefas/T002.md","x":520,"y":770,"width":430,"height":290},
+		{"id":"T003","type":"file","file":"20_Tarefas/T003.md","x":520,"y":1090,"width":430,"height":290},
+		{"id":"T004","type":"file","file":"20_Tarefas/T004.md","x":520,"y":1410,"width":430,"height":290},
+		{"id":"agent-antigravity","type":"file","file":"10_Agentes/Antigravity.md","x":1020,"y":50,"width":430,"height":370,"color":"4"},
+		{"id":"T005","type":"file","file":"20_Tarefas/T005.md","x":1020,"y":450,"width":430,"height":290},
+		{"id":"start","type":"file","file":"Inicio.md","x":1500,"y":50,"width":440,"height":490,"color":"6"},
+		{"id":"reserve","type":"file","file":"00_Gestao/Reservas.md","x":1500,"y":570,"width":450,"height":560,"color":"2"}
+	],
+	"edges":[
+		{"id":"assign-T006","fromNode":"agent-codex","fromSide":"bottom","toNode":"T006","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T007","fromNode":"agent-codex","fromSide":"bottom","toNode":"T007","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T008","fromNode":"agent-codex","fromSide":"bottom","toNode":"T008","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T009","fromNode":"agent-codex","fromSide":"bottom","toNode":"T009","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T001","fromNode":"agent-opencode","fromSide":"bottom","toNode":"T001","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T002","fromNode":"agent-opencode","fromSide":"bottom","toNode":"T002","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T003","fromNode":"agent-opencode","fromSide":"bottom","toNode":"T003","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T004","fromNode":"agent-opencode","fromSide":"bottom","toNode":"T004","toSide":"top","label":"Responsável preferencial"},
+		{"id":"assign-T005","fromNode":"agent-antigravity","fromSide":"bottom","toNode":"T005","toSide":"top","label":"Responsável preferencial"}
+	]
+}

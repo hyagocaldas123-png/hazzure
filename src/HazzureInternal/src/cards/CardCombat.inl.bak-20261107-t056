@@ -1,0 +1,267 @@
+#pragma once
+
+
+
+// HazzureInternal/src/cards/CardCombat.inl — Frente 2.4 Modularizacao UI Enigma CS2
+
+// Escopo: Aimbot, RCS, Triggerbot, Precisao, Multipoint, Frenagem
+
+
+
+
+
+inline void DrawCombatAimbotCard() {
+
+    BeginCleanCard("Aimbot", "BONE 3D");
+
+    CleanToggle("Aimbot Ativo", &g_cfg.aimActive);
+
+    CleanToggle("Somente Alvos Visiveis", &g_cfg.aimVisibleOnly);
+
+    CleanToggle("Auto-Scope AWP / Scout", &g_cfg.autoScope);
+    ImGui::TextUnformatted("Pausa apos eliminacao (ms)");ImGui::SetNextItemWidth(g_cleanCardContentW);ImGui::SliderInt("##aimKillDelayMs",&g_cfg.aimKillDelayMs,0,1000);
+    ImGui::TextUnformatted("Pausa ao trocar alvo (ms)");ImGui::SetNextItemWidth(g_cleanCardContentW);ImGui::SliderInt("##aimSwitchDelayMs",&g_cfg.aimSwitchDelayMs,0,1000);
+
+
+    CleanSliderFloat("Campo de Visao (FOV)", &g_cfg.aimFov, 0.5f, 25.0f, "%.1f deg");
+
+    CleanSliderFloat("Suavizacao (Smooth)", &g_cfg.aimSmooth, 1.0f, 25.0f, "%.1f");
+
+    CleanToggle("Aceleracao / Desaceleracao", &g_cfg.aimEase);
+
+    if (g_cfg.aimEase) CleanSliderFloat("Pico de Velocidade", &g_cfg.aimEaseBias, .15f, .65f, "%.2f");
+
+    const char* bones[] = { "Cabeca (Bone 6)", "Pescoco (Bone 5)", "Peito (Bone 4)", "Pelve (Bone 0)" };
+
+    CleanCombo("Osso Alvo", &g_cfg.aimBone, bones, IM_ARRAYSIZE(bones));
+
+    const char* targetModes[] = { "Osso Fixo", "Osso Mais Proximo", "Cabeca / Fallback Visivel" };
+
+    CleanCombo("Selecao de Alvo", &g_cfg.aimTargetMode, targetModes, IM_ARRAYSIZE(targetModes));
+
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+
+    CleanKeybind("Tecla de Mira", &g_cfg.aimKey);
+
+    if (g_cfg.aimKey == 0) ImGui::TextColored(kTextMuted, "Ativacao: Sempre ativo no FOV");
+
+    else if (g_cfg.aimKey == 1) ImGui::TextColored(kTextMuted, "Ativacao: Mouse 1 (Disparo)");
+
+    else if (g_cfg.aimKey == 5) ImGui::TextColored(kTextMuted, "Ativacao: Mouse 5 (Lateral)");
+
+    else ImGui::TextColored(kTextMuted, "Ativacao: VK %d", g_cfg.aimKey);
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatTrajectoryCard() {
+
+    BeginCleanCard("Trajetoria & Alcance", "GUNPLAY");
+
+    CleanToggle("Curva Bezier", &g_cfg.aimBezier);
+
+    if (g_cfg.aimBezier) CleanSliderFloat("Variacao da Curva", &g_cfg.aimCurveJitter, 0.f, .1f, "%.3f deg");
+
+    CleanToggle("FOV por Distancia", &g_cfg.aimDistanceFov);
+
+    if (g_cfg.aimDistanceFov) {
+
+        CleanSliderFloat("Distancia de Referencia", &g_cfg.aimFovReferenceMetres, 5.f, 60.f, "%.0f m");
+
+        CleanSliderFloat("Escala Minima", &g_cfg.aimFovMinimumScale, .05f, 1.f, "%.2f");
+
+    }
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatReactionCard() {
+
+    BeginCleanCard("Reacao", "AQUISICAO");
+
+    CleanToggle("Atraso de Reacao", &g_cfg.aimReactionDelay);
+
+    if (g_cfg.aimReactionDelay) {
+
+        float low = static_cast<float>(g_cfg.aimReactionMinMs), high = static_cast<float>(g_cfg.aimReactionMaxMs);
+
+        if (CleanSliderFloat("Atraso Minimo", &low, 0.f, 500.f, "%.0f ms")) g_cfg.aimReactionMinMs = static_cast<int>(low);
+
+        if (CleanSliderFloat("Atraso Maximo", &high, 0.f, 500.f, "%.0f ms")) g_cfg.aimReactionMaxMs = static_cast<int>(high);
+
+        g_cfg.aimReactionMaxMs = std::max(g_cfg.aimReactionMinMs, g_cfg.aimReactionMaxMs);
+
+    }
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatRecoilCard() {
+
+    BeginCleanCard("Controle de Recoil", "RCS");
+
+    CleanToggle("RCS Ativo", &g_cfg.rcsActive);
+
+    CleanSliderFloat("Compensacao Vertical (Pitch)", &g_cfg.rcsScaleX, 0.0f, 1.5f, "%.2f");
+
+    CleanSliderFloat("Compensacao Horizontal (Yaw)", &g_cfg.rcsScaleY, 0.0f, 1.5f, "%.2f");
+
+    CleanSliderFloat("Suavizacao RCS", &g_cfg.rcsSmooth, 1.f, 15.f, "%.1f");
+
+    CleanSliderFloat("Intensidade RCS", &g_cfg.rcsStrength, 0.f, 1.f, "%.2f");
+
+    float bulletDelay = static_cast<float>(g_cfg.rcsBulletDelay), rampBullets = static_cast<float>(g_cfg.rcsRampBullets);
+
+    if (CleanSliderFloat("Balas Sem Compensacao", &bulletDelay, 0.f, 8.f, "%.0f")) g_cfg.rcsBulletDelay = static_cast<int>(bulletDelay);
+
+    if (CleanSliderFloat("Rampa em Balas", &rampBullets, 0.f, 8.f, "%.0f")) g_cfg.rcsRampBullets = static_cast<int>(rampBullets);
+
+    ImGui::TextWrapped("Compensa o spray mesmo com Aimbot desligado.");
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatTriggerCard() {
+
+    BeginCleanCard("Triggerbot", "DELAY / RECUPERACAO");
+
+    CleanToggle("Triggerbot Ativo", &g_cfg.triggerActive);
+
+    ImGui::TextUnformatted("Pausa apos eliminacao (ms)");ImGui::SetNextItemWidth(g_cleanCardContentW);ImGui::SliderInt("##aimKillDelayMs",&g_cfg.aimKillDelayMs,0,1000);
+    ImGui::TextUnformatted("Pausa ao trocar alvo (ms)");ImGui::SetNextItemWidth(g_cleanCardContentW);ImGui::SliderInt("##aimSwitchDelayMs",&g_cfg.aimSwitchDelayMs,0,1000);
+
+
+    CleanToggle("Anti-Smoke Estrito", &g_cfg.strictSmoke);
+
+    if (g_cfg.strictSmoke) {
+
+        ImGui::TextWrapped("Consulta densidade volumetrica nativa. Dados ausentes ou antigos bloqueiam o trigger.");
+
+    }
+
+    CleanKeybind("Tecla Triggerbot", &g_cfg.triggerKey);
+
+    if (g_cfg.triggerKey == 0) ImGui::TextColored(kTextMuted, "Ativacao: Automatico (sem tecla)");
+
+    else if (g_cfg.triggerKey == 18) ImGui::TextColored(kTextMuted, "Ativacao: ALT (segurar)");
+
+    else ImGui::TextColored(kTextMuted, "Ativacao: VK %d", g_cfg.triggerKey);
+
+    int mode = static_cast<int>(HazzureCombatRefine::TriggerDelayMode(g_cfg.humanizedTrigger, g_cfg.triggerDistanceDelay));
+
+    const char* modes[] = { "Aleatorio 40-90 ms", "Por Distancia", "Manual" };
+
+    if (CleanCombo("Modo de Delay", &mode, modes, IM_ARRAYSIZE(modes))) {
+
+        g_cfg.humanizedTrigger = mode != 2;
+
+        g_cfg.triggerDistanceDelay = mode == 1;
+
+    }
+
+    if (mode == 0) ImGui::TextWrapped("Sorteia 40-90 ms ao adquirir o alvo; mantem o valor durante a espera.");
+
+    if (mode == 1) ImGui::TextWrapped("60-90 ms perto; 150-220 ms a partir de 30 m.");
+
+    if (mode == 2) CleanSliderFloat("Delay Disparo", &g_cfg.triggerDelayMs, 0.0f, 150.0f, "%.0f ms");
+
+    ImGui::Separator();
+
+    float pause = static_cast<float>(g_cfg.triggerPauseMs);
+
+    if (CleanSliderFloat("Pausa Apos Disparo", &pause, 80.f, 1500.f, "%.0f ms")) g_cfg.triggerPauseMs = static_cast<int>(pause);
+
+    ImGui::TextWrapped("A pausa entre disparos e a recuperacao do recuo sao separadas do delay de aquisicao.");
+
+    ImGui::TextWrapped("Trigger: %s", g_frameDiagnostics.triggerStatus);
+
+    ImGui::TextWrapped("Zoom: %s", g_frameDiagnostics.scopeStatus);
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatAccuracyCard() {
+
+    BeginCleanCard("Precisao & Pontos", "ESTIMATIVA");
+
+    CleanToggle("Filtro de Hitchance no Trigger", &g_cfg.hitchanceEnabled);
+
+    CleanSliderFloat("Chance Minima Estimada", &g_cfg.hitchancePercent, 0.f, 100.f, "%.0f %%");
+
+    const char* samples[] = { "64 raios", "128 raios", "256 raios" };
+
+    int quality = g_cfg.hitchanceSamples <= 64 ? 0 : g_cfg.hitchanceSamples <= 128 ? 1 : 2;
+
+    if (CleanCombo("Amostras", &quality, samples, IM_ARRAYSIZE(samples))) g_cfg.hitchanceSamples = quality == 0 ? 64 : quality == 1 ? 128 : 256;
+
+    CleanToggle("Multipoint", &g_cfg.aimMultipoint);
+
+    if (g_cfg.aimMultipoint) CleanSliderFloat("Escala dos Pontos", &g_cfg.multipointScale, 0.f, .8f, "%.2f");
+
+    CleanToggle("Preferir Corpo se Cabeca Incerta", &g_cfg.aimBodyFallback);
+
+    if (g_cfg.aimBodyFallback) CleanSliderFloat("Limiar da Cabeca", &g_cfg.bodyFallbackBelow, 0.f, 100.f, "%.0f %%");
+
+    ImGui::TextWrapped("Dispersao nativa com volumes aproximados dos ossos.");
+
+    if (g_frameDiagnostics.hitchance >= 0) ImGui::TextDisabled("Ultima estimativa: %.1f%%", g_frameDiagnostics.hitchance);
+
+    if (g_cfg.hitchanceEnabled || g_cfg.aimMultipoint || g_cfg.aimBodyFallback) {
+
+        AcquireSRWLockShared(&HazzureWeaponAccuracy::lock);
+
+        auto value = HazzureWeaponAccuracy::snapshot;
+
+        ReleaseSRWLockShared(&HazzureWeaponAccuracy::lock);
+
+        auto now = GetTickCount64();
+
+        ImGui::TextDisabled(value.valid && now >= value.time && now - value.time <= 100 ? "Leitura da arma disponivel" : "Aguardando arma compativel");
+
+    }
+
+    EndCleanCard();
+
+}
+
+
+
+inline void DrawCombatBrakeCard() {
+
+    BeginCleanCard("Frenagem do Trigger", "ANTES DO DISPARO");
+
+    CleanToggle("Frear Antes de Disparar", &g_cfg.shotStop);
+
+    CleanToggle("Esperar Repouso Estavel", &g_cfg.shotFullStop);
+
+    CleanToggle("Preservar Apoio na Borda", &g_cfg.shotStopEdgeGuard);
+
+    if (!g_cfg.shotFullStop) CleanSliderFloat("Velocidade Limite", &g_cfg.shotStopSpeed, 10.f, 150.f, "%.0f u/s");
+
+    ImGui::TextWrapped("Contra-strafe por frame. O trigger aguarda a velocidade calculada.");
+
+    if (g_cfg.shotStop) ImGui::TextWrapped("%s", HazzureBrake::Label());
+
+    EndCleanCard();
+
+}
+
+
+
+
+

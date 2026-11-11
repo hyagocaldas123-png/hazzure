@@ -1,0 +1,406 @@
+// ---------- Tokens de Cores Hazzure (Monocromatico Preto & Branco, Alto Contraste) ----------
+static const ImVec4 kWinBg(0.067f, 0.067f, 0.078f, 1.0f);          // #111114
+static const ImVec4 kSideBg(0.043f, 0.043f, 0.051f, 1.0f);         // #0B0B0D
+static const ImVec4 kCardBg(0.086f, 0.086f, 0.102f, 1.0f);         // #16161A
+static const ImVec4 kWidgetBg(0.118f, 0.118f, 0.141f, 1.0f);       // #1E1E24
+static const ImVec4 kBorder(0.169f, 0.169f, 0.200f, 1.0f);         // #2B2B33
+static const ImVec4 kBorderHover(0.290f, 0.290f, 0.341f, 1.0f);    // #4A4A57
+static const ImVec4 kAccent(1.000f, 1.000f, 1.000f, 1.0f);         // #FFFFFF
+static const ImVec4 kAccentHover(0.902f, 0.902f, 0.925f, 1.0f);    // #E6E6EC
+static const ImVec4 kAccentActive(0.800f, 0.800f, 0.820f, 1.0f);   // #CCCCD1
+static const ImVec4 kAccentCyan(1.000f, 1.000f, 1.000f, 1.0f);     // Unificado ao acento branco
+static const ImVec4 kTextPrimary(1.000f, 1.000f, 1.000f, 1.0f);    // #FFFFFF
+static const ImVec4 kTextMuted(0.816f, 0.824f, 0.863f, 1.0f);      // #D0D2DC
+static const ImVec4 kMuted = kTextMuted;                            // Alias de compatibilidade
+static const ImVec4 kTextDark(0.541f, 0.549f, 0.588f, 1.0f);       // #8A8C96
+
+// ---------- Tokens do Painel (GS_*) ----------
+static const ImVec4 GS_BG(0.067f, 0.067f, 0.078f, 1.0f);           // #111114
+static const ImVec4 GS_SIDEBAR(0.043f, 0.043f, 0.051f, 1.0f);      // #0B0B0D
+static const ImVec4 GS_CARD = kCardBg;                              // #16161A
+static const ImVec4 GS_BORDER(0.169f, 0.169f, 0.200f, 1.0f);       // #2B2B33
+static const ImVec4 GS_BORDER_HOVER(0.290f, 0.290f, 0.341f, 1.0f); // #4A4A57
+static const ImVec4 GS_TEXT(1.000f, 1.000f, 1.000f, 1.0f);         // #FFFFFF
+static const ImVec4 GS_TEXT_MUTED(0.816f, 0.824f, 0.863f, 1.0f);   // #D0D2DC
+static const ImVec4 GS_ACCENT = kAccent;                            // #FFFFFF
+static const ImVec4 GS_ACCENT_ALT = kAccentHover;                   // #E6E6EC
+static const ImVec4 GS_SLIDER_BG(0.102f, 0.102f, 0.125f, 1.0f);    // #1A1A20
+static const ImVec4 GS_DROPDOWN(0.118f, 0.118f, 0.141f, 1.0f);     // #1E1E24
+static const ImVec4 GS_INDICATOR = kAccent;
+
+// Feature flag para novo layout GameSense
+static bool g_useGSLayout = true;
+
+static int g_currentTab = 0;
+
+// ---------- Estruturas Matematicas & Geometria ----------
+using Vec3=HazzureGame::Vec3;
+using Vec2=HazzureGame::Vec2;
+using Matrix4=HazzureGame::Matrix4;
+
+// WorldToScreen definition placed after g_cfg declaration below
+
+template<typename T>
+static bool SafeRead(uintptr_t addr, T* out) {
+    return out&&HazzureGame::ReadBytes(addr,out,sizeof(T));
+}
+[[maybe_unused]] static uintptr_t SafeReadPointer(uintptr_t addr) {
+    uintptr_t v=0; return HazzureGame::ReadBytes(addr,&v,sizeof(v))?v:0;
+}
+template<typename T>
+static bool SafeWrite(uintptr_t addr, const T& val) {
+    return HazzureGame::WriteBytes(addr,&val,sizeof(T));
+}
+
+// Conexoes esqueleticas padrao CS2 (CModelState bone array, stride 32 bytes)
+static const int kBoneLinks[][2] = {
+    {6,5},{5,4},{4,3},{3,2},{2,1},{1,0},
+    {5,8},{8,9},{9,10},
+    {5,13},{13,14},{14,15},
+    {0,17},{17,18},{18,19},
+    {0,20},{20,21},{21,22}
+};
+
+enum BoneIndex : int {
+    BONE_PELVIS = 0,
+    BONE_SPINE_1 = 2,
+    BONE_SPINE_2 = 4, // Peito / Chest
+    BONE_NECK = 5,    // Pescoco / Neck
+    BONE_HEAD = 6,    // Cabeca / Head
+    BONE_ANKLE_L = 19,
+    BONE_ANKLE_R = 22
+};
+
+static bool ReadBonePos(uintptr_t boneArray, int boneIdx, Vec3* outPos) {
+    if (!boneArray || boneIdx < 0 || boneIdx > 64 || !outPos) return false;
+    Vec3 p{};
+    if (!SafeRead(boneArray + static_cast<uintptr_t>(boneIdx) * 32u, &p)) return false;
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) return false;
+    if (p.x == 0.f && p.y == 0.f && p.z == 0.f) return false;
+    *outPos = p;
+    return true;
+}
+
+static uintptr_t ResolveValidatedBoneArray(uintptr_t gameScene, const Vec3& origin) {
+    if (!gameScene) return 0;
+    const uintptr_t candidates[2] = {
+        gameScene + HazzureOffsets::Schema::m_modelState + 0x80,
+        gameScene + 0x160 + 0x80
+    };
+    for (uintptr_t ptrAddr : candidates) {
+        uintptr_t boneArray = 0;
+        if (!SafeRead(ptrAddr, &boneArray) || boneArray < 0x10000) continue;
+        Vec3 pelvis{}, chest{}, head{};
+        if (!ReadBonePos(boneArray, BONE_PELVIS, &pelvis) ||
+            !ReadBonePos(boneArray, BONE_SPINE_2, &chest) ||
+            !ReadBonePos(boneArray, BONE_HEAD, &head)) {
+            continue;
+        }
+        float horizPelvis = std::hypot(pelvis.x - origin.x, pelvis.y - origin.y);
+        float horizHead   = std::hypot(head.x - origin.x, head.y - origin.y);
+        float relHeadZ    = head.z - origin.z;
+        float spineSpan   = head.z - pelvis.z;
+        if (horizPelvis < 96.f && horizHead < 96.f &&
+            relHeadZ >= 16.f && relHeadZ <= 92.f &&
+            spineSpan >= 8.f && spineSpan <= 68.f) {
+            return boneArray;
+        }
+    }
+    return 0;
+}
+
+static const char* GameInputBlockReason(bool menuOpen) {
+    bool capture=false;
+    if(ImGui::GetCurrentContext()){auto& io=ImGui::GetIO();capture=io.WantCaptureKeyboard||io.WantTextInput;}
+    if(menuOpen||capture)return HazzureInputContext::BlockReason(menuOpen,capture,true,true);
+    HWND foreground=GetForegroundWindow();DWORD pid{};if(foreground)GetWindowThreadProcessId(foreground,&pid);
+    return HazzureInputContext::BlockReason(false,false,foreground!=nullptr,pid==GetCurrentProcessId());
+}
+static bool IsGameInputActive(bool menuOpen) {return !strcmp(GameInputBlockReason(menuOpen),"ready");}
+
+// ---------- Configuracoes Gerais do Overlay ----------
+struct OverlayConfig {
+    int uiFontFamily=0,uiTheme=1;
+    float uiFontSize=14.f,espFontSize=13.f;
+    float uiAccent[4]={.95f,.31f,.34f,1.f};
+    bool espWeaponImages=true;
+    bool movingAccuracy=false;float movingAccuracyPercent=80.f;
+    bool customHitSound=false,customHeadshotSound=false,customKillSound=false;
+    char hitSoundFile[512]{},headshotSoundFile[512]{},killSoundFile[512]{};
+    float hitSoundGain=1.f,headshotSoundGain=1.f,killSoundGain=1.f;
+    // ESP 2D / 3D
+    bool espEnabled = true;
+    bool espBoxes = true;
+    int  espBoxType = 1; // 0 = Caixa Completa, 1 = Cantoneiras (Corner)
+    bool espSkeleton = true;
+    bool espHealth = true;
+    bool espName = true;
+    bool espWeapon = true;
+    bool espWeaponIcons = true;
+    bool espDistance = true;
+    bool espSnaplines = false;
+    bool espFovCircle = false;
+    float aimFov = 4.5f;
+    float espMaxDistance = 8000.f;
+
+    // Scene/overlay styling; new effects are opt-in and grading defaults to identity.
+    bool grenadeAreaFill=false,grenadeAreaGlow=false,trajectoryGlow=false,trajectoryShimmer=false;
+    bool fireGlowEnabled=false, smokeGlowEnabled=false;
+    float grenadeAreaOpacity=.18f,grenadeAreaWidth=1.5f,trajectoryWidth=1.8f,trajectoryPointSize=3.4f,trajectoryOpacity=.88f;
+    float colTrajectory[4]={.63f,.88f,1.f,1.f},colTrajectoryCollision[4]={1.f,.7f,.25f,1.f};
+    bool tracerGlow=true,impactGlow=false,impactFill=false,impactSparks=false,killEffects=false;
+    float tracerWidth=1.5f,impactWidth=1.f,impactSize=2.f,impactDuration=1.f,impactOpacity=1.f;
+    float killEffectDuration=.9f,killEffectSize=28.f,killEffectIntensity=.7f;
+    float colTracer[4]={.33f,.82f,1.f,1.f},colImpact[4]={.33f,.82f,1.f,1.f},colKillEffect[4]={1.f,.4f,.2f,1.f};
+    bool sceneColorEnabled=false;int sceneColorCurve=0;
+    float sceneSaturation=1.f,sceneContrast=1.f,sceneTemperature=0.f,sceneTint=0.f;
+    // Balistica & Indicadores
+    bool offScreenArrows = true;
+    bool soundEsp=false,worldDamage=false,bulletTracers=false,impactBoxes=false,dormantFade=false;
+    float soundDuration=1.f,soundRadius=72.f,damageDuration=1.2f,tracerDuration=1.f,dormantSeconds=2.5f;
+    bool showGrenadeTrajectory = true;
+    bool showSpreadCircle = false;
+    bool limitFlash = false, nativeRadar = false, cameraFovOverride = false, customViewmodel = false;
+    float flashAlphaLimit = .25f, cameraFov = 105.f;
+    float viewmodelX = 1.f, viewmodelY = 1.f, viewmodelZ = -1.f, viewmodelFov = 68.f;
+
+    // HUD Flutuante
+    bool showSpectators = false;
+    bool showBombTimer = true;
+    bool bombPlantedNotify = true;
+    bool noScopeOverlay = false;
+    float scopeFilterAlpha = 0.f;
+    bool showHitmarker = true;
+    bool backgroundVignette = false;
+
+    // Aimbot & Assist (Ossos Reais + RCS)
+    bool aimActive = true;
+    bool aimVisibleOnly = false;
+    bool noVisualRecoil = false;
+    bool aimBezier = false, aimDistanceFov = false, aimReactionDelay = false;
+    bool aimEase = true;
+    float aimEaseBias = .35f;
+    float aimCurveJitter = .025f, aimFovReferenceMetres = 20.f, aimFovMinimumScale = .25f;
+    int aimReactionMinMs = 80, aimReactionMaxMs = 180, aimTargetMode = 0;
+    int aimKillDelayMs=0,aimSwitchDelayMs=0;
+    float aimSmooth = 4.5f;
+    int aimBone = 0; // 0 = Cabeca (Bone 6), 1 = Pescoco (Bone 5), 2 = Peito (Bone 4), 3 = Pelve (Bone 0)
+    bool rcsActive = true;
+    float rcsScaleX = 1.0f;
+    float rcsScaleY = 1.0f;
+    float rcsSmooth = 1.f;
+    int rcsBulletDelay = 2, rcsRampBullets = 3;
+    float rcsStrength = .94f;
+    float mouseYawScale = 0.022f;
+    float mousePitchScale = 0.022f;
+
+    // Triggerbot
+    bool triggerActive = false;
+    int triggerKey = VK_MENU; // ALT
+    float triggerDelayMs = 65.0f;
+    bool humanizedTrigger = true;
+    bool triggerDistanceDelay = false;
+    int triggerPauseMs = 350;
+    bool autoScope=false, strictSmoke=false;
+    bool streamProof=false;
+    bool hitchanceEnabled = false, aimMultipoint = false, aimBodyFallback = false;
+    float hitchancePercent = 70.f, multipointScale = .5f, bodyFallbackBelow = 40.f;
+    int hitchanceSamples = 128;
+    bool aimExtrapolation = false;
+    float aimExtrapolationScale = 1.0f;
+    int safePointMode = 0; // 0 = Off, 1 = Prefer, 2 = Force
+    bool shotStop = false, shotStopEdgeGuard = true;
+    bool shotFullStop=false;
+    float shotStopSpeed = 75.f;
+
+    // Rage (Aimbot agressivo + anti-aim)
+    bool rageActive = false;
+    bool rageAntiAim = false;
+    bool rageIgnoreSmoke = true;
+    bool rageAntiAimOnGroundOnly = true;
+    bool rageAntiAimAtTargets = false;
+    bool rageAntiAimDefensive = false;
+    bool rageAntiAimMouseOverride = false;
+    bool rageAntiAimPitchInvert = false;
+    bool fakeDuck = false;
+    int fakeDuckKey = 0;
+    float rageFov = 30.f;
+    float rageSmooth = 1.f;
+    bool rageAutoStop = false;
+    float rageAutoStopSpeed = 12.f;
+    bool rageSilentAim = true;
+    // Auto-fire nao e sub-item do rage: recurso com nome proprio, ligado por ele, que so
+    // pede o angulo enviado dentro da tolerancia angular do alvo travado.
+    bool autoFire = false;
+    float autoFireOnTargetDeg = 1.f;
+    // 0 = estatico (offset fixo), 1 = jitter, 2 = spin
+    int rageAntiAimMode = 1;
+    float rageAntiAimPitch = 89.f;
+    float rageAntiAimYaw = 180.f;
+    float rageAntiAimJitterMin = 150.f;
+    float rageAntiAimJitterMax = 210.f;
+    float rageAntiAimSpinStep = 22.f;
+    // Autowall lite: decides only "a bala chega" from trace geometry (fraction/solid/
+    // contents). Off by default, and it never claims damage — see Autowall.h.
+    bool autowallEnabled = false;
+    int autowallMaxLayers = 2;
+    float autowallChancePenalty = 25.f;
+
+    bool soundRadar = false;
+    bool lineupHelper = false;
+    bool grenadeHelper = true;
+    bool lineupAutoAlign = false, lineupAutoMap = true;
+    bool grenadeZones = false;
+    bool grenadeProjectiles=false,droppedWeapons=false;
+    bool poseHistory=false;int poseHistoryMs=160;
+    HazzureLineups::Library lineups{};
+
+    // Materiais & Renderizacao
+    int materialStyle = 0; // 0 = Flat, 1 = Metallic/Chrome, 2 = Wireframe, 3 = Fresnel Rim-Glow, 4 = Crystal
+    int chamsVisibleStyle = 0; // Material do chams visivel (independente do oculto)
+    int chamsHiddenStyle = 2;  // Material do chams atras da parede (padrao: Wireframe)
+    bool glowOutline = true;
+    bool chamsVisible = true, chamsHidden = false, chamsArms = false;
+    bool chamsWeapon = false, chamsDualLayer = false;
+    bool enemyOnly = true, chamsGradient = false;
+    float colVisible[4] = { 0.95f, 0.28f, 0.28f, 1.f };
+    float colHidden[4] = { 0.65f, 0.28f, 0.95f, 1.f };
+    float colArms[4] = { 0.9f, 0.9f, 0.95f, 0.35f };
+    float colGradient[4] = { 0.28f, 0.65f, 0.98f, 1.f };
+    bool weather3d = false;
+    int weatherKind = 0;
+    int weatherCount = 96;
+    float weatherSpeed = 550.f;
+    float weatherWindX = 18.f;
+    float weatherWindY = 5.f;
+    bool killfeedEnabled = true;
+    bool killfeedLocalOnly = false;
+    float killfeedDuration = 15.f;
+    int killfeedLines = 6;
+    bool thirdpersonEnabled = false;
+    float thirdpersonDistance = 120.f;
+    int thirdpersonKey = 0;
+    bool aspectRatioOverride = false;
+    float aspectRatio = 1.3333f;
+
+    // Clima & Atmosfera
+    int skyboxIndex = 0;
+    bool removeOriginalWeather = false;
+    float fogDensity = 0.0f;
+    float colFog[4] = { 0.70f, 0.75f, 0.82f, 1.0f };
+    bool cleanMap = false;
+    bool snowParticles = false;
+    bool skyActive = false, darkWorld = false;
+    bool tsukuyomiTheme = false;
+    float tsukuyomiMoonSize = 8.0f;
+    float tsukuyomiMoonGlow = 1.0f;
+    bool vignetteEnabled = false;
+    float vignetteIntensity = 0.65f;
+    float skyBrightness = 0.7f, worldBrightness = 0.25f;
+    float colSky[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+    bool agentEnabled = false, skinsEnabled = false, secretKnifeAnim = false;
+    int agentCT = 0, agentT = 0;
+    int knifeIndex = 1, knifeFinishIndex = 0, gloveIndex = 1, weaponIndex = 1;
+    int akFinishIndex = 0, awpFinishIndex = 0, m4FinishIndex = 0, deagleFinishIndex = 0;
+    SkinConfig skins[64]{};
+    HazzureArmory::Profile armory[64]{};
+    HazzureInventory::Collection inventory{};
+
+    // UI & Telemetria
+    bool glassBlur = true;
+    bool showTelemetryHUD = true;
+    bool showKeybindsOverlay = false;
+
+    // Crosshair customizado
+    bool crosshairEnabled = false;
+    int crosshairStyle = 0; // 0 = cruz simples, 1 = cruz com ponto, 2 = círculo fino
+    float crosshairColor[4] = { 1.0f, 1.0f, 1.0f, 0.92f }; // branco #FFFFFF com alpha ~235
+    bool hideCustomCrosshairScoped = false;
+
+    // Minimapa 2D
+    bool minimapEnabled = false;
+    float minimapSize = 150.f;
+    float minimapZoom = 1.0f;
+
+    // Movimentacao
+    bool bhopActive = true;
+    bool bhopViewLock = false; // default desligado = mira livre; liga o steer de auto-strafe no ar
+    bool bhopBoost = false; // ganho de speed no ar via strafe fisico, sem depender do bhopViewLock
+    bool autoStrafe = false;
+    bool autoStrafePhysics=false,jumpBug=false,edgeBug=false,pixelSurf=false;
+    int jumpBugKey='C',edgeBugKey='V',pixelSurfKey='Z';
+    bool edgeJump=false,fastLadder=false;
+    bool slowWalk = false;
+    int slowWalkKey = VK_SHIFT;
+    float slowWalkSpeed = 130.f;
+    bool fastStop = false;
+    bool slideWalk = false;
+    bool antiAfk = false;
+    bool crouchJumpAuto = false;
+    bool standJumpAuto = false;
+    bool showSpeedometer = true;
+    bool showMovementGraph = false;
+    bool jumpthrowActive = true;
+    int jumpthrowKey = 'X';
+    bool autoPistol = false;
+    bool autoGrenadeRelease = false;
+
+    // Pacote 1 (T057): Combat, ESP, Chams, Mundo & Removals
+    bool triggerFlashCheck = false;
+    bool triggerAirCheck = false;
+    bool forceBodyAim = false;
+    int forceBodyAimKey = 0;
+    bool baimOnPeek = false;
+    bool espShowArmor = true;
+    bool espFlagsExtras = true;
+    bool espDefuserHostage = true;
+    bool eventLogsScreen = true;
+    bool espSmoothAnimations = true;
+    bool scoreboardRevealAll = false;
+    bool grenadeIndividualRadius = true;
+    float smokeRadiusUnits = 144.f;
+    float molotovRadiusUnits = 150.f;
+    bool cleanSniperScopeLines = true;
+
+    // Audio Procedural DSP
+    bool hitSound = true;
+    int hitSoundPreset = 0;
+    bool killSound = true;
+    bool proceduralAudio = true;
+    bool bombBeepAudio = false;
+    float soundVolume = 0.8f;
+
+    // Teclas
+    int menuKey = VK_INSERT;
+    int aimKey = VK_LBUTTON;
+
+    // Cores (RGBA float)
+    float colEnemy[4] = { 0.95f, 0.28f, 0.28f, 1.0f };
+    float colTeam[4] = { 0.28f, 0.65f, 0.98f, 1.0f };
+    float colSkeleton[4] = { 0.95f, 0.95f, 0.97f, 0.90f };
+    float colFov[4] = { 0.90f, 0.90f, 0.94f, 0.20f };
+    float colSnaplines[4] = { 0.82f, 0.82f, 0.88f, 0.45f };
+    float colSmoke[4] = { 0.80f, 0.82f, 0.88f, 0.60f };
+    float colMolotov[4] = { 0.98f, 0.42f, 0.12f, 0.75f };
+    float colMuzzle[4] = { 1.00f, 0.85f, 0.40f, 0.80f };
+    float fireGlowColor[4] = { 1.0f, 0.27f, 0.0f, 1.0f }; // #FF4500
+    float smokeGlowColor[4] = { 0.54f, 0.17f, 0.89f, 1.0f }; // #8A2BE2
+};
+
+static OverlayConfig g_cfg;
+inline bool g_menuOpen = true;
+
+static bool WorldToScreen(const Vec3& p, const Matrix4& matrix, int width, int height, Vec2& result) {
+    // Always use the matrix actually delivered by the game; an independent
+    // horizontal scale would move ESP away from the native scene.
+    return HazzureGame::Project(p,matrix,width,height,result);
+}
+
+// WorldToScreen definition placed after g_cfg declaration below
+static Shared* g_settingsShared = nullptr;
+static int* g_bindingTarget = nullptr;
+static bool g_bindingWaitRelease = false;
+static bool g_bindingKeyDown[256]{};
+static bool RuntimeBool(const char*,bool,const char*,const char*);
+static float RuntimeFloat(const char*,float,const char*,const char*);
+

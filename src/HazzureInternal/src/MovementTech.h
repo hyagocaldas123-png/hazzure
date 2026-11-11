@@ -1,0 +1,247 @@
+#pragma once
+#include "Visibility.h"
+#include "AutoPistol.h"
+#include <atomic>
+namespace HazzureMove {
+using HazzureGame::Vec3;
+enum class Support { Ground,Edge,Unavailable };
+// Source 2: solid, player clip, window, pass-bullets geometry, player, NPC.
+inline constexpr uint64_t playerSolidMask=(1ull<<0)|(1ull<<4)|(1ull<<12)|(1ull<<13)|(1ull<<18)|(1ull<<19);
+struct Settings {bool active{},bhop{},edge{},ladder{};uint64_t published{};float yawUnit=.044f,pitchUnit=.044f;bool autoPistol{},viewLockJump{};};
+inline SRWLOCK lock=SRWLOCK_INIT;inline Settings settings;
+// Shared intent only: command writers remain in their original owner/thread.
+inline std::atomic<bool> lineupBusy{false};
+// Jump crosses threads through the CreateMove hook: 0x6AEBC4DA never reads the
+// button globals. While the movement pulse owns the state the hook also clears
+// a physical space hold, otherwise the engine sees IN_JUMP held across the
+// landing and bhop never gets its re-press edge.
+inline volatile LONG jumpCommandState=-1; // -1 not owned, 0 release, 1 press
+inline volatile LONG64 jumpCommandStamp=0;
+inline volatile LONG jumpPublishCount=0,jumpStampCount=0,jumpStampDown=0;
+inline void PublishJumpCommand(bool down){
+    InterlockedExchange(&jumpCommandState,down?1:0);
+    InterlockedExchange64(&jumpCommandStamp,static_cast<long long>(GetTickCount64()));
+    InterlockedIncrement(&jumpPublishCount);
+}
+inline bool ReadJumpCommand(bool& down){
+    LONG state=InterlockedCompareExchange(&jumpCommandState,-1,-1);
+    LONG64 stamp=InterlockedCompareExchange64(&jumpCommandStamp,0,0);
+    if(state<0||!stamp||GetTickCount64()-static_cast<uint64_t>(stamp)>=100)return false;
+    down=state==1;return true;
+}
+inline void Configure(const Settings& value){AcquireSRWLockExclusive(&lock);settings=value;ReleaseSRWLockExclusive(&lock);}
+struct JumpInput {
+    uintptr_t pawn{};bool context{},walking{},ground{},hold{},request{},physicalSpace{};uint64_t now{};
+    uint64_t penalty{};
+};
+// sv_jump_spam_penalty_time on build 0x6AEBC4DA is the ConVar global at client+0x2537620 and its
+// value comes from the same accessor as the movement cvars (mov rax,[rcx+8]; movss xmm0,[rax+58h]).
+// sub_1808C4C20 discards a jump press that arrives inside the window, so the pulse has to clear it
+// instead of guessing. Unreadable cvar falls back to Valve's documented 0.015 s default.
+inline uint64_t JumpSpamPenaltyMs(uintptr_t client){
+    static uint64_t cached=15,nextCheck{};static uintptr_t owner{};
+    uint64_t now=GetTickCount64();
+    if(client==owner&&now<nextCheck)return cached;
+    owner=client;nextCheck=now+1000;
+    uintptr_t data{};float seconds{};
+    constexpr unsigned char accessor[]={0x48,0x8b,0x41,0x08,0xf3,0x0f,0x10,0x40,0x58,0xc3};
+    if(!HazzureVisibility::CurrentBuild(client)||!HazzureVisibility::Prefix(client+0x8D0490,accessor,sizeof(accessor))||
+       !HazzureGame::Read(client+0x2537620+8,data)||!data||!HazzureGame::Read(data+0x58,seconds)||
+       !std::isfinite(seconds)||seconds<0.f||seconds>1.f)return cached=15;
+    cached=static_cast<uint64_t>(seconds*1000.f+.5f);return cached;
+}
+// Retry a missed press without waiting forever for an airborne sample. Keep each press for at
+// least one 64 Hz tick and never start the next one inside the engine's jump-spam window.
+struct JumpPulse {
+    uintptr_t pawn{};uint64_t pressed{},last{},grounded{};bool owned{},down{},restorePending{},lifted{};
+    void Reset(){*this={};}
+    void WriteFailed(){Reset();owned=restorePending=true;}
+    int Step(const JumpInput& q){
+        if(restorePending){Reset();return 256;}
+        bool changed=pawn&&pawn!=q.pawn,rollback=last&&q.now<last;
+        if(!q.context||!q.walking||!q.pawn||changed||rollback){
+            int restore=owned?256:-1;Reset();return restore;
+        }
+        pawn=q.pawn;last=q.now;
+        if(q.ground){if(!grounded)grounded=q.now;}else grounded=0;
+        bool desired=q.hold||q.request;
+        if(!desired&&!down){
+            int restore=owned?(q.physicalSpace?65537:256):-1;Reset();return restore;
+        }
+        if(!q.ground){
+            lifted=true;
+            if(!owned)return -1;
+            down=false;return 256;
+        }
+        if(down){
+            if(q.now-pressed<16)return 65537;
+            down=false;return 256;
+        }
+        // The engine measures its window between presses, and an edge can be registered a whole
+        // client tick late: two 64 Hz ticks of slack keep a real hop from being discarded at any
+        // tick rate. At a ledge FL_ONGROUND flickers, so a press also needs the pawn to have
+        // actually left the ground since the last one — unless it stayed grounded past the whole
+        // window, which is a takeoff that never happened rather than a double jump.
+        if(desired && q.ground && !down){
+            owned=down=true;lifted=false;pressed=q.now;return 65537;
+        }
+        return owned?256:-1;
+    }
+};
+// SchemaClassFieldData_t candidates checked again in the installed build 14192.
+inline constexpr uintptr_t moveTypeOffset=0x525,movementServicesOffset=0x1330,ladderNormalOffset=0x3f8;
+struct SupportSample {
+    uintptr_t pawn{},scene{};Vec3 origin{},velocity{};uint64_t completed{};Support support=Support::Unavailable;
+    Support Read(uintptr_t player,uintptr_t node,const Vec3& at,const Vec3& speed,uint64_t now)const{
+        if(!player||!node||player!=pawn||node!=scene||!completed||now<completed||now-completed>24||
+           !HazzureGame::Finite(at)||!HazzureGame::Finite(speed,20000))return Support::Unavailable;
+        // One frame of bounded movement is accepted; a teleport or a turn invalidates the prediction.
+        if(std::fabs(at.x-origin.x)>8||std::fabs(at.y-origin.y)>8||std::fabs(at.z-origin.z)>2||
+           std::fabs(speed.x-velocity.x)>40||std::fabs(speed.y-velocity.y)>40)return Support::Unavailable;
+        return support;
+    }
+};
+inline SRWLOCK supportLock=SRWLOCK_INIT;inline SupportSample supportSample;
+inline void PublishSupport(const SupportSample& sample){AcquireSRWLockExclusive(&supportLock);supportSample=sample;ReleaseSRWLockExclusive(&supportLock);}
+inline Support ReadSupport(uintptr_t pawn,uintptr_t scene,const Vec3& origin,const Vec3& velocity,uint64_t now){
+    AcquireSRWLockShared(&supportLock);auto sample=supportSample;ReleaseSRWLockShared(&supportLock);
+    return sample.Read(pawn,scene,origin,velocity,now);
+}
+struct EdgeGate {
+    uintptr_t pawn{};bool grounded{},armed=true;
+    bool Update(uintptr_t player,bool active,bool ground,bool walking,float speed,Support support){
+        if(!active||player!=pawn){*this={};pawn=player;}
+        if(!active)return false;
+        if(ground&&(!grounded||support==Support::Ground))armed=true;grounded=ground;
+        if(armed&&ground&&walking&&std::isfinite(speed)&&speed>40&&support==Support::Edge){armed=false;return true;}
+        return false;
+    }
+};
+inline bool ProbeSegment(Vec3 origin,Vec3 velocity,float side,Vec3& start,Vec3& end){
+    if(!HazzureGame::Finite(origin)||!HazzureGame::Finite(velocity,20000)||!std::isfinite(side))return false;
+    float speed=std::hypot(velocity.x,velocity.y);if(speed<=40)return false;
+    float forward=std::min(speed*.024f,20.f);
+    start={origin.x+velocity.x/speed*forward-velocity.y/speed*side,
+           origin.y+velocity.y/speed*forward+velocity.x/speed*side,origin.z+4};
+    end=start;end.z-=22;return true;
+}
+inline HazzureVisibility::Trace EmptyProbeTrace(){
+    HazzureVisibility::Trace trace{};trace.fraction=-1.f;return trace;
+}
+inline Support ClassifySupport(const HazzureVisibility::Trace& trace){
+    if(trace.solid||!std::isfinite(trace.fraction)||trace.fraction<0||trace.fraction>1)return Support::Unavailable;
+    return trace.fraction<1.f?Support::Ground:Support::Edge;
+}
+inline Support Probe(uintptr_t client,uintptr_t pawn,Vec3 origin,Vec3 velocity){
+    if(!HazzureVisibility::BuildMatches(client)||!HazzureGame::Finite(origin)||!HazzureGame::Finite(velocity,20000))return Support::Unavailable;
+    auto profile=HazzureVisibility::SelectTraceProfile(client);
+    if(!profile.trace||!profile.filter||!profile.world)return Support::Unavailable;
+    constexpr unsigned char traceCode[]={0x48,0x89,0x54,0x24,0x10,0x48,0x89,0x4c,0x24,0x08,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x56,0x41,0x57};
+    constexpr unsigned char filterCode[]={0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20,0x0f,0xb6,0x41,0x39};
+    if(!HazzureVisibility::Prefix(client+profile.trace,traceCode,sizeof(traceCode))||!HazzureVisibility::Prefix(client+profile.filter,filterCode,sizeof(filterCode)))return Support::Unavailable;
+    uintptr_t world{},object{};if(!HazzureGame::Read(client+profile.world,world)||!world||!HazzureGame::Read(world,object)||!object)return Support::Unavailable;
+    float speed=std::hypot(velocity.x,velocity.y);if(speed<=40)return Support::Ground;
+    using Filter=void*(*)(void*,uintptr_t,uint64_t,int,uint16_t);
+    using Trace=bool(*)(uintptr_t,const HazzureVisibility::Ray*,const Vec3*,const Vec3*,const void*,HazzureVisibility::Trace*);
+    for(float side:{0.f,-12.f,12.f}){Vec3 start{},end{};if(!ProbeSegment(origin,velocity,side,start,end))return Support::Unavailable;
+        alignas(16)unsigned char filter[0x110]{};HazzureVisibility::Ray ray{};auto trace=EmptyProbeTrace();
+        __try{reinterpret_cast<Filter>(client+profile.filter)(filter,pawn,playerSolidMask,3,15);
+            reinterpret_cast<Trace>(client+profile.trace)(world,&ray,&start,&end,filter,&trace);}
+        __except(EXCEPTION_EXECUTE_HANDLER){return Support::Unavailable;}
+        auto support=ClassifySupport(trace);if(support!=Support::Edge)return support;
+    }
+    return Support::Edge;
+}
+inline bool Button(uintptr_t address,const char* expected,int state){
+    (void)expected;
+    if(!address)return false;
+#ifdef INTERNAL_SELF_TEST
+    (void)state;return true;
+#else
+    __try{InterlockedExchange(reinterpret_cast<volatile LONG*>(address),state);return true;}
+    __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+#endif
+}
+inline bool LadderTarget(const Vec3& normal,Vec3& target){
+    float length=std::hypot(normal.x,normal.y);if(!HazzureGame::Finite(normal,2)||length<.5f)return false;
+    target={-89.f,HazzureGame::NormalizeAngle(std::atan2(-normal.y,-normal.x)*57.2957795131f-45.f),0};return true;
+}
+// Jump ownership stays with the already validated Present pulse. The frame callback only
+// computes physical support and owns ladder steering, never writes the jump button.
+inline EdgeGate edge;
+inline uintptr_t lastPawn{};
+inline bool rightOwned{},steering{},restoring{};
+inline Vec3 original{},lastSteer{};
+inline HazzureGame::MouseRemainder mouse;
+inline std::atomic<float> ladderSpeed{};
+inline bool NeedsOwnedPress(bool owned,bool stateValid,int state){return !owned||!stateValid||(state&1)==0;}
+inline bool CanRestoreView(bool contextActive,bool manualDirection,const Vec3& current,const Vec3& expected){
+    return contextActive&&!manualDirection&&HazzureGame::Finite(current,36000)&&HazzureGame::Finite(expected,36000)&&
+        std::fabs(current.x-expected.x)<3&&std::fabs(HazzureGame::NormalizeAngle(current.y-expected.y))<3;
+}
+inline bool SendAngles(const Vec3& current,const Vec3& target,const Settings& option,float limit){
+    if(!HazzureGame::Finite(current,36000)||!HazzureGame::Finite(target,36000)||!std::isfinite(option.yawUnit)||!std::isfinite(option.pitchUnit)||option.yawUnit<.0001f||option.pitchUnit<.0001f)return false;
+    float yaw=std::clamp(HazzureGame::NormalizeAngle(target.y-current.y),-limit,limit),pitch=std::clamp(target.x-current.x,-limit,limit);
+    LONG dx{},dy{};mouse.Quantize(-yaw/option.yawUnit,pitch/option.pitchUnit,dx,dy);
+#ifndef INTERNAL_SELF_TEST
+    DWORD foreground{};GetWindowThreadProcessId(GetForegroundWindow(),&foreground);
+    if(foreground!=GetCurrentProcessId())return false;
+    if(dx||dy){INPUT input{};input.type=INPUT_MOUSE;input.mi.dwFlags=MOUSEEVENTF_MOVE;input.mi.dx=dx;input.mi.dy=dy;
+        if(SendInput(1,&input,sizeof(input))!=1)return false;}
+#endif
+    lastSteer={std::clamp(current.x+static_cast<float>(dy)*option.pitchUnit,-89.f,89.f),
+        HazzureGame::NormalizeAngle(current.y-static_cast<float>(dx)*option.yawUnit),0};return true;
+}
+inline void ReleaseRight(uintptr_t client,bool physicalRight){
+    if(rightOwned){if(!physicalRight)Button(client+HazzureOffsets::Buttons::right,"right",256);rightOwned=false;}
+}
+inline void ReleaseLadder(uintptr_t client,bool physicalRight){
+    ReleaseRight(client,physicalRight);steering=restoring=false;mouse.Reset();
+}
+inline void Stop(uintptr_t client){
+    // Do not send restoration mouse input on focus loss or release a physically held D.
+    ReleaseLadder(client,(GetAsyncKeyState('D')&0x8000)!=0);PublishSupport({});HazzurePistol::Publish({});lastPawn=0;ladderSpeed.store(0);
+}
+inline void Frame(uintptr_t client){
+    AcquireSRWLockShared(&lock);auto option=settings;ReleaseSRWLockShared(&lock);auto now=GetTickCount64();
+    DWORD foreground{};GetWindowThreadProcessId(GetForegroundWindow(),&foreground);
+    HazzureGame::Pawn local{};auto pawn=HazzureGame::LocalPawn(client);
+    if(!option.active||now<option.published||now-option.published>100||foreground!=GetCurrentProcessId()||
+       !HazzureVisibility::BuildMatches(client)||!HazzureGame::ReadPawn(pawn,local)||local.health<=0||local.life!=0){Stop(client);return;}
+    if(lastPawn&&lastPawn!=pawn)Stop(client);lastPawn=pawn;
+    HazzurePistol::Frame(client,pawn,option.autoPistol&&!lineupBusy.load());
+    uint8_t move{};int flags{};
+    if(!HazzureGame::Read(pawn+moveTypeOffset,move)||!HazzureGame::Read(pawn+HazzureOffsets::Schema::m_fFlags,flags)){Stop(client);return;}
+    bool ground=(flags&1)!=0,walk=move==2;
+    float speed=local.velocityValid?std::hypot(local.velocity.x,local.velocity.y):0.f;
+    ladderSpeed.store(move==9&&local.velocityValid?std::fabs(local.velocity.z):0.f);
+    Support support=Support::Unavailable;
+    if(option.edge&&walk&&ground&&speed>40&&local.velocity.z<=1.f)support=Probe(client,pawn,local.origin,local.velocity);
+    PublishSupport({pawn,local.scene,local.origin,local.velocity,now,support});
+    bool right=(GetAsyncKeyState('D')&0x8000)!=0,left=(GetAsyncKeyState('A')&0x8000)!=0;
+    bool forward=(GetAsyncKeyState('W')&0x8000)!=0,back=(GetAsyncKeyState('S')&0x8000)!=0;
+    bool firing=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;
+    bool active=option.ladder&&!lineupBusy.load()&&move==9&&forward&&!back&&!firing&&!left&&!right&&local.anglesValid;
+    uintptr_t movement{};Vec3 normal{},target{};
+    if(active&&HazzureGame::Read(pawn+movementServicesOffset,movement)&&movement&&HazzureGame::Read(movement+ladderNormalOffset,normal)&&LadderTarget(normal,target)){
+        if(!steering){if(!restoring)original=local.angles;mouse.Reset();}
+        steering=true;restoring=false;
+        int rightState{};bool rightStateValid=HazzureGame::Read(client+HazzureOffsets::Buttons::right,rightState);
+        // An engine input update (including the old auto-strafe release) may clear the
+        // held bit after our first press. Reassert only then, while still owning it.
+        if(NeedsOwnedPress(rightOwned,rightStateValid,rightState))rightOwned=Button(client+HazzureOffsets::Buttons::right,"right",65537);
+        if(!rightOwned||!SendAngles(local.angles,target,option,12.f))ReleaseLadder(client,right);
+    }else{
+        bool canRestore=(steering||restoring)&&local.anglesValid&&
+            CanRestoreView(option.ladder,left||right||back||firing,local.angles,lastSteer);
+        ReleaseRight(client,right);
+        // A single 180-degree mouse request was clipped by MouseRemainder to 1000 counts,
+        // leaving a partially restored view. Restore in bounded steps and stop on user input.
+        if(canRestore&&(std::fabs(local.angles.x-original.x)>.08f||
+           std::fabs(HazzureGame::NormalizeAngle(local.angles.y-original.y))>.08f)){
+            steering=false;restoring=SendAngles(local.angles,original,option,12.f);
+            if(!restoring)ReleaseLadder(client,right);
+        }else ReleaseLadder(client,right);
+    }
+}
+}

@@ -1,0 +1,112 @@
+// C++ / Visibility.h / MSVC x64 C++17 / build 14192/14194 physics queries on frame callback
+#pragma once
+#include "GameData.h"
+#include <array>
+#include <atomic>
+#include "PerformanceMetrics.h"
+namespace HazzureVisibility {
+using Vec3=HazzureGame::Vec3;
+enum class Verdict { Unknown,Visible,Blocked,Unavailable };
+struct Request {uintptr_t local{},target{};Vec3 start{},end{};unsigned sample{};};
+struct Ray {unsigned char bytes[0x40]{};};
+struct Trace {
+    uintptr_t surface{},entity{},hitbox{};unsigned char pad[0x94]{};
+    float fraction{};unsigned char tail[0xb]{};bool solid{};unsigned char end[4]{};
+};
+static_assert(offsetof(Trace,fraction)==0xac&&offsetof(Trace,solid)==0xbb&&sizeof(Trace)==0xc0);
+inline Verdict Classify(const Trace& t,uintptr_t target){
+    if(!target||!std::isfinite(t.fraction)||t.fraction<0.f||t.fraction>1.f)return Verdict::Unavailable;
+    if(t.solid)return Verdict::Blocked;
+    if(t.entity==target)return Verdict::Visible;
+    return t.entity==0&&t.fraction==1.f?Verdict::Visible:Verdict::Blocked;
+}
+inline bool CurrentBuild(uintptr_t client){
+    IMAGE_DOS_HEADER dos{};IMAGE_NT_HEADERS64 nt{};
+    return HazzureGame::Read(client,dos)&&dos.e_magic==IMAGE_DOS_SIGNATURE&&dos.e_lfanew>0&&dos.e_lfanew<0x10000&&
+        HazzureGame::Read(client+dos.e_lfanew,nt)&&nt.Signature==IMAGE_NT_SIGNATURE&&
+        nt.FileHeader.TimeDateStamp==0x6AEBC4DAu&&nt.OptionalHeader.SizeOfImage==0x29A3000u;
+}
+inline bool BuildMatches(uintptr_t client){
+    IMAGE_DOS_HEADER dos{};IMAGE_NT_HEADERS64 nt{};
+    return HazzureGame::Read(client,dos)&&dos.e_magic==IMAGE_DOS_SIGNATURE&&dos.e_lfanew>0&&dos.e_lfanew<0x10000&&
+        HazzureGame::Read(client+dos.e_lfanew,nt)&&nt.Signature==IMAGE_NT_SIGNATURE&&
+        ((nt.FileHeader.TimeDateStamp==0x6AEBC4DAu&&nt.OptionalHeader.SizeOfImage==0x29A3000u)||
+         (nt.FileHeader.TimeDateStamp==0x6ADA7340||nt.FileHeader.TimeDateStamp==0x6AE217A2u||(nt.FileHeader.TimeDateStamp==0x6AE4FB84u||nt.FileHeader.TimeDateStamp==0x6AE91E98u))&&
+         (nt.OptionalHeader.SizeOfImage==0x29A0000||nt.OptionalHeader.SizeOfImage==0x29A2000u));
+}
+// Identity only: legacy consumers keep BuildMatches; each current caller proves its own ABI.
+inline bool Build14194Matches(uintptr_t client){
+    IMAGE_DOS_HEADER dos{};IMAGE_NT_HEADERS64 nt{};
+    return HazzureGame::Read(client,dos)&&dos.e_magic==IMAGE_DOS_SIGNATURE&&dos.e_lfanew>0&&dos.e_lfanew<0x10000&&
+        HazzureGame::Read(client+dos.e_lfanew,nt)&&nt.Signature==IMAGE_NT_SIGNATURE&&
+        (nt.FileHeader.TimeDateStamp==0x6AE4FB84u||nt.FileHeader.TimeDateStamp==0x6AE91E98u)&&nt.OptionalHeader.SizeOfImage==0x29A2000u;
+}
+struct TraceProfile {uintptr_t trace{},filter{},world{};};
+inline TraceProfile SelectTraceProfile(uintptr_t client){
+    if(CurrentBuild(client))return {0xa1b8d0,0x352e20,0x222bfa8};
+    if(Build14194Matches(client))return {0xa1b750,0x352de0,0x222afa8};
+    if(BuildMatches(client))return {0xa1ae30,0x352cc0,0x2229020};
+    return {};
+}
+inline bool Prefix(uintptr_t address,const unsigned char* expected,size_t n){
+    unsigned char bytes[32]{};return n<=sizeof(bytes)&&HazzureGame::ReadBytes(address,bytes,n)&&!memcmp(bytes,expected,n);
+}
+inline Verdict NativeQuery(uintptr_t client,const Request& q){
+    auto profile=SelectTraceProfile(client);
+    if(!profile.trace||!q.local||!q.target||!HazzureGame::Finite(q.start)||!HazzureGame::Finite(q.end))return Verdict::Unavailable;
+    HazzureGame::Pawn local{},target{};
+    if(HazzureGame::LocalPawn(client)!=q.local||!HazzureGame::ReadPawn(q.local,local)||
+       !HazzureGame::ReadPawn(q.target,target)||local.team==target.team)return Verdict::Unavailable;
+    // 14194 trace/filter + result entity at +8: trace-pointer-callers / trace-entity-rtti evidence.
+    constexpr unsigned char traceCode[]={0x48,0x89,0x54,0x24,0x10,0x48,0x89,0x4c,0x24,0x08,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x56,0x41,0x57};
+    constexpr unsigned char filterCode[]={0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20,0x0f,0xb6,0x41,0x39};
+    if(!Prefix(client+profile.trace,traceCode,sizeof(traceCode))||!Prefix(client+profile.filter,filterCode,sizeof(filterCode)))return Verdict::Unavailable;
+    uintptr_t world{},object{};
+    if(!HazzureGame::Read(client+profile.world,world)||!world||!HazzureGame::Read(world,object)||!object)return Verdict::Unavailable;
+    alignas(16) unsigned char filter[0x110]{};Ray ray{};Trace result{};result.fraction=-1;
+    using MakeFilter=void*(__fastcall*)(void*,uintptr_t,uint64_t,int,uint16_t);
+    using TraceShape=bool(__fastcall*)(uintptr_t,const Ray*,const Vec3*,const Vec3*,const void*,Trace*);
+    __try{
+        reinterpret_cast<MakeFilter>(client+profile.filter)(filter,q.local,0x1C1003,3,15);
+        // The native wrapper initializes Trace and returns false for a clear ray.
+        reinterpret_cast<TraceShape>(client+profile.trace)(world,&ray,&q.start,&q.end,filter,&result);
+    }__except(EXCEPTION_EXECUTE_HANDLER){return Verdict::Unavailable;}
+    return Classify(result,q.target);
+}
+inline bool Near(const Vec3& a,const Vec3& b){return std::fabs(a.x-b.x)<=2.f&&std::fabs(a.y-b.y)<=2.f&&std::fabs(a.z-b.z)<=2.f;}
+struct Entry {Request requested{},evaluated{};Verdict verdict=Verdict::Unknown;uint64_t completed{};bool pending{};};
+inline SRWLOCK lock=SRWLOCK_INIT;
+inline std::array<Entry,128> entries{};
+inline std::atomic<size_t> nextEntry{};inline uint64_t generation{};
+inline void Clear(){AcquireSRWLockExclusive(&lock);entries={};nextEntry=0;++generation;ReleaseSRWLockExclusive(&lock);}
+inline Verdict Submit(const Request& request,uint64_t now){
+    AcquireSRWLockExclusive(&lock);
+    Entry* slot=nullptr;for(auto& e:entries)if(e.requested.local==request.local&&e.requested.target==request.target&&e.requested.sample==request.sample){slot=&e;break;}
+    if(!slot)for(auto& e:entries)if(!e.pending&&(!e.requested.target||now-e.completed>100)){slot=&e;*slot={};break;}
+    Verdict value=Verdict::Unknown;
+    if(slot){
+        slot->requested=request;slot->pending=true;
+        if(slot->completed&&now>=slot->completed&&now-slot->completed<=32&&Near(slot->evaluated.start,request.start)&&Near(slot->evaluated.end,request.end))value=slot->verdict;
+    }
+    ReleaseSRWLockExclusive(&lock);return value;
+}
+using Query=Verdict(*)(uintptr_t,const Request&);
+inline void ProcessPending(uintptr_t client,Query query=NativeQuery){
+    auto started=HazzurePerformance::Clock();unsigned processed=0;size_t first=nextEntry.load();
+    for(size_t offset=0;offset<entries.size();++offset){size_t i=(first+offset)%entries.size();
+        Request request{};bool pending=false;uint64_t observed{};
+        AcquireSRWLockExclusive(&lock);
+        observed=generation;
+        if(entries[i].pending){request=entries[i].requested;entries[i].pending=false;pending=true;}
+        ReleaseSRWLockExclusive(&lock);if(!pending)continue;
+        auto value=query(client,request);uint64_t now=GetTickCount64();
+        AcquireSRWLockExclusive(&lock);
+        if(observed==generation&&entries[i].requested.local==request.local&&entries[i].requested.target==request.target&&entries[i].requested.sample==request.sample){
+            entries[i].evaluated=request;entries[i].verdict=value;entries[i].completed=now;
+        }
+        ReleaseSRWLockExclusive(&lock);
+        nextEntry=(i+1)%entries.size();if(++processed>=32||HazzurePerformance::Budget(started))break;
+    }
+    HazzurePerformance::End(HazzurePerformance::Stage::Visibility,started);
+}
+} // namespace HazzureVisibility

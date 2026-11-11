@@ -1,0 +1,242 @@
+#pragma once
+
+// HazzureInternal/src/cards/CardVisuals.inl — Frente 2.4 Modularizacao UI Enigma CS2
+// Escopo: ESP 2D/3D Jogadores, Mundo & Cores, Killfeed Persistente, Chams Source 2, Gradiente, Materiais, Radar/Flash
+
+
+inline void DrawVisualsPlayerEspCard(Shared* shared) {
+    BeginCleanCard("ESP Jogadores", "DINAMICO");
+    if (shared) {
+        LONG curF = InterlockedCompareExchange(&shared->flags, 0, 0);
+        ImGui::TextColored(kMuted, "Configurado: Chams %s | ESP %s", (curF & 1) ? "ON" : "OFF", (curF & 8) ? "ON" : "OFF");
+        ImGui::Separator();
+    }
+    bool espOn = g_cfg.espEnabled;
+    if (CleanToggle("ESP Ativo (Master)", &espOn)) {
+        g_cfg.espEnabled = espOn;
+        if (shared) {
+            if (espOn) InterlockedOr(&shared->flags, 8);
+            else InterlockedAnd(&shared->flags, ~8);
+            LogDebug("[UI] Toggle ESP Ativo -> flags=0x%lX", InterlockedCompareExchange(&shared->flags, 0, 0));
+        }
+    }
+    bool boxOn = g_cfg.espBoxes;
+    if (CleanToggle("Caixas Dinamicas por Osso", &boxOn)) {
+        g_cfg.espBoxes = boxOn;
+        if (shared) {
+            if (boxOn) InterlockedOr(&shared->flags, 16);
+            else InterlockedAnd(&shared->flags, ~16);
+            LogDebug("[UI] Toggle Caixas ESP -> flags=0x%lX", InterlockedCompareExchange(&shared->flags, 0, 0));
+        }
+    }
+    if (g_cfg.espBoxes) {
+        const char* boxTypes[] = { "Caixa Completa", "Cantoneiras (Corner)" };
+        CleanCombo("Estilo da Caixa", &g_cfg.espBoxType, boxTypes, 2);
+    }
+    bool skelOn = g_cfg.espSkeleton;
+    if (CleanToggle("Esqueleto 3D Validado", &skelOn)) {
+        g_cfg.espSkeleton = skelOn;
+        if (shared) {
+            if (skelOn) InterlockedOr(&shared->flags, 32);
+            else InterlockedAnd(&shared->flags, ~32);
+            LogDebug("[UI] Toggle Esqueleto -> flags=0x%lX", InterlockedCompareExchange(&shared->flags, 0, 0));
+        }
+    }
+    CleanToggle("Barra de Vida", &g_cfg.espHealth);
+    CleanToggle("Barra de Armadura", &g_cfg.espShowArmor);
+    CleanToggle("Flags Taticas (Reload/Kit/Pin/Imune/C4)", &g_cfg.espFlagsExtras);
+    CleanToggle("Animacao Suave do ESP (Fade/Barras)", &g_cfg.espSmoothAnimations);
+    CleanToggle("Nome do Jogador", &g_cfg.espName);
+    CleanToggle("Arma Equipada", &g_cfg.espWeapon);
+    if (g_cfg.espWeapon) CleanToggle("Icones de Armas", &g_cfg.espWeaponIcons);
+    CleanToggle("Distancia em Metros", &g_cfg.espDistance);
+    CleanSliderFloat("Alcance ESP", &g_cfg.espMaxDistance, 100.f, 20000.f, "%.0f u");
+    CleanToggle("Linhas de Snap", &g_cfg.espSnaplines);
+    CleanToggle("Setas Fora de Tela", &g_cfg.offScreenArrows);
+    if (shared) {
+        ImGui::Separator();
+        bool chamsQuick = (InterlockedCompareExchange(&shared->flags, 0, 0) & 1) != 0;
+        if (CleanToggle("Chams Visivel (Rapido)", &chamsQuick)) {
+            if (chamsQuick) InterlockedOr(&shared->flags, 1);
+            else InterlockedAnd(&shared->flags, ~1);
+        }
+    }
+    EndCleanCard();
+}
+
+inline void DrawVisualsWorldTacticCard() {
+    BeginCleanCard("Mundo & Cores", "TATICO");
+    CleanToggle("Circulo de FOV", &g_cfg.espFovCircle);
+    CleanToggle("Trajetoria 3D Estimada", &g_cfg.showGrenadeTrajectory);
+    CleanToggle("Circulo de Spread / Recoil", &g_cfg.showSpreadCircle);
+    CleanToggle("Timer da C4", &g_cfg.showBombTimer);
+    CleanToggle("Aviso de Bomba Plantada", &g_cfg.bombPlantedNotify);
+    CleanToggle("Sem Borda do Scope (AWP/SSG)", &g_cfg.noScopeOverlay);
+    CleanToggle("Linhas Limpas do Scope Sniper", &g_cfg.cleanSniperScopeLines);
+    CleanToggle("ESP Defuser / Refens / Resgate", &g_cfg.espDefuserHostage);
+    CleanToggle("Event Logs na Tela (Dano/Kills/C4)", &g_cfg.eventLogsScreen);
+    CleanToggle("Scoreboard Override (Tabela Tatica TAB)", &g_cfg.scoreboardRevealAll);
+    CleanToggle("Raio Individual por Granada (3D)", &g_cfg.grenadeIndividualRadius);
+    if (g_cfg.grenadeIndividualRadius) {
+        CleanSliderFloat("Raio da Smoke", &g_cfg.smokeRadiusUnits, 60.f, 260.f, "%.0f u");
+        CleanSliderFloat("Raio do Molotov", &g_cfg.molotovRadiusUnits, 60.f, 260.f, "%.0f u");
+    }
+    if (g_cfg.noScopeOverlay) {
+        if (CleanSliderFloat("Alpha do Filtro do Scope", &g_cfg.scopeFilterAlpha, 0.f, 1.f, "%.2f")) {
+            if (g_cfg.scopeFilterAlpha < 0.f) g_cfg.scopeFilterAlpha = 0.f;
+            if (g_cfg.scopeFilterAlpha > 1.f) g_cfg.scopeFilterAlpha = 1.f;
+        }
+        ImGui::TextWrapped("Filtro nativo: %.2f | Entregue: %.2f | %s",
+            HazzureScopeOverlay::observed.load(), HazzureScopeOverlay::delivered.load(),
+            HazzureScopeOverlay::Label());
+    }
+    CleanToggle("Lista de Espectadores", &g_cfg.showSpectators);
+    CleanToggle("Sound ESP / Aneis 3D", &g_cfg.soundEsp);
+    CleanToggle("Alertas Sonoros Radiais", &g_cfg.soundRadar);
+    CleanToggle("Areas Estimadas de Granadas", &g_cfg.grenadeZones);
+    CleanToggle("Historico Visual de Movimento", &g_cfg.poseHistory);
+    if (g_cfg.poseHistory) {
+        float window = static_cast<float>(g_cfg.poseHistoryMs);
+        if (CleanSliderFloat("Janela do Historico", &window, 20.f, 200.f, "%.0f ms")) g_cfg.poseHistoryMs = static_cast<int>(window);
+    }
+    CleanToggle("Dano Flutuante 3D", &g_cfg.worldDamage);
+    CleanToggle("Bullet Tracers 3D", &g_cfg.bulletTracers);
+    CleanToggle("Caixas de Impacto", &g_cfg.impactBoxes);
+    CleanToggle("Efeito de Eliminacao", &g_cfg.killEffects);
+    if (ImGui::TreeNode("Estilo das Granadas")) {
+        CleanToggle("Preencher Areas de Fogo", &g_cfg.grenadeAreaFill);
+        CleanToggle("Brilho nas Bordas", &g_cfg.grenadeAreaGlow);
+        CleanSliderFloat("Opacidade das Areas", &g_cfg.grenadeAreaOpacity, 0.f, .6f, "%.2f");
+        CleanSliderFloat("Espessura das Areas", &g_cfg.grenadeAreaWidth, .5f, 4.f, "%.1f px");
+        CleanToggle("Brilho da Trajetoria", &g_cfg.trajectoryGlow);
+        CleanToggle("Cintilacao Suave", &g_cfg.trajectoryShimmer);
+        CleanSliderFloat("Espessura da Trajetoria", &g_cfg.trajectoryWidth, .5f, 5.f, "%.1f px");
+        CleanSliderFloat("Pontos de Colisao", &g_cfg.trajectoryPointSize, 1.f, 8.f, "%.1f px");
+        CleanSliderFloat("Opacidade da Trajetoria", &g_cfg.trajectoryOpacity, .1f, 1.f, "%.2f");
+        CleanColorRow("Cor da Trajetoria", g_cfg.colTrajectory);
+        CleanColorRow("Cor das Colisoes", g_cfg.colTrajectoryCollision);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Estilo dos Disparos")) {
+        CleanColorRow("Cor dos Tracers", g_cfg.colTracer);
+        CleanSliderFloat("Espessura dos Tracers", &g_cfg.tracerWidth, .5f, 5.f, "%.1f px");
+        CleanSliderFloat("Duracao dos Tracers", &g_cfg.tracerDuration, .2f, 3.f, "%.1f s");
+        CleanToggle("Brilho dos Tracers", &g_cfg.tracerGlow);
+        CleanColorRow("Cor dos Impactos", g_cfg.colImpact);
+        CleanSliderFloat("Tamanho dos Impactos", &g_cfg.impactSize, 1.f, 12.f, "%.1f u");
+        CleanSliderFloat("Espessura dos Impactos", &g_cfg.impactWidth, .5f, 4.f, "%.1f px");
+        CleanSliderFloat("Duracao dos Impactos", &g_cfg.impactDuration, .2f, 3.f, "%.1f s");
+        CleanSliderFloat("Opacidade dos Impactos", &g_cfg.impactOpacity, 0.f, 1.f, "%.2f");
+        CleanToggle("Brilho dos Impactos", &g_cfg.impactGlow);
+        CleanToggle("Preencher Impactos", &g_cfg.impactFill);
+        CleanToggle("Faiscas nos Impactos", &g_cfg.impactSparks);
+        ImGui::TreePop();
+    }
+    CleanToggle("Dormant ESP / Fade", &g_cfg.dormantFade);
+    if (g_cfg.dormantFade) CleanSliderFloat("Tempo de Fade", &g_cfg.dormantSeconds, 2.f, 3.f, "%.1f s");
+    ImGui::Separator();
+    CleanColorRow("Cor Inimigos", g_cfg.colEnemy);
+    CleanColorRow("Cor Aliados", g_cfg.colTeam);
+    CleanColorRow("Cor Esqueleto", g_cfg.colSkeleton);
+    CleanColorRow("Cor Snaplines", g_cfg.colSnaplines);
+    EndCleanCard();
+}
+
+inline void DrawVisualsKillfeedCard() {
+    BeginCleanCard("Killfeed Persistente", "HUD TATICO");
+    CleanToggle("Ativar Killfeed Persistente", &g_cfg.killfeedEnabled);
+    if (g_cfg.killfeedEnabled) {
+        CleanToggle("Apenas Eliminacoes Locais", &g_cfg.killfeedLocalOnly);
+        CleanSliderFloat("Duracao na Tela", &g_cfg.killfeedDuration, 0.f, 120.f, "%.1f s");
+        float linesF = static_cast<float>(g_cfg.killfeedLines);
+        if (CleanSliderFloat("Linhas Maximas", &linesF, 1.f, 12.f, "%.0f")) g_cfg.killfeedLines = static_cast<int>(linesF);
+        ImGui::TextWrapped("Historico fixo de eliminacoes na tela com arma e headshot.");
+    }
+    EndCleanCard();
+}
+
+inline void DrawVisualsChamsCard(Shared* shared) {
+    BeginCleanCard("Chams de Jogadores", "SOURCE 2");
+    if (shared) {
+        LONG curFlags = InterlockedCompareExchange(&shared->flags, 0, 0);
+        ImGui::TextColored(kMuted, "Visivel:%d | Oculto:%d | Bracos:%d", (curFlags & 1) ? 1 : 0, (curFlags & 2) ? 1 : 0, (curFlags & 4) ? 1 : 0);
+        ImGui::Separator();
+
+        bool vis = (curFlags & 1) != 0;
+        if (CleanToggle("Chams Visivel", &vis)) {
+            if (vis) InterlockedOr(&shared->flags, 1);
+            else InterlockedAnd(&shared->flags, ~1);
+        }
+        float cVis[4]; IpcColToFloat4(shared->visibleColour, cVis);
+        if (CleanColorRow("Cor Visivel", cVis)) shared->visibleColour = Float4ToIpcCol(cVis);
+
+        curFlags = InterlockedCompareExchange(&shared->flags, 0, 0);
+        bool hid = (curFlags & 2) != 0;
+        if (CleanToggle("Chams Oculto (Parede)", &hid)) {
+            if (hid) InterlockedOr(&shared->flags, 2);
+            else InterlockedAnd(&shared->flags, ~2);
+        }
+        float cHid[4]; IpcColToFloat4(shared->hiddenColour, cHid);
+        if (CleanColorRow("Cor Oculto", cHid)) shared->hiddenColour = Float4ToIpcCol(cHid);
+
+        curFlags = InterlockedCompareExchange(&shared->flags, 0, 0);
+        bool arms = (curFlags & 4) != 0;
+        if (CleanToggle("Chams Bracos / Luvas", &arms)) {
+            if (arms) InterlockedOr(&shared->flags, 4);
+            else InterlockedAnd(&shared->flags, ~4);
+        }
+        float cArms[4]; IpcColToFloat4(shared->armsColour, cArms);
+        if (CleanColorRow("Cor Bracos", cArms)) shared->armsColour = Float4ToIpcCol(cArms);
+
+        CleanToggle("Chams Arma 1P (Viewmodel)", &g_cfg.chamsWeapon);
+        bool tf = (shared->teamFilter != 0);
+        if (CleanToggle("Apenas Inimigos", &tf)) InterlockedExchange(&shared->teamFilter, tf ? 1 : 0);
+    }
+    EndCleanCard();
+}
+
+inline void DrawVisualsChamsGradientCard(Shared* shared) {
+    BeginCleanCard("Gradiente Hermite", "2 PASSADAS");
+    if (shared) {
+        bool grad = InterlockedCompareExchange(&shared->gradient, 0, 0) != 0;
+        if (CleanToggle("Ativar Gradiente Vertical", &grad)) InterlockedExchange(&shared->gradient, grad ? 1 : 0);
+        float cVis[4], cGrad[4];
+        IpcColToFloat4(shared->visibleColour, cVis);
+        IpcColToFloat4(shared->gradientColour, cGrad);
+        if (CleanColorRow("Cor Base do Gradiente", cGrad)) shared->gradientColour = Float4ToIpcCol(cGrad);
+
+        ImGui::Dummy(ImVec2(0.f, 4.f));
+        ImVec2 gp = ImGui::GetCursorScreenPos();
+        ImU32 topC = Float4ToImU32(cVis);
+        ImU32 botC = Float4ToImU32(cGrad);
+        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(gp, ImVec2(gp.x + g_cleanCardContentW, gp.y + 14.f), topC, topC, botC, botC);
+        ImGui::GetWindowDrawList()->AddRect(gp, ImVec2(gp.x + g_cleanCardContentW, gp.y + 14.f), IM_COL32(46, 46, 55, 255));
+        ImGui::Dummy(ImVec2(g_cleanCardContentW, 18.f));
+    }
+    EndCleanCard();
+}
+
+inline void DrawVisualsChamsMaterialCard(Shared* shared) {
+    BeginCleanCard("Estilo de Material & Outline", "D3D11 / SHADER");
+    static const char* kMatStyles[] = { "Flat (Matte)", "Metallic (Cromo / Reflexo)", "Wireframe (Malha)", "Fresnel Glow (Borda Neon)", "Cristal (Vidro)" };
+    if (CleanCombo("Material Visivel", &g_cfg.chamsVisibleStyle, kMatStyles, 5)) {
+        if (shared) InterlockedExchange(&shared->chamsVisibleStyle, g_cfg.chamsVisibleStyle);
+    }
+    if (CleanCombo("Material Oculto (Parede)", &g_cfg.chamsHiddenStyle, kMatStyles, 5)) {
+        if (shared) InterlockedExchange(&shared->chamsHiddenStyle, g_cfg.chamsHiddenStyle);
+    }
+    ImGui::TextWrapped("Estilo MemeSense: visivel e oculto usam material e cor independentes.");
+    CleanToggle("Efeito Dupla Camada (Overlay Wireframe)", &g_cfg.chamsDualLayer);
+    CleanToggle("Contorno Brilhante (Outline Glow)", &g_cfg.glowOutline);
+    EndCleanCard();
+}
+
+inline void DrawVisualsRadarFlashCard() {
+    BeginCleanCard("Radar & Flash", "LOCAL");
+    CleanToggle("Radar Nativo", &g_cfg.nativeRadar);
+    CleanToggle("Limitar Alpha do Flash", &g_cfg.limitFlash);
+    if (g_cfg.limitFlash) CleanSliderFloat("Alpha Maximo", &g_cfg.flashAlphaLimit, 0.f, 1.f, "%.2f");
+    EndCleanCard();
+}
+
+

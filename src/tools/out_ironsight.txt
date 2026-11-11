@@ -1,0 +1,119 @@
+== strings candidatas (RVA) ==
+0x1bd9c90 'm_flIronSightPullUpSpeed'
+0x1bd9cb0 'm_flIronSightPutDownSpeed'
+0x1bd9cd0 'm_flIronSightFOV'
+0x1bd9ce8 'm_flIronSightPivotForward'
+0x1bd9d08 'm_flIronSightLooseness'
+0x1bda570 'm_IronSightController'
+0x1bda588 'm_iIronSightMode'
+0x1bdbb18 '$ent_ironsight'
+0x1bdbec0 'C_IronSightController'
+0x1c03878 'Ironsight filter alpha'
+0x1c03890 'cl_ironsight_filter_alpha'
+0x1c038b0 'Ironsight min channel color value'
+0x1c038d8 'cl_ironsight_min_channel_color'
+0x1c039d0 'm_bIronSightAvailable'
+0x1c039e8 'm_flIronSightAmount'
+0x1c03a00 'm_flIronSightAmountGained'
+0x1c03a20 'm_flIronSightAmountBiased'
+0x1c03a40 'm_flIronSightAmount_Interpolated'
+0x1c03a68 'm_flIronSightAmountGained_Interpolated'
+0x1c03a90 'm_flIronSightAmountBiased_Interpolated'
+0x1c067c0 'IronSight'
+0x1c067d0 'C:\\buildworker\\csgo_rel_win64\\build\\src\\game\\shared\\cstrike15\\weapon_ironsightcontroller.cpp'
+0x1c06868 'materials/models/weapons/shared/scope/scope_filter.vmat'
+0x1c068c0 'noscope'
+0x1c068c8 'aimsight'
+0x1c193e8 'm_flWeaponIronsightAmount'
+0x1c19c08 'weapon_ironsight_amount'
+0x1cb9260 'cl_ironsight_usecrosshaircolor'
+0x1cb9290 'cl_ironsight_dot_scale'
+0x1d20368 'aimsight lens mask'
+0x1d301ef '?IronSightQuarterRes2'
+0x1d30208 'IronSightQuarterRes1'
+0x1d30220 'IronSightResolve'
+0x1d30238 'IronSight: Blur X'
+0x1d30250 'IronSight: Blur Y'
+0x1d30268 'IronSightToScreen'
+0x1d30fc8 'materials/effects/legacy_sniper_scope.vmat'
+0x22f0de0 '.?AV?$CNetworkVarBase@HVNetworkVar_m_iIronSightMode@C_CSWeaponBase@@@@'
+0x2319210 '.?AVCEntityIronSightAmountRenderAttribCallback@@'
+0x231a118 '.?AVCIronSightSceneObjectDescriptor@@'
+0x231a150 '.?AV?$ISceneObjectDescBase@VCIronSightSceneObject@@@@'
+0x231a198 '.?AVCIronSightSceneObject@@'
+0x231a1c8 '.?AVC_IronSightController@@'
+== vizinhos ==
+0x1bd9c90 :: ['m_bHideViewModelWhenZoomed', 'm_nZoomLevels', 'm_nZoomFOV1', 'm_nZoomFOV2', 'm_flZoomTime0', 'm_flZoomTime1', 'm_flZoomTime2', 'm_flIronSightPullUpSpeed', 'm_flIronSightPutDownSpeed', 'm_flIronSightFOV', 'm_flIronSightPivotForward', 'm_flIron']
+0x1bd9cb0 :: ['m_nZoomLevels', 'm_nZoomFOV1', 'm_nZoomFOV2', 'm_flZoomTime0', 'm_flZoomTime1', 'm_flZoomTime2', 'm_flIronSightPullUpSpeed', 'm_flIronSightPutDownSpeed', 'm_flIronSightFOV', 'm_flIronSightPivotForward', 'm_flIronSightLooseness', 'm_nDamage']
+0x1bd9cd0 :: ['m_nZoomFOV2', 'm_flZoomTime0', 'm_flZoomTime1', 'm_flZoomTime2', 'm_flIronSightPullUpSpeed', 'm_flIronSightPutDownSpeed', 'm_flIronSightFOV', 'm_flIronSightPivotForward', 'm_flIronSightLooseness', 'm_nDamage', 'm_flHeadshotMultiplier', 'm_flArmo']
+0x1bd9ce8 :: ['Time0', 'm_flZoomTime1', 'm_flZoomTime2', 'm_flIronSightPullUpSpeed', 'm_flIronSightPutDownSpeed', 'm_flIronSightFOV', 'm_flIronSightPivotForward', 'm_flIronSightLooseness', 'm_nDamage', 'm_flHeadshotMultiplier', 'm_flArmorRatio', 'm_flPenetration']
+0x1bd9d08 :: ['Time2', 'm_flIronSightPullUpSpeed', 'm_flIronSightPutDownSpeed', 'm_flIronSightFOV', 'm_flIronSightPivotForward', 'm_flIronSightLooseness', 'm_nDamage', 'm_flHeadshotMultiplier', 'm_flArmorRatio', 'm_flPenetration', 'm_flRangeModifier', 'm_flFlin']
+0x1bda570 :: ['m_fLastShotTime', 'm_bWasOwnedByCT', 'm_bWasOwnedByTerrorist', 'm_flNextClientFireBulletTime', 'm_flNextClientFireBulletTime_Repredict', 'm_IronSightController', 'm_iIronSightMode', 'm_flLastLOSTraceFailureTime', 'cs2_weapon_module', 'm_flWatTickOffset']
+0x1bda588 :: ['nedByCT', 'm_bWasOwnedByTerrorist', 'm_flNextClientFireBulletTime', 'm_flNextClientFireBulletTime_Repredict', 'm_IronSightController', 'm_iIronSightMode', 'm_flLastLOSTraceFailureTime', 'cs2_weapon_module', 'm_flWatTickOffset', 'C_CS2WeaponModuleBase']
+0x1bdbb18 :: ['he silent reload act like a toggle', 'cl_weapon_stealth_reload_toggle', 'Weapon Iron Sight Amount [0.0, 1.0]', '$ent_ironsight', 'Bone up-vector (vec3)', '$bone_upvector$bone_name', 'Bone bind-space position']
+0x1bdbec0 :: ['InfoForResourceTypeCNmSkeleton', 'type', 'composite_inputs', 'gear_slot_t', 'WeaponGameplayAnimState', 'C_IronSightController']
+0x1c03878 :: ['Taser', 'm_bFirstAttack', 'm_fFireTime', 'm_nLastAttackTick', 'C_WeaponElite', 'C_MolotovGrenade', 'C_IncendiaryGrenade', 'Ironsight filter alpha', 'cl_ironsight_filter_alpha', 'Ironsight min channel color value', 'cl_ironsight_min_channel_color']
+0x1c03890 :: ['m_fFireTime', 'm_nLastAttackTick', 'C_WeaponElite', 'C_MolotovGrenade', 'C_IncendiaryGrenade', 'Ironsight filter alpha', 'cl_ironsight_filter_alpha', 'Ironsight min channel color value', 'cl_ironsight_min_channel_color']
+0x1c038b0 :: ['C_WeaponElite', 'C_MolotovGrenade', 'C_IncendiaryGrenade', 'Ironsight filter alpha', 'cl_ironsight_filter_alpha', 'Ironsight min channel color value', 'cl_ironsight_min_channel_color']
+0x1c038d8 :: ['C_IncendiaryGrenade', 'Ironsight filter alpha', 'cl_ironsight_filter_alpha', 'Ironsight min channel color value', 'cl_ironsight_min_channel_color']
+0x1c039d0 :: ['C_SmokeGrenade', 'm_bIronSightAvailable', 'm_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmo']
+0x1c039e8 :: ['C_SmokeGrenade', 'm_bIronSightAvailable', 'm_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated']
+0x1c03a00 :: ['C_SmokeGrenade', 'm_bIronSightAvailable', 'm_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated', 'm_flIronSightAmountGaine']
+0x1c03a20 :: ['C_SmokeGrenade', 'm_bIronSightAvailable', 'm_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated', 'm_flIronSightAmountGained_Interpolated', 'm_flIronSightAmo']
+0x1c03a40 :: ['C_SmokeGrenade', 'm_bIronSightAvailable', 'm_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated', 'm_flIronSightAmountGained_Interpolated', 'm_flIronSightAmountBiased_Interpolated', 'm_flInte']
+0x1c03a68 :: ['m_flIronSightAmount', 'm_flIronSightAmountGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated', 'm_flIronSightAmountGained_Interpolated', 'm_flIronSightAmountBiased_Interpolated', 'm_flInterpolationLastUpdated', 'm_angDeltaAverag']
+0x1c03a90 :: ['untGained', 'm_flIronSightAmountBiased', 'm_flIronSightAmount_Interpolated', 'm_flIronSightAmountGained_Interpolated', 'm_flIronSightAmountBiased_Interpolated', 'm_flInterpolationLastUpdated', 'm_angDeltaAverage', 'm_angViewLast', 'm_vecDotCoords']
+0x1c067c0 :: ['CHEGrenade', 'texcoord', 'VertexColorUVPos_t', 'IronSight', 'C:\\buildworker\\csgo_rel_win64\\build\\src\\game\\shared\\cstrike15\\weapon_ironsightcontroller.cpp', 'materials/models']
+0x1c067d0 :: ['CHEGrenade', 'texcoord', 'VertexColorUVPos_t', 'IronSight', 'C:\\buildworker\\csgo_rel_win64\\build\\src\\game\\shared\\cstrike15\\weapon_ironsightcontroller.cpp', 'materials/models/weapons/shared/']
+0x1c06868 :: ['win64\\build\\src\\game\\shared\\cstrike15\\weapon_ironsightcontroller.cpp', 'materials/models/weapons/shared/scope/scope.vmat', 'materials/models/weapons/shared/scope/scope_filter.vmat', 'noscope', 'aimsight']
+0x1c068c0 :: ['/weapons/shared/scope/scope.vmat', 'materials/models/weapons/shared/scope/scope_filter.vmat', 'noscope', 'aimsight']
+0x1c068c8 :: ['/shared/scope/scope.vmat', 'materials/models/weapons/shared/scope/scope_filter.vmat', 'noscope', 'aimsight']
+0x1c193e8 :: ['m_weaponType', 'm_weaponExtraInfo', 'm_flWeaponAmmo', 'm_flWeaponAmmoMax', 'm_flWeaponAmmoReserve', 'm_bWeaponIsSilenced', 'm_flWeaponIronsightAmount', 'm_bIsUsingLegacyModel', 'm_idleVariation', 'm_deployVariation', 'm_attackType', 'm_attackThrowStr']
+0x1c19c08 :: ['ategory', 'weapon_type', 'weapon_extra_info', 'weapon_ammo', 'weapon_ammo_max', 'weapon_ammo_reserve', 'weapon_is_silenced', 'weapon_ironsight_amount', 'weapon_is_legacy_model', 'idle_variation', 'deploy_variation', 'attack_type', 'attack_throw_strength']
+0x1cb9260 :: [' being observed. 0 = off, 1 = friends and party only, 2 = everyone', "Should the scope dot match the user's crosshair color", 'cl_ironsight_usecrosshaircolor', 'Scope dot scale', 'cl_ironsight_dot_scale', 'Apply a crosshai']
+0x1cb9290 :: ['only, 2 = everyone', "Should the scope dot match the user's crosshair color", 'cl_ironsight_usecrosshaircolor', 'Scope dot scale', 'cl_ironsight_dot_scale', 'Apply a crosshair code to the current crosshair settings.']
+0x1d20368 :: ['emap definition "%s" was not found', '1970/01/02', 'first_sale_date', 'pedestal display model', 'magazine model', 'uid model', 'aimsight lens mask', 'criteria', 'campaign %d completion bitfield', 'campaign %d last completed quest', 'Attempti']
+0x1d301ef :: ['Blur X', 'Glows: Blur Y', 'Depth', 'Glows: Render Objects into Stencil', 'Glow MSAA Resolve', 'Glows: Stencil To Screen', '?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSig']
+0x1d30208 :: ['Depth', 'Glows: Render Objects into Stencil', 'Glow MSAA Resolve', 'Glows: Stencil To Screen', '?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSightToScreen', 'FSRInter']
+0x1d30220 :: ['jects into Stencil', 'Glow MSAA Resolve', 'Glows: Stencil To Screen', '?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSightToScreen', 'FSRIntermediateColor', 'FSR Upsc']
+0x1d30238 :: ['Glow MSAA Resolve', 'Glows: Stencil To Screen', '?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSightToScreen', 'FSRIntermediateColor', 'FSR Upscale', 'RCAS Upsample']
+0x1d30250 :: ['Glows: Stencil To Screen', '?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSightToScreen', 'FSRIntermediateColor', 'FSR Upscale', 'RCAS Upsample', 'RenderingPipelineCsgoFla']
+0x1d30268 :: ['?IronSightQuarterRes2', 'IronSightQuarterRes1', 'IronSightResolve', 'IronSight: Blur X', 'IronSight: Blur Y', 'IronSightToScreen', 'FSRIntermediateColor', 'FSR Upscale', 'RCAS Upsample', 'RenderingPipelineCsgoFlashbangOverlayManifest']
+0x1d30fc8 :: ['ite_smoke_depth_water_reflection.vmat', 'materials/effects/grenade_camera.vmat', 'materials/dev/screenparticlescombine.vmat', 'materials/effects/legacy_sniper_scope.vmat', 'materials/dev/downsample_depth.vmat', 'materials/dev/bloom_cs.vmat', 'material']
+0x22f0de0 :: ['.?AV?$CNetworkVarBase@VGameTime_t@@VNetworkVar_m_fLastShotTime@C_CSWeaponBase@@@@', '.?AV?$CNetworkVarBase@HVNetworkVar_m_iIronSightMode@C_CSWeaponBase@@@@', '.?AV?$CNetworkVarBase@MVNetworkV']
+0x2319210 :: ['AMAEBVVectorWS@@0PEAV4@@Z@_NAEBV4@I@std@@', '.?AVIEntityRenderAttributeCallback@@', '.?AVCEntityIronSightAmountRenderAttribCallback@@', '.?AVCBoneUpVectorRenderAttribCallback@@']
+0x231a118 :: ['.?AVC_WeaponCZ75a@@', '.?AVC_DEagle@@', '.?AVC_DecoyGrenade@@', '.?AVCIronSightSceneObjectDescriptor@@', '.?AV?$ISceneObjectDescBase@VCIronSightSceneObject@@@@']
+0x231a150 :: ['.?AVC_DEagle@@', '.?AVC_DecoyGrenade@@', '.?AVCIronSightSceneObjectDescriptor@@', '.?AV?$ISceneObjectDescBase@VCIronSightSceneObject@@@@', '.?AVCIronSightSceneObject@@', '.?AVC_Ir']
+0x231a198 :: ['.?AVCIronSightSceneObjectDescriptor@@', '.?AV?$ISceneObjectDescBase@VCIronSightSceneObject@@@@', '.?AVCIronSightSceneObject@@', '.?AVC_IronSightController@@', '.?AVC_WeaponElite@@']
+0x231a1c8 :: ['.?AV?$ISceneObjectDescBase@VCIronSightSceneObject@@@@', '.?AVCIronSightSceneObject@@', '.?AVC_IronSightController@@', '.?AVC_WeaponElite@@', '.?AVC_Flashbang@@']
+== xrefs (RVA) ==
+'m_flIronSightPullUpSpeed' em 0x1bd9c90 <- 2 sitio(s): 0x81bd74, 0x81de7b
+'m_flIronSightPutDownSpeed' em 0x1bd9cb0 <- 2 sitio(s): 0x81bdbb, 0x81debc
+'m_flIronSightFOV' em 0x1bd9cd0 <- 2 sitio(s): 0x81be02, 0x81defd
+'m_flIronSightPivotForward' em 0x1bd9ce8 <- 2 sitio(s): 0x81be4f, 0x81df45
+'m_flIronSightLooseness' em 0x1bd9d08 <- 2 sitio(s): 0x81be96, 0x81df86
+'m_IronSightController' em 0x1bda570 <- 1 sitio(s): 0x7fa2a0
+'m_iIronSightMode' em 0x1bda588 <- 4 sitio(s): 0x7fa2ed, 0x8076c8, 0x816d47, 0x816d89
+'$ent_ironsight' em 0x1bdbb18 <- 1 sitio(s): 0x808394
+'C_IronSightController' em 0x1bdbec0 <- 2 sitio(s): 0x7e4cdd, 0x82ce00
+'Ironsight filter alpha' em 0x1c03878 <- 1 sitio(s): 0xa98b9
+'cl_ironsight_filter_alpha' em 0x1c03890 <- 1 sitio(s): 0xa98a6
+'Ironsight min channel color value' em 0x1c038b0 <- 1 sitio(s): 0xa9979
+'cl_ironsight_min_channel_color' em 0x1c038d8 <- 1 sitio(s): 0xa9966
+'m_flIronSightAmount' em 0x1c039e8 <- 1 sitio(s): 0x82cf79
+'m_flIronSightAmountGained' em 0x1c03a00 <- 1 sitio(s): 0x82d0c1
+'m_flIronSightAmountBiased' em 0x1c03a20 <- 1 sitio(s): 0x82d1ff
+'IronSight' em 0x1c067c0 <- 1 sitio(s): 0x82bb58
+'materials/models/weapons/shared/scope/scope_filter.vmat' em 0x1c06868 <- 1 sitio(s): 0xab749
+'noscope' em 0x1c068c0 <- 2 sitio(s): 0x82e4b9, 0xe8c2a0
+'aimsight' em 0x1c068c8 <- 1 sitio(s): 0x83093e
+'m_flWeaponIronsightAmount' em 0x1c193e8 <- 2 sitio(s): 0x90fb5c, 0x910974
+'weapon_ironsight_amount' em 0x1c19c08 <- 1 sitio(s): 0x8fe3f1
+'cl_ironsight_usecrosshaircolor' em 0x1cb9260 <- 1 sitio(s): 0xfce50
+'cl_ironsight_dot_scale' em 0x1cb9290 <- 1 sitio(s): 0xfcd7a
+'IronSightQuarterRes1' em 0x1d30208 <- 1 sitio(s): 0x11fe408
+'IronSightResolve' em 0x1d30220 <- 1 sitio(s): 0x11fe4a0
+'IronSight: Blur X' em 0x1d30238 <- 1 sitio(s): 0x11fe75c
+'IronSight: Blur Y' em 0x1d30250 <- 1 sitio(s): 0x11fec35
+'IronSightToScreen' em 0x1d30268 <- 1 sitio(s): 0x11ff1b0
+'materials/effects/legacy_sniper_scope.vmat' em 0x1d30fc8 <- 1 sitio(s): 0x11d0940

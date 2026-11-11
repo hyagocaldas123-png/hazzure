@@ -1,0 +1,74 @@
+// Included inside HazzureUI. Bone-centred capsules are conservative proxies, not model hitboxes.
+struct TargetCapsules {std::array<HazzureAccuracy::Capsule,4> values{};size_t count{};};
+static TargetCapsules ReadTargetCapsules(uintptr_t bones){
+    TargetCapsules out{};if(!bones)return out;
+    const int ids[]={BONE_HEAD,BONE_NECK,BONE_SPINE_2,BONE_PELVIS};
+    const float radii[]={3.f,2.5f,5.5f,5.f};
+    for(int i=0;i<4;++i){Vec3 center{};if(!ReadBonePos(bones,ids[i],&center)||!HazzureGame::Finite(center))continue;
+        Vec3 top=center,bottom=center;
+        if(i==2){Vec3 spine{};if(ReadBonePos(bones,BONE_SPINE_1,&spine)&&HazzureGame::Finite(spine))bottom=spine;}
+        out.values[out.count++]={bottom,top,radii[i],ids[i]};
+    }
+    return out;
+}
+static HazzureWeaponAccuracy::Snapshot LocalAccuracy(const HazzureGame::Pawn& local,uintptr_t list){
+    uintptr_t weapon{},services{};uint32_t handle{};
+    ActiveWeaponDefinition(local.address,list,&weapon);
+    if(!SafeRead(local.address+HazzureOffsets::Schema::m_pWeaponServices,&services)||!services||
+       !SafeRead(services+HazzureOffsets::Schema::m_hActiveWeapon,&handle))return {};
+    return HazzureWeaponAccuracy::Read(local.address,weapon,handle,GetTickCount64());
+}
+static bool SelectAccuracyPoint(uintptr_t localPawn,uintptr_t pawn,const HazzureGame::Pawn& local,uintptr_t bones,
+                                const HazzureWeaponAccuracy::Snapshot& weapon,const char* weaponClass,float fov,
+                                Vec3& point,int& bone,float& angle){
+    if(!weapon.valid)return false;
+    auto capsules=ReadTargetCapsules(bones);if(!capsules.count)return false;
+    float fallbackBelow=RuntimeFloat("bodyFallbackBelow",g_cfg.bodyFallbackBelow,"enemy",weaponClass);
+    bool fallback=RuntimeBool("aimBodyFallback",g_cfg.aimBodyFallback,"enemy",weaponClass);
+    bool multi=RuntimeBool("aimMultipoint",g_cfg.aimMultipoint,"enemy",weaponClass);
+    const int ids[]={BONE_HEAD,BONE_NECK,BONE_SPINE_2,BONE_PELVIS};
+    int fixed=static_cast<int>(std::clamp(RuntimeFloat("aimBone",static_cast<float>(g_cfg.aimBone),"enemy",weaponClass),0.f,3.f));
+    int mode=static_cast<int>(std::clamp(RuntimeFloat("aimTargetMode",static_cast<float>(g_cfg.aimTargetMode),"enemy",weaponClass),0.f,2.f));
+    struct Candidate {bool valid{};Vec3 point{};int bone{};float chance=-1,angle=FLT_MAX;unsigned layers{};};
+    Candidate head{},body{},preferred{};
+    unsigned samples=static_cast<unsigned>(std::clamp(g_cfg.hitchanceSamples,32,256));
+    bool autowall=RuntimeBool("autowallEnabled",g_cfg.autowallEnabled,"enemy",weaponClass);
+    float autowallPenalty=std::clamp(RuntimeFloat("autowallChancePenalty",g_cfg.autowallChancePenalty,"enemy",weaponClass),0.f,100.f);
+    for(size_t i=0;i<capsules.count;++i){const auto& capsule=capsules.values[i];
+        if(!fallback&&mode==0&&capsule.bone!=ids[fixed])continue;
+        auto points=HazzureAccuracy::Multipoints(capsule,local.eye,multi?RuntimeFloat("multipointScale",g_cfg.multipointScale,"enemy",weaponClass):0);
+        for(size_t j=0;j<points.count;++j){auto world=points.values[j];Vec2 delta{};
+            if(!HazzureGame::AimAngles(local.eye,world,local.angles,delta))continue;
+            float separation=std::hypot(delta.x,delta.y);if(separation>fov)continue;
+            unsigned sample=static_cast<unsigned>(128+i*8+j);
+            unsigned layers=0;
+            auto now=GetTickCount64();
+            if(HazzureVisibility::Submit({localPawn,pawn,local.eye,world,sample},now)!=HazzureVisibility::Verdict::Visible){
+                // Through geometry only a proven reach counts. Unknown/pending and unavailable
+                // stay rejected, exactly like the direct line above.
+                HazzureAutowall::Answer reach{};
+                if(!autowall||HazzureAutowall::Submit({localPawn,pawn,local.eye,world,sample},now,reach)
+                   !=HazzureVisibility::Verdict::Reached)continue;
+                layers=reach.layers;
+            }
+            if(g_cfg.strictSmoke&&!HazzureSmoke::Allows(HazzureSmoke::Submit({localPawn,pawn,local.eye,world,sample},now)))continue;
+            Vec3 aimed{local.angles.x+delta.x,local.angles.y+delta.y,0};
+            auto estimate=HazzureAccuracy::Evaluate(local.eye,aimed,weapon.inaccuracy,weapon.spread,weapon.range,&capsule,1,samples);
+            if(!estimate.valid)continue;
+            // The discount is a preference, not a measurement: nothing here claims the
+            // damage that survives the surface. Fewer layers wins any tie, so a direct
+            // shot is always preferred over the same point through a wall.
+            Candidate value{true,world,capsule.bone,estimate.percent-autowallPenalty*static_cast<float>(layers),separation,layers};
+            auto improve=[&](Candidate& old){
+                if(value.chance>old.chance||(value.chance==old.chance&&
+                   (value.layers<old.layers||(value.layers==old.layers&&value.angle<old.angle))))old=value;};
+            if(capsule.bone==BONE_HEAD)improve(head);
+            if(capsule.bone==BONE_SPINE_2||capsule.bone==BONE_PELVIS)improve(body);
+            if(mode!=0||capsule.bone==ids[fixed])improve(preferred);
+        }
+    }
+    auto selected=preferred;
+    if(fallback&&(mode!=0||fixed==0)&&body.valid&&(!head.valid||(head.chance<fallbackBelow&&body.chance>head.chance)))selected=body;
+    if(!selected.valid)return false;
+    point=selected.point;bone=selected.bone;angle=selected.angle;return true;
+}

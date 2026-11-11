@@ -1,0 +1,20 @@
+{
+  "scenesystem.dll": {
+    "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\scenesystem.dll",
+    "sha256": "040eb851fa7875523346b890f1ed6e158abc59e08bccbd8dc60539435277efa5",
+    "timestamp": 1792003407,
+    "size": 9928704
+  },
+  "materialsystem2.dll": {
+    "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\materialsystem2.dll",
+    "sha256": "b4d5c667eb65f13d9193d743a88eb1f9dfa623cc8f745cef764d9977969e38b6",
+    "timestamp": 1792003168,
+    "size": 1597440
+  },
+  "client.dll": {
+    "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\bin\\win64\\client.dll",
+    "sha256": "5a46a09b521bbd607012146364dafae2abfa50364246638391990d4c7dfb9d49",
+    "timestamp": 1792521244,
+    "size": 43634688
+  }
+}

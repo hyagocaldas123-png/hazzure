@@ -1,0 +1,214 @@
+static char g_configStatusMsg[128] = "Pronto";
+
+// Incremento 3: Config versionada v2->v3 com contextos e perfis
+struct ConfigProfile {
+    std::string name;
+    std::map<std::string, std::string> overrides;
+    std::map<std::string, std::map<std::string, std::string>> contexts;      // { "enemy", "ally", "local" }
+    std::map<std::string, std::map<std::string, std::string>> weaponClasses; // { "rifles", "pistols", "snipers" }
+};
+
+inline std::map<std::string, std::map<std::string, std::string>> g_contexts = {
+    { "enemy", {} },
+    { "ally", {} },
+    { "local", {} }
+};
+
+inline std::map<std::string, std::map<std::string, std::string>> g_weaponClasses = {
+    { "rifles", {} },
+    { "pistols", {} },
+    { "snipers", {} }
+};
+
+inline std::vector<ConfigProfile> g_profiles = {
+    { "Legit Matchmaking", {}, {{"enemy",{}}, {"ally",{}}, {"local",{}}}, {{"rifles",{}}, {"pistols",{}}, {"snipers",{}}} },
+    { "Semi-Rage Premier", {}, {{"enemy",{}}, {"ally",{}}, {"local",{}}}, {{"rifles",{}}, {"pistols",{}}, {"snipers",{}}} },
+    { "Custom Slots", {}, {{"enemy",{}}, {"ally",{}}, {"local",{}}}, {{"rifles",{}}, {"pistols",{}}, {"snipers",{}}} }
+};
+
+inline int g_activeProfileIndex = 0;
+
+// Tabela de defaults registrados em memoria por feature (name -> context -> value)
+inline std::map<std::string, std::map<std::string, std::string>> g_contextDefaults;
+
+inline void RegisterContextDefault(const std::string& name, const std::string& context, const std::string& value) {
+    g_contextDefaults[name][context] = value;
+}
+
+inline void InitializeContextDefaults() {
+    // 1. Chams cor (Enemy=Vermelho, Ally=Azul, Local=Verde)
+    RegisterContextDefault("colChams", "enemy", "[1.000, 0.200, 0.200, 1.000]");
+    RegisterContextDefault("colChams", "ally", "[0.200, 0.500, 1.000, 1.000]");
+    RegisterContextDefault("colChams", "local", "[0.200, 1.000, 0.400, 1.000]");
+
+    // 2. Chams ignoreDepth (Enemy=0 Off, Ally=0 Off, Local=1 On para viewmodel/arms)
+    RegisterContextDefault("chamsIgnoreDepth", "enemy", "0");
+    RegisterContextDefault("chamsIgnoreDepth", "ally", "0");
+    RegisterContextDefault("chamsIgnoreDepth", "local", "1");
+
+    // 3. Outline range (Enemy=5000 unidades, Ally=3000 medio alcance, Local=0 desligado)
+    RegisterContextDefault("glowRange", "enemy", "5000");
+    RegisterContextDefault("glowRange", "ally", "3000");
+    RegisterContextDefault("glowRange", "local", "0");
+
+    // 4. Manual fallback; the balanced variable mode samples 40-90 ms.
+    RegisterContextDefault("triggerDelayMs", "enemy", "65.0");
+    RegisterContextDefault("triggerDelayMs", "ally", "0.0");
+    RegisterContextDefault("triggerDelayMs", "local", "0.0");
+
+    // 5. ESP distancia (Enemy=8000 maximo mapa, Ally=4000 consciencia tatica, Local=0 desligado)
+    RegisterContextDefault("espMaxDistance", "enemy", "8000");
+    RegisterContextDefault("espMaxDistance", "ally", "4000");
+    RegisterContextDefault("espMaxDistance", "local", "0");
+}
+
+static std::string RegisteredGlobalValue(const std::string& name);
+inline std::string GetGlobalVarString(const std::string& name) { return RegisteredGlobalValue(name); }
+
+// Resolucao: FindVar(name, context, weaponClass) — precedencia perfil ativo > contexto > classe > global
+inline std::string FindVar(const std::string& name, const std::string& context = "", const std::string& weaponClass = "") {
+    // 1. Perfil ativo
+    if (g_activeProfileIndex >= 0 && g_activeProfileIndex < static_cast<int>(g_profiles.size())) {
+        const auto& prof = g_profiles[g_activeProfileIndex];
+
+        // 1a. Contexto no perfil ativo
+        if (!context.empty()) {
+            auto ctxIt = prof.contexts.find(context);
+            if (ctxIt != prof.contexts.end()) {
+                auto varIt = ctxIt->second.find(name);
+                if (varIt != ctxIt->second.end() && !varIt->second.empty()) {
+                    return varIt->second;
+                }
+            }
+        }
+
+        // 1b. Classe de arma no perfil ativo
+        if (!weaponClass.empty()) {
+            auto wpIt = prof.weaponClasses.find(weaponClass);
+            if (wpIt != prof.weaponClasses.end()) {
+                auto varIt = wpIt->second.find(name);
+                if (varIt != wpIt->second.end() && !varIt->second.empty()) {
+                    return varIt->second;
+                }
+            }
+        }
+
+        // 1c. Override geral do perfil ativo
+        auto ovIt = prof.overrides.find(name);
+        if (ovIt != prof.overrides.end() && !ovIt->second.empty()) {
+            return ovIt->second;
+        }
+    }
+
+    // 2. Config Contexto (override escrito pelo operador no JSON/editor)
+    if (!context.empty()) {
+        auto ctxIt = g_contexts.find(context);
+        if (ctxIt != g_contexts.end()) {
+            auto varIt = ctxIt->second.find(name);
+            if (varIt != ctxIt->second.end() && !varIt->second.empty()) {
+                return varIt->second;
+            }
+        }
+    }
+
+    // 4. Classe de arma global
+    if (!weaponClass.empty()) {
+        auto wpIt = g_weaponClasses.find(weaponClass);
+        if (wpIt != g_weaponClasses.end()) {
+            auto varIt = wpIt->second.find(name);
+            if (varIt != wpIt->second.end() && !varIt->second.empty()) {
+                return varIt->second;
+            }
+        }
+    }
+
+    // Explicit global controls must not be shadowed by registered defaults.
+    std::string global=GetGlobalVarString(name);
+    if(!global.empty())return global;
+    // 3. Default Contexto (registrado pela feature em memoria antes do config)
+    if (!context.empty()) {
+        auto defIt = g_contextDefaults.find(name);
+        if (defIt != g_contextDefaults.end()) {
+            auto ctxValIt = defIt->second.find(context);
+            if (ctxValIt != defIt->second.end() && !ctxValIt->second.empty()) {
+                return ctxValIt->second;
+            }
+        }
+    }
+
+    return {};
+}
+
+inline bool FindVar(const std::string& name, float& outVal, const std::string& context = "", const std::string& weaponClass = "") {
+    std::string s = FindVar(name, context, weaponClass);
+    if (s.empty()) return false;
+    outVal = static_cast<float>(atof(s.c_str()));
+    return true;
+}
+
+inline bool FindVar(const std::string& name, int& outVal, const std::string& context = "", const std::string& weaponClass = "") {
+    std::string s = FindVar(name, context, weaponClass);
+    if (s.empty()) return false;
+    outVal = atoi(s.c_str());
+    return true;
+}
+
+inline bool FindVar(const std::string& name, bool& outVal, const std::string& context = "", const std::string& weaponClass = "") {
+    std::string s = FindVar(name, context, weaponClass);
+    if (s.empty()) return false;
+    outVal = (atoi(s.c_str()) != 0 || s == "true" || s == "1");
+    return true;
+}
+
+#include "OverlayPersistence.h"
+#include "OverlaySharing.h"
+
+static void ApplyPreset(int type) {
+    if (type == 0) { // Legit
+        g_cfg.aimActive = true;
+        g_cfg.aimFov = 2.5f;
+        g_cfg.aimSmooth = 8.5f;
+        g_cfg.aimBone = 0;
+        g_cfg.rcsActive = true;
+        g_cfg.espEnabled = true;
+        g_cfg.espBoxes = true;
+        g_cfg.espBoxType = 1;
+        g_cfg.espSkeleton = false;
+        g_cfg.espSnaplines = false;
+        g_cfg.offScreenArrows = false;
+        g_cfg.cameraFovOverride = false;
+        g_cfg.cameraFov = 90.f;
+        g_cfg.thirdpersonEnabled = false;
+        g_cfg.aspectRatioOverride = false;
+    } else if (type == 1) { // Semi-Rage
+        g_cfg.aimActive = true;
+        g_cfg.aimFov = 6.5f;
+        g_cfg.aimSmooth = 2.0f;
+        g_cfg.aimBone = 0;
+        g_cfg.rcsActive = true;
+        g_cfg.espEnabled = true;
+        g_cfg.espBoxes = true;
+        g_cfg.espBoxType = 0;
+        g_cfg.espSkeleton = true;
+        g_cfg.espSnaplines = true;
+        g_cfg.offScreenArrows = true;
+        g_cfg.cameraFovOverride = true;
+        g_cfg.cameraFov = 105.f;
+        g_cfg.thirdpersonEnabled = true;
+        g_cfg.thirdpersonDistance = 140.f;
+        g_cfg.aspectRatioOverride = false;
+    } else if (type == 2) { // Apenas Visuais
+        g_cfg.aimActive = false;
+        g_cfg.rcsActive = false;
+        g_cfg.espEnabled = true;
+        g_cfg.espBoxes = true;
+        g_cfg.espBoxType = 1;
+        g_cfg.espSkeleton = true;
+        g_cfg.offScreenArrows = true;
+        g_cfg.cameraFovOverride = false;
+        g_cfg.thirdpersonEnabled = false;
+        g_cfg.aspectRatioOverride = false;
+    }
+}
+
+// Icones Vetoriais Minimalistas da Sidebar

@@ -1,0 +1,752 @@
+using namespace HazzureUI;
+
+// ========================================================================
+// Hook CCSGOInput::CreateMove (Build 14194: client.dll + 0xD04140)
+// Aplicação de Aim e Triggerbot pós-original, escrevendo direto no CUserCmd.
+// ========================================================================
+typedef void(__fastcall* CreateMoveFn)(void* pCSGOInput, int nSlot, void* pCmd);
+static CreateMoveFn originalCreateMove = nullptr;
+
+void __fastcall Hook_CreateMove(void* pCSGOInput, int nSlot, void* pCmd) {
+    __try {
+        originalCreateMove(pCSGOInput, nSlot, pCmd);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return;
+    }
+    if (!pCmd || !HazzureWorld::ready.load()) return;
+
+    __try {
+        uintptr_t baseCmd = SafeReadPointer(reinterpret_cast<uintptr_t>(pCmd) + 0x40);
+        uintptr_t qAngle = baseCmd ? SafeReadPointer(baseCmd + 0x40) : 0;
+        Vec3* pViewAngles = qAngle ? reinterpret_cast<Vec3*>(qAngle + 0x18) : nullptr;
+        uintptr_t btnState = baseCmd ? SafeReadPointer(baseCmd + 0x38) : 0;
+        uint64_t* pButtons = btnState ? reinterpret_cast<uint64_t*>(btnState + 0x8) : nullptr;
+
+        uintptr_t tick = 0;
+        SafeRead(reinterpret_cast<uintptr_t>(pCmd) + 0x00, &tick);
+
+        uintptr_t targetIndex = 0;
+        bool aimApplied = false;
+        Vec3 angBefore{}, angAfter{};
+        if (pViewAngles) {
+            SafeRead(reinterpret_cast<uintptr_t>(pViewAngles), &angBefore);
+        }
+
+        bool aimActive = RuntimeBool("aimActive", g_cfg.aimActive, "enemy", "rifles");
+        bool aimHeld = g_cfg.aimKey == 0 || (GetAsyncKeyState(g_cfg.aimKey) & 0x8000) != 0;
+        if (aimActive && aimHeld && pViewAngles) {
+            Vec3 commanded{};
+            if (ReadAimCommand(commanded)) {
+                angAfter = commanded;
+                aimApplied = true;
+            } else {
+                uintptr_t list = 0;
+                SafeRead(client + HazzureOffsets::Globals::dwEntityList, &list);
+                if (list) {
+                    HazzureGame::Pawn local{};
+                    uintptr_t localPawn = HazzureGame::LocalPawn(client);
+                    HazzureGame::ReadPawn(localPawn, local);
+                    float fov = std::clamp(RuntimeFloat("aimFov", g_cfg.aimFov, "enemy", "rifles"), 0.1f, 45.f);
+                    for (uint32_t i = 1; i <= 64; ++i) {
+                        uintptr_t controller = HazzureGame::Entity(list, i);
+                        if (!controller) continue;
+                        uint32_t handle = 0;
+                        if (!SafeRead(controller + HazzureOffsets::Schema::m_hPlayerPawn, &handle)) continue;
+                        uintptr_t pawn = HazzureGame::Entity(list, handle);
+                        if (!pawn || pawn == localPawn) continue;
+                        HazzureGame::Pawn enemy{};
+                        if (!HazzureGame::ReadPawn(pawn, enemy) || enemy.team == local.team || enemy.health <= 0) continue;
+                        uintptr_t bones = ResolveValidatedBoneArray(enemy.scene, enemy.origin);
+                        if (!bones) continue;
+                        HazzureGame::Vec3 point{};
+                        if (!ReadBonePos(bones, BONE_HEAD, &point)) continue;
+                        HazzureGame::Vec2 angular{};
+                        if (!HazzureGame::AimAngles(local.eye, point, angBefore, angular)) continue;
+                        float separation = std::hypot(angular.x, angular.y);
+                        if (separation >= fov) continue;
+                        targetIndex = i;
+                        float smooth = std::clamp(RuntimeFloat("aimSmooth", g_cfg.aimSmooth, "enemy", "rifles"), 1.0f, 30.0f);
+                        float alpha = HazzureGame::SmoothAlpha(smooth, 1.0f / 64.0f);
+                        angAfter.x = angBefore.x + angular.x * alpha;
+                        angAfter.y = HazzureGame::NormalizeAngle(angBefore.y + angular.y * alpha);
+                        aimApplied = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (aimApplied && pViewAngles) {
+            SafeWrite(reinterpret_cast<uintptr_t>(pViewAngles), angAfter);
+            WriteViewAngles(client, angAfter);
+            void* setViewAngles = reinterpret_cast<void*>(client + 0xB82720);
+            if (setViewAngles && pCSGOInput) {
+                reinterpret_cast<void(__fastcall*)(void*, int, Vec3)>(setViewAngles)(pCSGOInput, 0, angAfter);
+            }
+        }
+
+        bool triggerActive = RuntimeBool("triggerActive", g_cfg.triggerActive, "enemy", "");
+        bool triggerHeld = g_cfg.triggerKey == 0 || (GetAsyncKeyState(g_cfg.triggerKey) & 0x8000) != 0;
+        if (triggerActive && triggerHeld && pButtons && pViewAngles) {
+            uintptr_t list = 0;
+            SafeRead(client + HazzureOffsets::Globals::dwEntityList, &list);
+            if (list) {
+                HazzureGame::Pawn local{};
+                uintptr_t localPawn = HazzureGame::LocalPawn(client);
+                HazzureGame::ReadPawn(localPawn, local);
+                HazzureGame::Vec3 view = angBefore;
+                HazzureGame::Vec2 punch{}; int shots{};
+                if (ReadLocalAimPunch(localPawn, &punch, &shots)) {
+                    view.x += punch.x * 2.f;
+                    view.y += punch.y * 2.f;
+                }
+                HazzureGame::Vec3 forward{}, right{}, up{};
+                if (HazzureAccuracy::Basis(view, forward, right, up)) {
+                    float maxRange = 8192.f;
+                    for (uint32_t i = 1; i <= 64; ++i) {
+                        uintptr_t controller = HazzureGame::Entity(list, i);
+                        if (!controller) continue;
+                        uint32_t handle = 0;
+                        if (!SafeRead(controller + HazzureOffsets::Schema::m_hPlayerPawn, &handle)) continue;
+                        uintptr_t pawn = HazzureGame::Entity(list, handle);
+                        if (!pawn || pawn == localPawn) continue;
+                        HazzureGame::Pawn enemy{};
+                        if (!HazzureGame::ReadPawn(pawn, enemy) || enemy.team == local.team || enemy.health <= 0) continue;
+                        float dist = std::hypot(enemy.origin.x - local.origin.x, enemy.origin.y - local.origin.y);
+                        if (dist > maxRange) continue;
+                        HazzureGame::Vec3 toEnemy = {enemy.origin.x - local.origin.x, enemy.origin.y - local.origin.y, enemy.origin.z - local.origin.z};
+                        float dot = HazzureAccuracy::Dot(forward, toEnemy);
+                        if (dot > 0.95f) {
+                            uint64_t currentBtns = 0;
+                            if (SafeRead(reinterpret_cast<uintptr_t>(pButtons), &currentBtns)) {
+                                currentBtns |= (1ULL << 0);
+                                SafeWrite(reinterpret_cast<uintptr_t>(pButtons), currentBtns);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
+static DWORD WINAPI Start(void*) {
+
+
+
+    LogDebug("==================================================");
+
+
+
+    LogDebug("[START] Hazzure Internal Start() iniciado (PID=%lu)", GetCurrentProcessId());
+
+    LogDebug("[BUILD] revision=requests-20261027-v1 compiled=%s %s", __DATE__, __TIME__);
+
+
+
+
+
+
+
+    wchar_t name[100]; swprintf_s(name, L"Local\\HazzureInternal.%lu", GetCurrentProcessId());
+
+
+
+    mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, 4096, name);
+
+
+
+    if (mapping) {
+
+
+
+        shared = static_cast<Shared*>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
+
+
+
+        if (shared) {
+
+
+
+            shared->magic = 0x485a4931; shared->version = 2; shared->visibleColour = 0xffffff00; shared->hiddenColour = 0xffff00aa;
+
+
+
+            shared->armsColour = 0x38ffffff; shared->teamFilter = 1; shared->status = 1; shared->gradient = 0; shared->gradientColour = 0xff30c0ff;
+
+
+
+            InterlockedExchange(&shared->flags, 1 | 8 | 16 | 32);
+
+
+
+            InterlockedExchange(&shared->uiConfigOwner, 1);
+
+
+
+            LogDebug("[START] Memoria compartilhada IPC conectada com sucesso");
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    Message("Checking exact module build");
+
+
+
+    auto scene = GetModuleHandleW(L"scenesystem.dll");
+
+
+
+    auto materials = GetModuleHandleW(L"materialsystem2.dll");
+
+
+
+    auto cl = GetModuleHandleW(L"client.dll");
+
+
+
+    auto tier = GetModuleHandleW(L"tier0.dll");
+
+
+
+    auto resources = GetModuleHandleW(L"resourcesystem.dll");
+
+
+
+
+
+
+
+    LogDebug("[START] Modulos carregados: client=0x%llX, scene=0x%llX, materials=0x%llX, tier=0x%llX, resources=0x%llX",
+
+
+
+        reinterpret_cast<uintptr_t>(cl), reinterpret_cast<uintptr_t>(scene),
+
+
+
+        reinterpret_cast<uintptr_t>(materials), reinterpret_cast<uintptr_t>(tier),
+
+
+
+        reinterpret_cast<uintptr_t>(resources));
+
+
+
+
+
+
+
+    // Validacao de modulos SEM early return ou bloqueio de hooks
+
+
+
+    bool sceneMatched = MatchModule(scene, SCENE_STAMP, SCENE_SIZE);
+
+
+
+    bool matMatched = MatchModule(materials, MATERIAL_STAMP, MATERIAL_SIZE);
+
+
+
+    bool clientMatched = MatchModule(cl, CLIENT_STAMP, CLIENT_SIZE);
+
+
+
+    bool modulesMatched = sceneMatched && matMatched && clientMatched;
+
+
+
+
+
+
+
+    if (!modulesMatched) {
+
+
+
+        LogDebug("[AVISO] Assinatura do modulo divergiu (scene=%d, mat=%d, client=%d). Continuando e forcando hooks...",
+
+
+
+            sceneMatched, matMatched, clientMatched);
+
+
+
+        Message("Aviso: Module identity mudou, forcando hooks...");
+
+
+
+        if (shared) shared->status = -2;
+
+
+
+    } else {
+
+
+
+        LogDebug("[START] Todos os modulos conferem com a assinatura conhecida");
+
+
+
+    }
+
+
+
+
+
+
+
+    client = reinterpret_cast<uintptr_t>(cl);
+
+
+
+
+
+
+
+    // Executa o Pattern Scanner em memoria no client.dll e grava no debug_log.txt
+
+
+
+    if (client) {
+
+
+
+        auto dos = reinterpret_cast<IMAGE_DOS_HEADER*>(client);
+
+
+
+        auto nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(client + dos->e_lfanew);
+
+
+
+        size_t clientSize = nt->OptionalHeader.SizeOfImage;
+
+
+
+        HazzureScanner::RunPatternScan(client, clientSize);
+
+
+
+    } else {
+
+
+
+        LogDebug("[ERRO] client.dll nao encontrado para escaneamento de padroes!");
+
+
+
+    }
+
+
+
+
+
+
+
+    auto factory = materials ? reinterpret_cast<Factory>(GetProcAddress(materials, "CreateInterface")) : nullptr;
+
+
+
+    materialSystem = factory ? factory("VMaterialSystem2_001", nullptr) : nullptr;
+
+
+
+    if (materialSystem) {
+
+
+
+        auto table = Get<uintptr_t>(reinterpret_cast<uintptr_t>(materialSystem));
+
+
+
+        auto target = Get<uintptr_t>(table + 29 * 8);
+
+
+
+        createMaterial = reinterpret_cast<CreateMaterial>(target);
+
+
+
+        LogDebug("[START] MaterialSystem2 conectado. createMaterial=0x%llX", target);
+
+
+
+
+
+
+
+        auto findTarget = Get<uintptr_t>(table + 14 * 8);
+
+
+
+        findMaterialFromResource = reinterpret_cast<FindMaterialFromResource>(findTarget);
+
+
+
+    } else {
+
+
+
+        LogDebug("[AVISO] Material interface missing");
+
+
+
+    }
+
+
+
+
+
+
+
+    auto resourceFactory = resources ? reinterpret_cast<Factory>(GetProcAddress(resources, "CreateInterface")) : nullptr;
+
+
+
+    resourceSystem = resourceFactory ? resourceFactory("ResourceSystem013", nullptr) : nullptr;
+
+
+
+    if (resourceSystem) {
+
+
+
+        auto resourceTable = Get<uintptr_t>(reinterpret_cast<uintptr_t>(resourceSystem));
+
+
+
+        auto precacheTarget = Get<uintptr_t>(resourceTable + 40 * 8);
+
+
+
+        precacheMaterial = reinterpret_cast<PrecacheMaterial>(precacheTarget);
+
+
+
+        LogDebug("[START] ResourceSystem conectado. precacheMaterial=0x%llX", precacheTarget);
+
+
+
+    }
+
+
+
+
+
+
+
+    insertPath = tier ? reinterpret_cast<InsertPath>(GetProcAddress(tier, "?Insert@CBufferString@@QEAAPEBDHPEBDH_N@Z")) : nullptr;
+
+
+
+    purgePath = tier ? reinterpret_cast<PurgePath>(GetProcAddress(tier, "?Purge@CBufferString@@QEAAXH@Z")) : nullptr;
+
+
+
+    loadKV = tier ? reinterpret_cast<LoadKV>(GetProcAddress(tier, "?LoadKV3@@YA_NPEAVKeyValues3@@PEAVCUtlString@@PEBDAEBUKV3ID_t@@2I@Z")) : nullptr;
+
+
+
+
+
+
+
+    if (client) {
+
+
+
+        // Obsolete RVA: client + 0x19B6AC0 is not an arena ctor in current client.dll
+        arenaCtor = tier ? reinterpret_cast<ArenaCtor>(GetProcAddress(tier, "??0CUtlMemoryArena@@QEAA@I_N@Z")) : nullptr;
+
+
+
+        LogDebug("[START] arenaCtor configurado em 0x%llX", reinterpret_cast<uintptr_t>(arenaCtor));
+
+
+
+    }
+
+
+
+
+
+
+
+    MH_Initialize();
+
+    // ========================================================================
+    // Instalação do hook CCSGOInput::CreateMove (Build 14194: client.dll + 0xD04140)
+    // Hook_CreateMove definido no escopo de arquivo (acima de Start()).
+    // ========================================================================
+    if (client) {
+        void* cmTarget = reinterpret_cast<void*>(client + 0xD04140);
+        const unsigned char cmExpected[] = { 0x48, 0x8B, 0xC4, 0x4C, 0x89, 0x40, 0x18, 0x48, 0x89, 0x48, 0x08, 0x55, 0x53, 0x57 };
+        if (memcmp(cmTarget, cmExpected, sizeof(cmExpected)) == 0) {
+            MH_STATUS sCm = MH_CreateHook(cmTarget, Hook_CreateMove, reinterpret_cast<void**>(&originalCreateMove));
+            LogDebug("[HOOK] MH_CreateHook(CreateMove) status: %d (original=0x%llX)", sCm, reinterpret_cast<uintptr_t>(originalCreateMove));
+            if (sCm == MH_OK) {
+                if (MH_EnableHook(cmTarget) == MH_OK) {
+                    HazzureState::RegisterHook("CreateMove", cmTarget, Hook_CreateMove, originalCreateMove);
+                    LogDebug("[HOOK] CreateMove habilitado com sucesso em 0x%llX", reinterpret_cast<uintptr_t>(cmTarget));
+                } else {
+                    LogDebug("[HOOK] Falha ao EnableHook CreateMove");
+                    MH_RemoveHook(cmTarget);
+                    originalCreateMove = nullptr;
+                }
+            }
+        } else {
+            LogDebug("[AVISO] memcmp do CreateMove divergiu! Hook desativado em 0x%llX", reinterpret_cast<uintptr_t>(cmTarget));
+        }
+    } else {
+        LogDebug("[ERRO] client.dll não encontrado para hook de CreateMove!");
+    }
+
+
+
+
+
+
+
+    // Hook Draw no scenesystem.dll
+
+
+
+    if (scene) {
+
+
+
+        auto draw = reinterpret_cast<unsigned char*>(scene) + 0x59FC0;
+
+
+
+        const unsigned char expected[] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x50, 0x10, 0x48, 0x89, 0x48, 0x08 };
+
+
+
+        if (memcmp(draw, expected, sizeof(expected)) != 0) {
+
+
+
+            LogDebug("[AVISO] memcmp do Draw prologue divergiu! Hook desativado em 0x%llX", reinterpret_cast<uintptr_t>(draw));
+
+
+
+        } else {
+
+
+
+            LogDebug("[HOOK] memcmp do Draw coincide com o esperado (0x%llX)", reinterpret_cast<uintptr_t>(draw));
+
+
+
+        }
+
+
+
+
+
+
+
+        MH_STATUS sDraw = memcmp(draw,expected,sizeof(expected))==0?MH_CreateHook(draw, Hook, reinterpret_cast<void**>(&original)):MH_ERROR_UNSUPPORTED_FUNCTION;
+
+
+
+        LogDebug("[HOOK] MH_CreateHook(Draw) status: %d (original=0x%llX)", sDraw, reinterpret_cast<uintptr_t>(original));
+
+
+
+        if(sDraw==MH_OK)HazzureState::RegisterHook("Draw", draw, Hook, original);
+
+
+
+    } else {
+
+
+
+        LogDebug("[ERRO] scenesystem.dll nao encontrado para hook de Draw!");
+
+
+
+    }
+
+
+
+
+
+
+
+    // Getter is slot 0x118 in CCSPlayer_CameraServices and its base. Only the
+
+    // measured installed PE/prologue may receive this typed float-return hook.
+
+    if(HazzureCamera::Supported(client)){
+
+        void* target=reinterpret_cast<void*>(client+HazzureCamera::getterRva);
+
+        auto created=MH_CreateHook(target,CameraFovHook,reinterpret_cast<void**>(&originalCamera));
+
+        auto enabled=created==MH_OK?MH_EnableHook(target):created;
+
+        if(created==MH_OK&&enabled==MH_OK){
+
+            HazzureState::RegisterHook("CameraFov",target,CameraFovHook,originalCamera);
+
+            HazzureCamera::installed.store(true);
+
+        }else if(created==MH_OK){MH_RemoveHook(target);originalCamera=nullptr;}
+
+        LogDebug("[FOV] Camera getter create=%d enable=%d",created,enabled);
+
+    }else LogDebug("[FOV] Camera getter unavailable: PE/prologue mismatch");
+
+
+
+    // ClientModeShared/CSNormal vtables: OverrideView slot 15 and entity draw
+
+    // predicate slot 13. Both bodies/layouts were checked in the installed PE.
+
+    if(HazzureNativeCamera::Supported(client)){
+
+        void* viewTarget=reinterpret_cast<void*>(client+HazzureNativeCamera::viewRva);
+
+        void* drawTarget=reinterpret_cast<void*>(client+HazzureNativeCamera::drawRva);
+
+        auto cv=MH_CreateHook(viewTarget,NativeViewHook,reinterpret_cast<void**>(&originalViewSetup));
+
+        auto cd=MH_CreateHook(drawTarget,NativeDrawEntityHook,reinterpret_cast<void**>(&originalDrawEntity));
+
+        auto ev=cv==MH_OK?MH_EnableHook(viewTarget):cv;
+
+        auto ed=cd==MH_OK?MH_EnableHook(drawTarget):cd;
+
+        if(cv==MH_OK&&cd==MH_OK&&ev==MH_OK&&ed==MH_OK){
+
+            HazzureState::RegisterHook("NativeView",viewTarget,NativeViewHook,originalViewSetup);
+
+            HazzureState::RegisterHook("NativeLocalBody",drawTarget,NativeDrawEntityHook,originalDrawEntity);
+
+            HazzureNativeCamera::installed.store(true);
+
+        }else{
+
+            if(cv==MH_OK){MH_DisableHook(viewTarget);MH_RemoveHook(viewTarget);originalViewSetup=nullptr;}
+
+            if(cd==MH_OK){MH_DisableHook(drawTarget);MH_RemoveHook(drawTarget);originalDrawEntity=nullptr;}
+
+        }
+
+        LogDebug("[CAMERA] Native view create/enable=%d/%d body=%d/%d",cv,ev,cd,ed);
+
+    }else LogDebug("[CAMERA] Native view unavailable: PE/prologue mismatch");
+
+
+
+    // Callback dependencies still belong to the reviewed 14192/14194 PE/schema.
+    uint32_t skinStamp{},skinSize{};
+    const bool skinContract=HazzureSchema::GetModuleFingerprint("client.dll",skinStamp,skinSize)&&
+        ((skinStamp==0x6ADA7340u&&skinSize==0x29A0000u)||((skinStamp==0x6AE4FB84u||skinStamp==0x6AE91E98u)&&skinSize==0x29A2000u))&&
+        HazzureVisibility::Prefix(client+SKIN_FRAME.rva,SKIN_FRAME.bytes,sizeof(SKIN_FRAME.bytes));
+    if(!skinContract)LogDebug("[HOOK] SkinFrame disabled: dependent contracts require revalidation");
+    bool nativeCallbackCreated=false;
+    const bool inventoryContract=HazzureNativeInventory::CurrentProfile::Supported(client,true);
+    if(inventoryContract){
+        void* target=reinterpret_cast<void*>(client+HazzureNativeInventory::CurrentProfile::frame);
+        auto result=MH_CreateHook(target,InventoryFrameHook,reinterpret_cast<void**>(&originalInventoryFrame));
+        nativeCallbackCreated=result==MH_OK;
+        if(nativeCallbackCreated)HazzureState::RegisterHook("InventoryFrame",target,InventoryFrameHook,originalInventoryFrame);
+        LogDebug("[HOOK] Current inventory/fog callback create=%d",result);
+    }else LogDebug("[HOOK] Current inventory/fog callback unavailable: PE/ABI mismatch");
+    // Hook SkinFrame (somente se o callback unificado de inventario nao tiver sido criado)
+    if (client && !nativeCallbackCreated) {
+        MH_STATUS sFrame = skinContract ? MH_CreateHook(reinterpret_cast<void*>(client + SKIN_FRAME.rva), FrameHook, reinterpret_cast<void**>(&originalFrame)) : MH_ERROR_UNSUPPORTED_FUNCTION;
+        LogDebug("[HOOK] MH_CreateHook(SkinFrame) status: %d", sFrame);
+        if (sFrame == MH_OK) HazzureState::RegisterHook("SkinFrame", reinterpret_cast<void*>(client + SKIN_FRAME.rva), FrameHook, originalFrame);
+    }
+    MH_STATUS enableAll = MH_EnableHook(MH_ALL_HOOKS);
+    HazzureNativeInventory::backendAvailable.store(enableAll==MH_OK&&nativeCallbackCreated&&inventoryContract);
+
+
+
+    LogDebug("[HOOK] MH_EnableHook(MH_ALL_HOOKS) status: %d", enableAll);
+
+
+
+
+
+
+
+    // Kiero D3D11 hook
+
+
+
+    Message("Inicializando Kiero D3D11...");
+
+
+
+    if (kiero::init(kiero::RenderType::D3D11) == kiero::Status::Success) {
+
+
+
+        bool presentationReady=InstallPresentationHooks(reinterpret_cast<void**>(kiero::getMethodsTable()));
+        LogDebug("[KIERO] Resident Present/ResizeBuffers ready=%d",presentationReady);
+        Message(presentationReady?"Kiero D3D11 Present/ResizeBuffers residentes ativos":"Aviso: Falha ao instalar Present/ResizeBuffers");
+
+    } else {
+
+
+
+        LogDebug("[KIERO] [ERRO] Falha ao inicializar Kiero D3D11");
+
+
+
+        Message("Aviso: Falha ao inicializar Kiero D3D11");
+
+
+
+    }
+
+
+
+
+
+
+
+    Message("Draw diagnostic active; effects OFF");
+
+
+
+    if (shared) shared->status = 2;
+
+
+
+    LogDebug("[START] Start() finalizado com sucesso.");
+
+
+
+    LogDebug("==================================================");
+
+
+
+    return 0;
+
+
+
+}
+
+
+

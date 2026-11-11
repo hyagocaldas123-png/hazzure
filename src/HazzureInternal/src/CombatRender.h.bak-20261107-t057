@@ -1,0 +1,185 @@
+// Included inside HazzureUI after configuration and bone helpers.
+#pragma once
+#include "SkeletonGeometry.h"
+static ImU32 CombatAlpha(ImU32 color,float alpha){return (color&0xffffffu)|
+    (static_cast<ImU32>(((color>>24)&255)*std::clamp(alpha,0.f,1.f))<<24);}
+static void CombatText(ImDrawList* draw,ImVec2 point,ImU32 color,const char* text,float alpha){
+    auto shadow=CombatAlpha(IM_COL32(0,0,0,225),alpha);
+    for(const auto& offset:{ImVec2{-1,0},ImVec2{1,0},ImVec2{0,-1},ImVec2{0,1}})
+        draw->AddText({point.x+offset.x,point.y+offset.y},shadow,text);
+    draw->AddText(point,color,text);
+}
+// Original vector silhouettes for common rifles/snipers. Other definitions retain their label.
+static bool CombatWeaponIcon(ImDrawList* draw,uint16_t definition,float center,float y,ImU32 color,float alpha){
+    bool ak=definition==7,sniper=definition==9||definition==40,m4=definition==16||definition==60;
+    if(!ak&&!sniper&&!m4)return false;
+    const float x=center-22.f;
+    auto line=[&](float ax,float ay,float bx,float by,float weight=2.f){
+        draw->AddLine({x+ax,y+ay},{x+bx,y+by},CombatAlpha(IM_COL32(0,0,0,230),alpha),weight+2.f);
+        draw->AddLine({x+ax,y+ay},{x+bx,y+by},color,weight);
+    };
+    line(13,5,31,5,4);line(31,4,44,4,1.8f);line(16,7,13,12,2.5f);
+    line(2,3,12,5,3);line(2,3,2,8,2);line(2,8,11,6,2);
+    if(sniper){line(17,0,28,0,3);line(19,1,19,3,1);line(27,1,27,3,1);line(23,7,23,10,3);
+        if(definition==9){line(33,7,31,12,1);line(33,7,36,12,1);}}
+    else if(ak){line(22,7,23,11,3);line(23,11,27,14,3);line(31,1,31,4,1);}
+    else {line(21,7,23,12,3);line(14,2,26,2,1);line(37,2,37,4,1);}
+    return true;
+}
+struct CombatWeaponArtwork {bool drawn{},base{};float bottom{};};
+static CombatWeaponArtwork DrawCombatWeaponArtwork(ImDrawList* draw,const HazzureCombat::Ghost& ghost,
+    float center,float top,float boxWidth,float boxHeight,float alpha){
+    CombatWeaponArtwork result{};if(!draw||!ghost.weaponDefinition)return result;
+    char asset[64]{};HazzurePreviewAssets::Texture texture{};
+    if(ghost.weaponPaint>=0){sprintf_s(asset,"skins/%u_%d.png",ghost.weaponDefinition,ghost.weaponPaint);texture=HazzurePreviewAssets::Get(asset);}
+    if(!texture.view){sprintf_s(asset,"skins/%u_0.png",ghost.weaponDefinition);texture=HazzurePreviewAssets::Get(asset);result.base=true;}
+    if(!texture.view)return result;
+    float width=std::clamp(boxWidth*1.25f,44.f,84.f),height=std::clamp(boxHeight*.18f,18.f,34.f);
+    auto bounds=HazzureSkeleton::FitImage(center,top,width,height,texture.width,texture.height);
+    if(!bounds.valid)return result;
+    draw->AddImage(reinterpret_cast<ImTextureID>(texture.view),{bounds.left,bounds.top},{bounds.right,bounds.bottom},
+        {0,0},{1,1},CombatAlpha(IM_COL32(255,255,255,255),alpha));
+    result.drawn=true;result.bottom=bounds.bottom;return result;
+}
+static void CombatLine(ImDrawList* draw,Vec3 a,Vec3 b,const Matrix4& matrix,int width,int height,ImU32 color,float thickness=1.5f){
+    Vec2 sa{},sb{};if(HazzureCombat::ProjectSegment(a,b,matrix,width,height,sa,sb)){
+        draw->AddLine({sa.x,sa.y},{sb.x,sb.y},(color&0xff000000u),thickness+2.f);
+        draw->AddLine({sa.x,sa.y},{sb.x,sb.y},color,thickness);
+    }
+}
+static void DrawCombatEffects(ImDrawList* draw,const Matrix4& matrix,const Vec3& local,int width,int height,uint64_t now,float viewYaw=0){
+    using namespace HazzureCombat;
+    effects.Prune(now);
+    for(size_t i=0;i<effects.count;++i){const auto& e=effects.entries[i];float age=Age(now,e.time);
+        if(e.kind==Kind::Damage&&g_cfg.worldDamage){float alpha=Fade(age,g_cfg.damageDuration);if(alpha<=0)continue;
+            Vec3 point=e.point;point.z+=age*32.f;Vec2 p{};if(!WorldToScreen(point,matrix,width,height,p))continue;
+            char text[32];if(e.lethal)sprintf_s(text,"-%d [HS]",e.damage);else sprintf_s(text,"-%d",e.damage);
+            ImU32 color=e.lethal?CombatAlpha(IM_COL32(255,65,65,255),alpha):CombatAlpha(IM_COL32(255,180,45,255),alpha);
+            auto size=ImGui::CalcTextSize(text);draw->AddRectFilled({p.x-size.x*.5f-4.f,p.y-2.f},{p.x+size.x*.5f+4.f,p.y+size.y+2.f},CombatAlpha(IM_COL32(10,12,16,180),alpha),3.0f);draw->AddRect({p.x-size.x*.5f-4.f,p.y-2.f},{p.x+size.x*.5f+4.f,p.y+size.y+2.f},CombatAlpha(color,alpha*0.6f),3.0f,0,1.0f);draw->AddText({p.x-size.x*.5f+1,p.y+1},CombatAlpha(IM_COL32(0,0,0,220),alpha),text);
+            draw->AddText({p.x-size.x*.5f,p.y},color,text);
+
+
+
+        }else if(e.kind==Kind::Kill&&g_cfg.killEffects){
+            DrawVisualKill(draw,e,matrix,width,height,age);
+        }else if(e.kind==Kind::Impact&&(g_cfg.bulletTracers||g_cfg.impactBoxes)){
+            float tracerAlpha=Fade(age,g_cfg.tracerDuration),impactAlpha=Fade(age,g_cfg.impactDuration)*g_cfg.impactOpacity;
+            if(g_cfg.bulletTracers&&tracerAlpha>0)VisualLine(draw,e.start,e.point,matrix,width,height,
+                VisualColour(g_cfg.colTracer,tracerAlpha),g_cfg.tracerWidth,g_cfg.tracerGlow);
+            if(g_cfg.impactBoxes&&impactAlpha>0){
+                auto color=VisualColour(g_cfg.colImpact,impactAlpha);Vec3 corners[8];
+                for(int j=0;j<8;++j)corners[j]={e.point.x+((j&1)?g_cfg.impactSize:-g_cfg.impactSize),
+                    e.point.y+((j&2)?g_cfg.impactSize:-g_cfg.impactSize),e.point.z+((j&4)?g_cfg.impactSize:-g_cfg.impactSize)};
+                if(g_cfg.impactFill){const int faces[6][4]={{0,1,3,2},{4,5,7,6},{0,1,5,4},{2,3,7,6},{0,2,6,4},{1,3,7,5}};
+                    for(const auto& face:faces){Vec3 quad[4];for(int j=0;j<4;++j)quad[j]=corners[face[j]];
+                        VisualFill(draw,quad,matrix,width,height,VisualAlpha(color,.15f));}}
+                for(int j=0;j<8;++j)for(int bit=1;bit<=4;bit*=2)if(!(j&bit))VisualLine(draw,corners[j],corners[j|bit],matrix,width,height,color,g_cfg.impactWidth,g_cfg.impactGlow);
+                if(g_cfg.impactSparks)for(int j=0;j<8;++j){float angle=j*2.39996323f+(e.actor&15),speed=12.f+j*2;
+                    Vec3 spark{e.point.x+std::cos(angle)*speed*age,e.point.y+std::sin(angle)*speed*age,e.point.z+speed*age-35*age*age};
+                    Vec3 tail=spark;tail.z-=2.f;VisualLine(draw,spark,tail,matrix,width,height,color,1.f,g_cfg.impactGlow);}
+            }
+        }else if((g_cfg.soundEsp||g_cfg.soundRadar)&&(e.kind==Kind::Footstep||e.kind==Kind::Jump||e.kind==Kind::Reload||e.kind==Kind::Door||e.kind==Kind::Fire)){
+            float alpha=Fade(age,g_cfg.soundDuration);if(alpha<=0||std::hypot(e.point.x-local.x,e.point.y-local.y)>2500.f)continue;
+            float radius=8.f+std::clamp(age/g_cfg.soundDuration,0.f,1.f)*g_cfg.soundRadius;
+            auto heightClass=Height(e.point.z,local.z);if(heightClass==SoundHeight::Unknown)continue;
+            ImU32 color=heightClass==SoundHeight::Above?IM_COL32(250,195,80,255):
+                heightClass==SoundHeight::Below?IM_COL32(190,110,255,255):IM_COL32(90,210,240,255);
+            char label[64];sprintf_s(label,"%s | %s",SoundLabel(e.kind),HeightLabel(heightClass));
+            color=CombatAlpha(color,alpha);
+            if(g_cfg.soundEsp)for(int segment=0;segment<48;++segment){float a=segment*6.283185307f/48,b=(segment+1)*6.283185307f/48;
+                CombatLine(draw,{e.point.x+std::cos(a)*radius,e.point.y+std::sin(a)*radius,e.point.z+1},
+                    {e.point.x+std::cos(b)*radius,e.point.y+std::sin(b)*radius,e.point.z+1},matrix,width,height,color,1.8f);}
+            if(g_cfg.soundEsp){Vec2 at{};if(WorldToScreen(e.point,matrix,width,height,at)){
+                auto measured=ImGui::CalcTextSize(label);CombatText(draw,{at.x-measured.x*.5f,at.y-18},color,label,alpha);}}
+            if(g_cfg.soundRadar&&std::isfinite(viewYaw)){
+                float bearing=std::atan2(e.point.y-local.y,e.point.x-local.x)-viewYaw*.01745329252f;
+                ImVec2 center{width*.5f,height*.5f};float ring=std::clamp(std::min(width,height)*.13f,24.f,110.f);
+                ImVec2 direction{-std::sin(bearing),-std::cos(bearing)},side{-direction.y,direction.x};
+                ImVec2 tip{center.x+direction.x*ring,center.y+direction.y*ring};
+                ImVec2 back{center.x+direction.x*(ring-11),center.y+direction.y*(ring-11)};
+                draw->AddTriangleFilled(tip,{back.x+side.x*5,back.y+side.y*5},{back.x-side.x*5,back.y-side.y*5},color);
+                auto labelSize=ImGui::CalcTextSize(label);
+                CombatText(draw,{tip.x+(direction.x<0?-labelSize.x-9:9),tip.y+direction.y*18-labelSize.y*.5f},color,label,alpha);
+            }
+        }
+    }
+}
+#include "GrenadeZoneDrawing.inl"
+static HazzureCombat::Ghost CaptureCombatGhost(uintptr_t pawn,uint32_t handle,uintptr_t controller,
+    const HazzureGame::Pawn& player,uintptr_t bones,uintptr_t list,uint64_t now){
+    HazzureCombat::Ghost out{};out.pawn=pawn;out.handle=handle;out.team=player.team;out.health=player.health;
+    out.healthShown=static_cast<float>(std::clamp(player.health,0,100));
+    for(const auto& old:HazzureCombat::history.players)if(old.handle==handle&&old.pawn==pawn&&now>=old.seen){
+        out.healthShown=HazzureCombatRefine::Health(old.healthShown,player.health,static_cast<float>(now-old.seen)*.001f);break;
+    }
+    out.origin=player.origin;out.head={player.origin.x,player.origin.y,player.origin.z+72.f};out.seen=now;
+    HazzureGame::ReadBytes(controller+HazzureOffsets::Schema::m_iszPlayerName,out.name,sizeof(out.name)-1);
+    uintptr_t weapon{};out.weaponDefinition=ActiveWeaponDefinition(pawn,list,&weapon);
+    strcpy_s(out.weapon,WeaponLabel(out.weaponDefinition));
+    if(weapon){int clip{},reserve{};
+        if(SafeRead(weapon+0x1928,&clip)&&clip>=0&&clip<=250)out.ammo=clip;
+        if(SafeRead(weapon+0x1930,&reserve)&&reserve>=0&&reserve<=1000)out.reserve=reserve;
+        uint32_t weaponHandle=HazzureTactical::Handle(list,weapon);int paint{};
+        if(HazzureVisibility::BuildMatches(reinterpret_cast<uintptr_t>(GetModuleHandleW(L"client.dll")))&&weaponHandle&&
+           SafeRead(weapon+HazzureOffsets::Schema::m_nFallbackPaintKit,&paint)&&paint>=0&&paint<=20000&&
+           HazzureTactical::ExactEntity(list,weaponHandle)==weapon)out.weaponPaint=paint;
+    }
+    Vec3 head{};if(bones&&ReadBonePos(bones,BONE_HEAD,&head)&&HazzureGame::Finite(head))out.head=head;
+    if(bones){auto pose=HazzureSkeleton::Capture(player.origin,[&](int index,Vec3& point){return ReadBonePos(bones,index,&point);});
+        if(pose.core){out.head=pose.joints[HazzureSkeleton::head];
+            for(size_t i=0;i<pose.count&&out.boneCount<out.bones.size();++i)
+                out.bones[out.boneCount++]={pose.segments[i].a,pose.segments[i].b};}}
+    return out;
+}
+static void DrawCombatGhost(ImDrawList* draw,const HazzureCombat::Ghost& ghost,const HazzureGame::Pawn& local,
+    const Matrix4& matrix,int width,int height,float alpha,const char* weaponClass){
+    if(alpha<=0)return;bool enemy=ghost.team!=local.team;const char* context=enemy?"enemy":"ally";
+    float distance=std::hypot(std::hypot(ghost.origin.x-local.origin.x,ghost.origin.y-local.origin.y),ghost.origin.z-local.origin.z);
+    if(distance>RuntimeFloat("espMaxDistance",g_cfg.espMaxDistance,context,weaponClass))return;
+    Vec3 topPoint=ghost.head;topPoint.z+=7;Vec2 head{},foot{};
+    bool projected=WorldToScreen(topPoint,matrix,width,height,head)&&WorldToScreen(ghost.origin,matrix,width,height,foot);
+    auto color=CombatAlpha(Float4ToImU32(enemy?g_cfg.colEnemy:g_cfg.colTeam),alpha);
+    float boxHeight=std::fabs(foot.y-head.y),left=(head.x+foot.x)*.5f-boxHeight*.25f,right=left+boxHeight*.5f,top=std::min(head.y,foot.y),bottom=std::max(head.y,foot.y);
+    if(projected&&ghost.boneCount){float minX=FLT_MAX,maxX=-FLT_MAX;unsigned points=0;
+        for(size_t i=0;i<ghost.boneCount;++i)for(const auto& world:{ghost.bones[i].a,ghost.bones[i].b}){Vec2 p{};
+            if(WorldToScreen(world,matrix,width,height,p)&&p.y>=top-boxHeight*.1f&&p.y<=bottom+boxHeight*.1f){minX=std::min(minX,p.x);maxX=std::max(maxX,p.x);++points;}}
+        if(points>=2&&maxX-minX>boxHeight*.1f){float center=(minX+maxX)*.5f,half=std::min((maxX-minX)*.5f+2.f,boxHeight*.45f);left=center-half;right=center+half;}}
+    if(!projected||boxHeight<2||right<0||left>width||bottom<0||top>height){
+        if(g_cfg.offScreenArrows&&enemy&&local.anglesValid){Vec2 point{};float angle{};
+            if(HazzureCombat::EdgeArrow(ghost.origin,local.eye,local.angles.y,width,height,point,angle)){
+                draw->AddTriangleFilled({point.x+std::cos(angle)*10,point.y+std::sin(angle)*10},
+                    {point.x+std::cos(angle+2.4f)*8,point.y+std::sin(angle+2.4f)*8},
+                    {point.x+std::cos(angle-2.4f)*8,point.y+std::sin(angle-2.4f)*8},color);}
+        }
+        return;
+    }
+    ++g_frameDiagnostics.projected;
+    if(RuntimeBool("espBoxes",g_cfg.espBoxes,context,weaponClass)){
+        if(!g_cfg.espBoxType){draw->AddRect({left-1,top-1},{right+1,bottom+1},CombatAlpha(IM_COL32(0,0,0,200),alpha));draw->AddRect({left,top},{right,bottom},color,0,0,1.3f);}
+        else for(int side=0;side<2;++side)for(int end=0;end<2;++end){float x=side?right:left,y=end?bottom:top;
+            draw->AddLine({x,y},{x+(side?-1:1)*(right-left)*.26f,y},CombatAlpha(IM_COL32(0,0,0,230),alpha),3.5f);
+            draw->AddLine({x,y},{x,y+(end?-1:1)*(bottom-top)*.22f},CombatAlpha(IM_COL32(0,0,0,230),alpha),3.5f);
+            draw->AddLine({x,y},{x+(side?-1:1)*(right-left)*.26f,y},color,1.5f);
+            draw->AddLine({x,y},{x,y+(end?-1:1)*(bottom-top)*.22f},color,1.5f);}
+    }
+    if(g_cfg.espHealth){float shown=ghost.healthShown>=0?ghost.healthShown:static_cast<float>(ghost.health);
+        float fraction=std::clamp(shown/100.f,0.f,1.f);auto healthColor=HazzureCombatRefine::HealthColour(shown);
+        draw->AddRectFilled({left-7,top-1},{left-2,bottom+1},CombatAlpha(IM_COL32(10,10,14,230),alpha));
+        draw->AddRectFilled({left-6,bottom-(bottom-top)*fraction},{left-3,bottom},CombatAlpha(IM_COL32(healthColor.red,healthColor.green,healthColor.blue,255),alpha));}
+    if(g_cfg.espSnaplines)draw->AddLine({width*.5f,static_cast<float>(height)},{foot.x,foot.y},CombatAlpha(Float4ToImU32(g_cfg.colSnaplines),alpha));
+    if(g_cfg.espName&&ghost.name[0]){auto size=ImGui::CalcTextSize(ghost.name);CombatText(draw,{(left+right-size.x)*.5f,top-size.y-3},color,ghost.name,alpha);}
+    auto artwork=g_cfg.espWeapon&&g_cfg.espWeaponImages?DrawCombatWeaponArtwork(draw,ghost,(left+right)*.5f,bottom+4,right-left,boxHeight,alpha):CombatWeaponArtwork{};
+    bool icon=!artwork.drawn&&g_cfg.espWeapon&&g_cfg.espWeaponIcons&&CombatWeaponIcon(draw,ghost.weaponDefinition,(left+right)*.5f,bottom+4,color,alpha);
+    float textY=artwork.drawn?artwork.bottom+2:bottom+(icon?20.f:3.f);
+    if(g_cfg.espWeapon&&ghost.ammo>=0){char ammo[32];
+        if(ghost.reserve>=0)sprintf_s(ammo,"%d/%d",ghost.ammo,ghost.reserve);else sprintf_s(ammo,"%d",ghost.ammo);
+        auto size=ImGui::CalcTextSize(ammo);CombatText(draw,{(left+right-size.x)*.5f,textY},color,ammo,alpha);textY+=size.y+1;
+    }
+    char label[96]{},weaponLabel[64]{};
+    const char* weapon=g_cfg.espWeapon&&!icon?ghost.weapon:"";
+    if(*weapon)sprintf_s(weaponLabel,"%s%s",weapon,artwork.drawn&&artwork.base?" (base)":"");
+    if(g_cfg.espDistance)sprintf_s(label,"%s%s%.0fm",weaponLabel,weaponLabel[0]?" | ":"",distance/39.37f);else if(g_cfg.espWeapon)sprintf_s(label,"%s",weaponLabel);
+    if(label[0]){auto size=ImGui::CalcTextSize(label);CombatText(draw,{(left+right-size.x)*.5f,textY},color,label,alpha);}
+    if(RuntimeBool("espSkeleton",g_cfg.espSkeleton,context,weaponClass))for(size_t i=0;i<ghost.boneCount;++i)
+        CombatLine(draw,ghost.bones[i].a,ghost.bones[i].b,matrix,width,height,CombatAlpha(Float4ToImU32(g_cfg.colSkeleton),alpha),1.3f);
+}

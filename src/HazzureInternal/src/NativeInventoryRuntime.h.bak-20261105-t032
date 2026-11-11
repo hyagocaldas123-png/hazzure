@@ -1,0 +1,180 @@
+// Coalesced UI requests. Only the existing engine frame callback consumes them.
+#pragma once
+#include "NativeInventoryEngine.h"
+#include <atomic>
+namespace HazzureNativeInventory {
+struct EquippedEntry {
+    uint64_t localItemID{},nativeItemID{};
+    int definition{},paint{};
+    bool equippedT{},equippedCT{};
+    int slotT{-1},slotCT{-1};
+};
+struct EquipRequest {
+    uint64_t localItemID{};
+    int team{};
+    int slot{-1};
+    bool unequip{};
+};
+struct RuntimeSnapshot {
+    Diagnostic diagnostic{};
+    uint64_t requested{},processed{};
+    bool enabled{},available{};
+    std::array<EquippedEntry,HazzureInventory::Capacity> items{};
+    size_t itemCount{};
+    uint64_t equipRequested{},equipProcessed{};
+    uint64_t lastEquipFailedID{};
+    bool lastEquipSucceeded{true};
+};
+class Runtime;extern Runtime runtime;extern Engine nativeEngine;extern SRWLOCK frameLock;extern std::atomic<bool> backendAvailable;
+class Runtime {
+    SRWLOCK lock=SRWLOCK_INIT;HazzureInventory::Collection submitted{},desired{};uint64_t requested{},processing{};
+    bool enabled{},desiredEnabled{},accepting=true,initialized{},reconcilePending{};std::atomic<DWORD> owner{};Controller controller;RuntimeSnapshot published{};
+    std::array<EquipRequest,16> pendingEquips{};size_t pendingEquipCount{};uint64_t equipTicket{};
+    std::atomic_flag busy=ATOMIC_FLAG_INIT;
+public:
+    bool Submit(const HazzureInventory::Collection& collection,bool active){
+        if(active&&!HazzureInventory::Valid(collection))return false;
+        AcquireSRWLockExclusive(&lock);
+        bool ok=accepting&&requested!=(std::numeric_limits<uint64_t>::max)();
+        if(ok){submitted=active?collection:HazzureInventory::Collection{};enabled=active;++requested;
+            if(!active)pendingEquipCount=0;
+            published.enabled=active;published.requested=requested;published.diagnostic.status=Status::Queued;}
+        ReleaseSRWLockExclusive(&lock);return ok;
+    }
+    bool SubmitEquip(uint64_t localItemID,int team,int slot=-1,bool unequip=false){
+        if(!localItemID||(team!=2&&team!=3))return false;
+        AcquireSRWLockExclusive(&lock);
+        bool ok=accepting&&enabled&&pendingEquipCount<pendingEquips.size();
+        if(ok){
+            pendingEquips[pendingEquipCount++]={localItemID,team,slot,unequip};
+            ++equipTicket;
+            published.equipRequested=equipTicket;
+        }
+        ReleaseSRWLockExclusive(&lock);return ok;
+    }
+    bool SubmitEquipBoth(uint64_t localItemID,int slotT=-1,int slotCT=-1){
+        if(!localItemID)return false;
+        AcquireSRWLockExclusive(&lock);
+        bool ok=accepting&&enabled&&(pendingEquipCount+2)<=pendingEquips.size();
+        if(ok){
+            pendingEquips[pendingEquipCount++]={localItemID,2,slotT,false};
+            pendingEquips[pendingEquipCount++]={localItemID,3,slotCT,false};
+            ++equipTicket;
+            published.equipRequested=equipTicket;
+        }
+        ReleaseSRWLockExclusive(&lock);return ok;
+    }
+    RuntimeSnapshot Read(){AcquireSRWLockShared(&lock);auto out=published;ReleaseSRWLockShared(&lock);return out;}
+    // Equip flags live in the persisted collection, but a new session starts with
+    // an untouched loadout. Re-apply them once per accepted snapshot so an item
+    // equipped in the UI survives restarts; -1 failure, 1 budget exhausted, 0 done.
+    int Reconcile(const HazzureInventory::Collection& wanted,Backend& backend,DWORD thread,unsigned budget){
+        for(size_t i=0;i<controller.Count();++i){
+            const auto* rec=controller.RecordAt(i);
+            if(!rec||rec->phase!=Phase::Live)continue;
+            const int index=HazzureInventory::Find(wanted,rec->localItemID);
+            if(index<0)continue;
+            const auto& item=wanted.items[static_cast<size_t>(index)];
+            const int definition=NativeDefinition(item);
+            for(int team=2;team<=3;++team){
+                const bool want=team==2?item.equippedT:item.equippedCT;
+                const bool have=team==2?rec->equippedT:rec->equippedCT;
+                if(want==have||!TeamAllowedForDefinition(definition,team))continue;
+                if(!budget)return 1;
+                --budget;
+                bool ok=false;
+                if(!want)ok=controller.UnequipFromLoadout(item.id,team,thread);
+                else{
+                    int slot=-1;Session s{};
+                    if(backend.session&&backend.session(backend.context,s)&&s.Valid()&&backend.context==&nativeEngine)
+                        slot=nativeEngine.ResolveLoadoutSlot(s,rec->nativeItemID,definition,team);
+                    else slot=DefaultSlotForDefinition(definition,team);
+                    ok=slot>=0&&controller.EquipInLoadout(item.id,team,slot,thread);
+                }
+                if(!ok)return -1;
+            }
+        }
+        return 0;
+    }
+    void Tick(Backend backend,DWORD thread,bool suspended){
+        if(busy.test_and_set(std::memory_order_acquire))return;
+        struct Guard{std::atomic_flag& value;~Guard(){value.clear(std::memory_order_release);}} guard{busy};
+        if(!thread||(owner&&owner!=thread))return;
+        if(!initialized){if(!controller.Initialize(backend,thread))return;owner=thread;initialized=true;}
+        std::array<EquipRequest,16> equipsToRun{};size_t equipCount{};uint64_t currentEquipTicket{};
+        AcquireSRWLockExclusive(&lock);accepting=!suspended;
+        if(suspended&&enabled){enabled=false;submitted={};pendingEquipCount=0;if(requested!=(std::numeric_limits<uint64_t>::max)())++requested;}
+        if(processing!=requested){desired=submitted;desiredEnabled=enabled;processing=requested;reconcilePending=desiredEnabled;}
+        auto ticket=processing;
+        if(desiredEnabled&&pendingEquipCount){
+            equipCount=pendingEquipCount;equipsToRun=pendingEquips;pendingEquipCount=0;currentEquipTicket=equipTicket;
+        }
+        ReleaseSRWLockExclusive(&lock);
+        bool complete=desiredEnabled?controller.Synchronize(desired,thread,2):controller.Teardown(thread,2);
+        bool equipOk=published.lastEquipSucceeded;
+        uint64_t failedID=published.lastEquipFailedID;
+        if(complete&&desiredEnabled&&equipCount){
+            equipOk=true;failedID=0;
+            for(size_t i=0;i<equipCount;++i){
+                const auto& req=equipsToRun[i];
+                bool stepOk=false;
+                if(req.unequip){
+                    stepOk=controller.UnequipFromLoadout(req.localItemID,req.team,thread);
+                }else{
+                    const auto* rec=controller.Lookup(req.localItemID);
+                    int slot=req.slot;
+                    if(slot<0&&rec){
+                        int def=NativeDefinition(rec->item);
+                        Session s{};
+                        if(backend.session&&backend.session(backend.context,s)&&s.Valid()&&backend.context==&nativeEngine)
+                            slot=nativeEngine.ResolveLoadoutSlot(s,rec->nativeItemID,def,req.team);
+                        else slot=DefaultSlotForDefinition(def,req.team);
+                    }
+                    stepOk=(slot>=0&&controller.EquipInLoadout(req.localItemID,req.team,slot,thread));
+                }
+                if(!stepOk){equipOk=false;failedID=req.localItemID;}
+            }
+        }else if(equipCount&&!complete){
+            // Synchronization not yet complete; re-queue pending equip requests for next frame.
+            AcquireSRWLockExclusive(&lock);
+            for(size_t i=0;i<equipCount&&pendingEquipCount<pendingEquips.size();++i)
+                pendingEquips[pendingEquipCount++]=equipsToRun[i];
+            ReleaseSRWLockExclusive(&lock);
+        }
+        if(complete&&desiredEnabled&&reconcilePending){
+            const int state=Reconcile(desired,backend,thread,4);
+            // 1 = budget exhausted, finish on the next frame; failures are already
+            // reported through the controller status, so do not retry in a loop.
+            if(state!=1)reconcilePending=false;
+        }
+        auto diagnostic=controller.Snapshot();
+        AcquireSRWLockExclusive(&lock);published.diagnostic=diagnostic;
+        if(requested!=ticket)published.diagnostic.status=Status::Queued;
+        if(complete&&requested==ticket)published.processed=ticket;
+        if(complete&&equipCount){published.equipProcessed=currentEquipTicket;published.lastEquipSucceeded=equipOk;published.lastEquipFailedID=failedID;}
+        published.itemCount=controller.Count();
+        for(size_t i=0;i<published.itemCount&&i<published.items.size();++i){
+            const auto* r=controller.RecordAt(i);
+            if(r&&r->phase==Phase::Live){
+                published.items[i]={r->localItemID,r->nativeItemID,NativeDefinition(r->item),r->item.skin.paint,r->equippedT,r->equippedCT,r->slotT,r->slotCT};
+            }else published.items[i]={};
+        }
+        published.requested=requested;published.enabled=enabled;ReleaseSRWLockExclusive(&lock);
+    }
+    DWORD Owner()const{return owner.load(std::memory_order_acquire);}
+};
+extern Runtime runtime;extern Engine nativeEngine;extern SRWLOCK frameLock;extern std::atomic<bool> backendAvailable;
+inline bool Request(const HazzureInventory::Collection& collection){return backendAvailable.load()&&runtime.Submit(collection,true);}
+inline bool RequestStop(){return backendAvailable.load()&&runtime.Submit({},false);}
+inline bool RequestEquip(uint64_t localItemID,int team,int slot=-1){return backendAvailable.load()&&runtime.SubmitEquip(localItemID,team,slot,false);}
+inline bool RequestEquipBoth(uint64_t localItemID,int slotT=-1,int slotCT=-1){return backendAvailable.load()&&runtime.SubmitEquipBoth(localItemID,slotT,slotCT);}
+inline bool RequestUnequip(uint64_t localItemID,int team){return backendAvailable.load()&&runtime.SubmitEquip(localItemID,team,-1,true);}
+inline RuntimeSnapshot Snapshot(){auto out=runtime.Read();out.available=backendAvailable.load();
+    if(!out.available){out.enabled=false;out.diagnostic.status=Status::Unsupported;}return out;}
+inline void Frame(uintptr_t client,bool suspended){
+    if(!TryAcquireSRWLockExclusive(&frameLock))return;
+    struct Guard{~Guard(){ReleaseSRWLockExclusive(&frameLock);}} guard;
+    auto thread=GetCurrentThreadId();if(runtime.Owner()&&runtime.Owner()!=thread)return;
+    nativeEngine.client=client;runtime.Tick(nativeEngine.Bind(),thread,suspended);
+}
+}

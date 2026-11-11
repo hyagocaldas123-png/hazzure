@@ -1,0 +1,29 @@
+// C++ / OverlaySharing.h / MSVC x64 C++17 / include after OverlayPersistence inside HazzureUI
+#pragma once
+static bool ExportShareCode(std::string& code){
+    if(!CaptureSharedConfig(g_settingsShared)){Persistence::Status("IPC ocupado; exportacao cancelada");return false;}
+    HazzureConfig::Document candidate=Persistence::storage;std::string json,error;
+    if(!Persistence::WriteConfig(candidate,g_cfg,g_contexts,g_weaponClasses,g_profiles,g_activeProfileIndex,error)||
+       !candidate.Serialize(json,error)||!HazzureShare::Encode(json,code,error)){Persistence::Status(error);return false;}
+    return true;
+}
+static bool ImportShareCode(const std::string& code){
+    std::string json,error;HazzureConfig::Document imported;
+    if(!HazzureShare::Decode(code,json,error)||!imported.Parse(json,error)){Persistence::Status(error);return false;}
+    OverlayConfig config{};Persistence::ContextMap contexts,classes;std::vector<ConfigProfile> profiles;int active{};
+    int version=1;
+    if(HazzureConfig::Find(imported.Root(),"schemaVersion")&&
+       !HazzureConfig::GetInt(imported.Root(),"schemaVersion",version,1,3)){Persistence::Status("Versao de perfil incompativel");return false;}
+    if(!Persistence::ReadConfig(imported.Root(),config,error)||
+       !Persistence::ReadProfiles(imported.Root(),contexts,classes,profiles,active,error)){Persistence::Status(error);return false;}
+    std::string path=Persistence::storagePath.empty()?"C:\\HazzureKernel\\hazzure_config.json":Persistence::storagePath;
+    HazzureConfig::Document stored;
+    if(Persistence::storagePath==path)stored=Persistence::storage;
+    else if(!stored.Load(path,error,true)){Persistence::Status(error);return false;}
+    stored.Root().CopyFrom(imported.Root(),stored.Allocator());
+    if(!Persistence::Publish(g_settingsShared,config)){Persistence::Status("IPC ocupado; importacao cancelada");return false;}
+    g_cfg=config;g_contexts.swap(contexts);g_weaponClasses.swap(classes);g_profiles.swap(profiles);g_activeProfileIndex=active;
+    RefreshCustomAudio();
+    Persistence::storage=stored;Persistence::storagePath=path;
+    Persistence::Status("Perfil importado; use Salvar Config para persistir");return true;
+}

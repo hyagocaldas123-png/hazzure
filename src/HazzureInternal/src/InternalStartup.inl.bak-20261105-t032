@@ -1,0 +1,445 @@
+using namespace HazzureUI;
+
+// ========================================================================
+// Hook CCSGOInput::CreateMove (0x6AEBC4DA: client.dll + 0xD04300)
+// Pos-original. A mira e decidida no render thread (alvo, smoothing, RCS) e
+// publicada; este hook apenas consome o comando e grava pelo acessor
+// verificado do motor (CCSGOInput::SetViewAngles 0xB82890). Nao existe
+// segunda logica de alvo aqui: nada de mira/trigger por crosshair sem delay.
+// Trigger: um unico pedido por decisao; press e release pertencem ao hook.
+// ========================================================================
+typedef void(__fastcall* CreateMoveFn)(void* pCSGOInput, int nSlot, void* pCmd);
+static CreateMoveFn originalCreateMove = nullptr;
+
+inline constexpr uintptr_t kCreateMoveRva=0xD04300u;
+inline constexpr unsigned char kCreateMovePrefix[]={0x48,0x8B,0xC4,0x4C,0x89,0x40,0x18,0x48,0x89,0x48,0x08,0x55,0x53,0x57,0x41,0x55};
+
+static volatile LONG g_hookAttackDown = 0;
+static uint64_t g_hookAttackSince = 0;
+
+static void HookReleaseAttack() {
+    InterlockedExchange(&g_hookAttackDown, 0);
+}
+
+// Build 0x6AEBC4DA: the button globals (0x2727E30..0x2727FE0) are only written
+// by static initializers and never read back, so they cannot drive input. The
+// engine consumes the CUserCmd returned by CreateMove, which is where the press
+// is stamped (same fields as the reference internal: CInButtonState.buttonstate1
+// and base.buttons_pb.buttonstate1 + attack1_start_history_index).
+static void StampCommandAttack(uintptr_t cmd) {
+    const uintptr_t pb=cmd+0x10;
+    *reinterpret_cast<uint64_t*>(cmd+0x60)|=1ull;
+    const uintptr_t base=*reinterpret_cast<const uintptr_t*>(pb+0x30);
+    if(!base)return;
+    *reinterpret_cast<uint32_t*>(pb+0x10)|=0x1u;
+    const uintptr_t buttons=*reinterpret_cast<const uintptr_t*>(base+0x38);
+    if(buttons){
+        *reinterpret_cast<uint32_t*>(base+0x10)|=0x2u;
+        *reinterpret_cast<uint32_t*>(buttons+0x10)|=0x1u;
+        *reinterpret_cast<uint64_t*>(buttons+0x18)|=1ull;
+    }
+    if(*reinterpret_cast<const int32_t*>(pb+0x20)>0){
+        *reinterpret_cast<uint32_t*>(pb+0x10)|=0x20u;
+        *reinterpret_cast<int32_t*>(pb+0x3C)=0;
+    }
+}
+
+// IN_JUMP is bit 1 of CInButtonState. Unlike the trigger this both sets and
+// clears the bit: bhop has to break the physical space hold to re-press after
+// landing, and the engine already populated the command from the real key.
+static void StampCommandJump(uintptr_t cmd,bool down) {
+    if(!cmd)return;
+    uint64_t& state=*reinterpret_cast<uint64_t*>(cmd+0x60);
+    state=down?(state|2ull):(state&~2ull);
+    const uintptr_t pb=cmd+0x10;
+    const uintptr_t base=*reinterpret_cast<const uintptr_t*>(pb+0x30);
+    if(!base)return;
+    const uintptr_t buttons=*reinterpret_cast<const uintptr_t*>(base+0x38);
+    if(!buttons)return;
+    *reinterpret_cast<uint32_t*>(base+0x10)|=0x2u;
+    *reinterpret_cast<uint32_t*>(buttons+0x10)|=0x1u;
+    uint64_t& mirrored=*reinterpret_cast<uint64_t*>(buttons+0x18);
+    mirrored=down?(mirrored|2ull):(mirrored&~2ull);
+}
+
+void __fastcall Hook_CreateMove(void* pCSGOInput, int nSlot, void* pCmd) {
+    __try {
+        originalCreateMove(pCSGOInput, nSlot, pCmd);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return;
+    }
+    if (!pCmd || !pCSGOInput || !client) {
+        HookReleaseAttack();
+        return;
+    }
+
+    __try {
+        HazzureGame::Vec3 view{};
+        if (HazzureInputView::ReadSnapshot(reinterpret_cast<uintptr_t>(pCSGOInput), view)) {
+            HazzureGame::Vec3 commanded{};
+            LONG64 sequence = 0;
+            // One write per published decision: CreateMove runs several times per
+            // tick (subtick), and re-applying the same absolute angle each call
+            // overwrote the user's mouse samples and felt like a locked mouse.
+            static LONG64 appliedSequence = 0;
+            if (ReadAimCommand(commanded, &sequence) && sequence != appliedSequence &&
+                HazzureInputView::Write(client, reinterpret_cast<uintptr_t>(pCSGOInput), commanded))
+                appliedSequence = sequence;
+        }
+
+        const bool fire = ConsumeTriggerFire();
+        const uint64_t nowMs = GetTickCount64();
+        if (fire) {
+            g_hookAttackDown = 1;
+            g_hookAttackSince = nowMs;
+        } else if (g_hookAttackDown && nowMs >= g_hookAttackSince && nowMs - g_hookAttackSince >= 40) {
+            HookReleaseAttack();
+        }
+        // While the click window is open every command carries the bit; the
+        // first command built after the hold elapses is clean, so release needs
+        // no extra write.
+        if (g_hookAttackDown)
+            StampCommandAttack(reinterpret_cast<uintptr_t>(pCmd));
+        bool jumpDown = false;
+        if (HazzureMove::ReadJumpCommand(jumpDown)) {
+            StampCommandJump(reinterpret_cast<uintptr_t>(pCmd), jumpDown);
+            InterlockedIncrement(&HazzureMove::jumpStampCount);
+            InterlockedExchange(&HazzureMove::jumpStampDown, jumpDown ? 1 : 0);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        HookReleaseAttack();
+    }
+}
+
+static DWORD WINAPI Start(void*) {
+
+
+    LogDebug("==================================================");
+
+
+    LogDebug("[START] Hazzure Internal Start() iniciado (PID=%lu)", GetCurrentProcessId());
+
+    LogDebug("[BUILD] revision=requests-20261027-v1 compiled=%s %s", __DATE__, __TIME__);
+
+
+    wchar_t name[100]; swprintf_s(name, L"Local\\HazzureInternal.%lu", GetCurrentProcessId());
+
+
+    mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, 4096, name);
+
+
+    if (mapping) {
+
+
+        shared = static_cast<Shared*>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
+
+
+        if (shared) {
+
+
+            shared->magic = 0x485a4931; shared->version = 2; shared->visibleColour = 0xffffff00; shared->hiddenColour = 0xffff00aa;
+
+
+            shared->armsColour = 0x38ffffff; shared->teamFilter = 1; shared->status = 1; shared->gradient = 0; shared->gradientColour = 0xff30c0ff;
+
+
+            InterlockedExchange(&shared->flags, 1 | 8 | 16 | 32);
+
+
+            InterlockedExchange(&shared->uiConfigOwner, 1);
+
+
+            LogDebug("[START] Memoria compartilhada IPC conectada com sucesso");
+
+
+        }
+
+
+    }
+
+
+    // Validacao de modulos SEM early return ou bloqueio de hooks
+
+
+    auto scene = GetModuleHandleW(L"scenesystem.dll");
+
+
+    auto materials = GetModuleHandleW(L"materialsystem2.dll");
+
+
+    auto cl = GetModuleHandleW(L"client.dll");
+
+
+    auto tier = GetModuleHandleW(L"tier0.dll");
+
+
+    auto resources = GetModuleHandleW(L"resourcesystem.dll");
+
+
+    LogDebug("[START] Modulos carregados: client=0x%llX, scene=0x%llX, materials=0x%llX, tier=0x%llX, resources=0x%llX",
+        reinterpret_cast<uintptr_t>(cl), reinterpret_cast<uintptr_t>(scene),
+        reinterpret_cast<uintptr_t>(materials), reinterpret_cast<uintptr_t>(tier),
+        reinterpret_cast<uintptr_t>(resources));
+
+
+    bool sceneMatched = MatchModule(scene, SCENE_STAMP, SCENE_SIZE);
+
+
+    bool matMatched = MatchModule(materials, MATERIAL_STAMP, MATERIAL_SIZE);
+
+
+    bool clientMatched = MatchModule(cl, CLIENT_STAMP, CLIENT_SIZE);
+
+
+    bool modulesMatched = sceneMatched && matMatched && clientMatched;
+
+
+    if (!modulesMatched) {
+
+
+        LogDebug("[AVISO] Assinatura do modulo divergiu (scene=%d, mat=%d, client=%d). Continuando e forcando hooks...",
+            sceneMatched, matMatched, clientMatched);
+
+
+        Message("Aviso: Module identity mudou, forcando hooks...");
+
+
+        if (shared) shared->status = -2;
+
+
+    } else {
+
+
+        LogDebug("[START] Todos os modulos conferem com a assinatura conhecida");
+
+
+    }
+
+
+    client = reinterpret_cast<uintptr_t>(cl);
+
+
+    // Executa o Pattern Scanner em memoria no client.dll e grava no debug_log.txt
+
+
+    if (client) {
+
+
+        auto dos = reinterpret_cast<IMAGE_DOS_HEADER*>(client);
+
+
+        auto nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(client + dos->e_lfanew);
+
+
+        size_t clientSize = nt->OptionalHeader.SizeOfImage;
+
+
+        HazzureScanner::RunPatternScan(client, clientSize);
+
+
+    } else {
+
+
+        LogDebug("[ERRO] client.dll nao encontrado para escaneamento de padroes!");
+
+
+    }
+
+
+    auto factory = materials ? reinterpret_cast<Factory>(GetProcAddress(materials, "CreateInterface")) : nullptr;
+
+
+    materialSystem = factory ? factory("VMaterialSystem2_001", nullptr) : nullptr;
+
+
+    if (materialSystem) {
+
+
+        auto table = Get<uintptr_t>(reinterpret_cast<uintptr_t>(materialSystem));
+
+
+        auto target = Get<uintptr_t>(table + 29 * 8);
+
+
+        createMaterial = reinterpret_cast<CreateMaterial>(target);
+
+
+        LogDebug("[START] MaterialSystem2 conectado. createMaterial=0x%llX", target);
+
+
+        auto findTarget = Get<uintptr_t>(table + 14 * 8);
+
+
+        findMaterialFromResource = reinterpret_cast<FindMaterialFromResource>(findTarget);
+
+
+        LogDebug("[START] MaterialSystem2 findMaterialFromResource=0x%llX", findTarget);
+
+    } else {
+
+
+        LogDebug("[AVISO] MaterialSystem2 interface missing");
+
+
+    }
+
+
+    auto resourceFactory = resources ? reinterpret_cast<Factory>(GetProcAddress(resources, "CreateInterface")) : nullptr;
+
+
+    resourceSystem = resourceFactory ? resourceFactory("ResourceSystem013", nullptr) : nullptr;
+
+
+    if (resourceSystem) {
+
+
+        auto resourceTable = Get<uintptr_t>(reinterpret_cast<uintptr_t>(resourceSystem));
+
+
+        auto precacheTarget = Get<uintptr_t>(resourceTable + 40 * 8);
+
+
+        precacheMaterial = reinterpret_cast<PrecacheMaterial>(precacheTarget);
+
+
+        LogDebug("[START] ResourceSystem conectado. precacheMaterial=0x%llX", precacheTarget);
+
+
+    } else {
+
+
+        LogDebug("[AVISO] ResourceSystem013 interface missing");
+
+
+    }
+
+
+    insertPath = tier ? reinterpret_cast<InsertPath>(GetProcAddress(tier, "?Insert@CBufferString@@QEAAPEBDHPEBDH_N@Z")) : nullptr;
+
+
+    purgePath = tier ? reinterpret_cast<PurgePath>(GetProcAddress(tier, "?Purge@CBufferString@@QEAAXH@Z")) : nullptr;
+
+
+    loadKV = tier ? reinterpret_cast<LoadKV>(GetProcAddress(tier, "?LoadKV3@@YA_NPEAVKeyValues3@@PEAVCUtlString@@PEBDAEBUKV3ID_t@@2I@Z")) : nullptr;
+
+
+    arenaCtor = tier ? reinterpret_cast<ArenaCtor>(GetProcAddress(tier, "??0CUtlMemoryArena@@QEAA@I_N@Z")) : nullptr;
+
+
+    LogDebug("[START] tier0 helpers: insert=%d purge=%d kv=%d arena=%d", insertPath != nullptr,
+        purgePath != nullptr, loadKV != nullptr, arenaCtor != nullptr);
+
+
+    // MinHook must be initialized before the first MH_CreateHook in this Start().
+    MH_STATUS mhStatus = MH_Initialize();
+    LogDebug("[HOOK] MH_Initialize status: %d", mhStatus);
+
+    // Callback dependencies still belong to the reviewed installed PE/schema.
+
+
+    uint32_t skinStamp{},skinSize{};
+    const bool skinContract=HazzureSchema::GetModuleFingerprint("client.dll",skinStamp,skinSize)&&
+        ((skinStamp==0x6AEBC4DAu&&skinSize==0x29A3000u)||(skinStamp==0x6ADA7340u&&skinSize==0x29A0000u)||
+         ((skinStamp==0x6AE4FB84u||skinStamp==0x6AE91E98u)&&skinSize==0x29A2000u))&&
+        HazzureVisibility::Prefix(client+SKIN_FRAME.rva,SKIN_FRAME.bytes,sizeof(SKIN_FRAME.bytes));
+    if(!skinContract)LogDebug("[HOOK] SkinFrame disabled: dependent contracts require revalidation");
+    const bool inventoryContract=HazzureNativeInventory::CurrentProfile::Supported(client,true);
+    if(!inventoryContract)LogDebug("[HOOK] Native inventory unavailable: PE/ABI mismatch");
+    // Single frame callback at 0xB6EFE0: it owns climate/fog/exposure, visibility
+    // queries, movement stages and the native inventory tick. Hooking it twice is
+    // impossible, and a separate inventory-only callback silently disabled all the
+    // rest (sky/fog never applied while native inventory was active).
+    bool nativeCallbackCreated=false;
+    if(client&&skinContract){
+        void* target=reinterpret_cast<void*>(client+SKIN_FRAME.rva);
+        auto sFrame=MH_CreateHook(target,FrameHook,reinterpret_cast<void**>(&originalFrame));
+        nativeCallbackCreated=sFrame==MH_OK;
+        if(nativeCallbackCreated)HazzureState::RegisterHook("Frame",target,FrameHook,originalFrame);
+        LogDebug("[HOOK] MH_CreateHook(Frame) status: %d",sFrame);
+    }else LogDebug("[HOOK] Frame unavailable: PE/ABI mismatch");
+    // CreateMove: single post-original consumer for the aim write and the
+    // trigger press/release pair (no second target logic on this thread).
+    if(client&&HazzureVisibility::BuildMatches(client)&&
+       HazzureVisibility::Prefix(client+kCreateMoveRva,kCreateMovePrefix,sizeof(kCreateMovePrefix))){
+        void* target=reinterpret_cast<void*>(client+kCreateMoveRva);
+        auto result=MH_CreateHook(target,Hook_CreateMove,reinterpret_cast<void**>(&originalCreateMove));
+        if(result==MH_OK)HazzureState::RegisterHook("CreateMove",target,Hook_CreateMove,originalCreateMove);
+        LogDebug("[HOOK] CreateMove create=%d",result);
+    }else LogDebug("[HOOK] CreateMove unavailable: PE/ABI mismatch");
+
+    // Camera FOV getter: preserve the native result, override the local camera only.
+    bool cameraFovHook=false;
+    if(HazzureCamera::Supported(client)){
+        void* target=reinterpret_cast<void*>(client+HazzureCamera::getterRva);
+        auto created=MH_CreateHook(target,CameraFovHook,reinterpret_cast<void**>(&originalCamera));
+        if(created==MH_OK){
+            cameraFovHook=true;
+            HazzureState::RegisterHook("CameraFov",target,CameraFovHook,originalCamera);
+        }
+        LogDebug("[HOOK] CameraFov create=%d",created);
+    }else LogDebug("[HOOK] CameraFov unavailable: getter prefix mismatch");
+
+    // Sky update: climate writes the fields, then this native callback
+    // propagates the strong material handle to the existing scene object.
+    if(client&&SkyUpdateSupported(client)){
+        void* target=reinterpret_cast<void*>(client+kSkyUpdateRva);
+        auto result=MH_CreateHook(target,SkyUpdateHook,reinterpret_cast<void**>(&originalSkyUpdate));
+        if(result==MH_OK)HazzureState::RegisterHook("SkyUpdate",target,SkyUpdateHook,originalSkyUpdate);
+        LogDebug("[HOOK] SkyUpdate create=%d",result);
+    }else LogDebug("[HOOK] SkyUpdate unavailable: callback prefix mismatch");
+
+    MH_STATUS enableAll = MH_EnableHook(MH_ALL_HOOKS);
+    HazzureCamera::installed.store(cameraFovHook&&enableAll==MH_OK);
+    HazzureNativeInventory::backendAvailable.store(enableAll==MH_OK&&nativeCallbackCreated&&inventoryContract);
+
+    LogDebug("[HOOK] MH_EnableHook(MH_ALL_HOOKS) status: %d", enableAll);
+
+    // Camera hooks (ClientMode::OverrideView + DrawEntity)
+    if (HazzureNativeCamera::Supported(client)) {
+        void* viewTarget = reinterpret_cast<void*>(client + HazzureNativeCamera::viewRva);
+        void* drawTarget = reinterpret_cast<void*>(client + HazzureNativeCamera::drawRva);
+        auto cv = MH_CreateHook(viewTarget, NativeViewHook, reinterpret_cast<void**>(&originalViewSetup));
+        auto cd = MH_CreateHook(drawTarget, NativeDrawEntityHook, reinterpret_cast<void**>(&originalDrawEntity));
+        auto ev = cv == MH_OK ? MH_EnableHook(viewTarget) : cv;
+        auto ed = cd == MH_OK ? MH_EnableHook(drawTarget) : cd;
+        if (cv == MH_OK && cd == MH_OK && ev == MH_OK && ed == MH_OK) {
+            HazzureState::RegisterHook("NativeView", viewTarget, NativeViewHook, originalViewSetup);
+            HazzureState::RegisterHook("NativeLocalBody", drawTarget, NativeDrawEntityHook, originalDrawEntity);
+            HazzureNativeCamera::installed.store(true);
+            LogDebug("[HOOK] Camera hooks installed successfully");
+        } else {
+            if (cv == MH_OK) { MH_DisableHook(viewTarget); MH_RemoveHook(viewTarget); originalViewSetup = nullptr; }
+            if (cd == MH_OK) { MH_DisableHook(drawTarget); MH_RemoveHook(drawTarget); originalDrawEntity = nullptr; }
+            LogDebug("[HOOK] Camera hooks failed: cv=%d cd=%d ev=%d ed=%d", cv, cd, ev, ed);
+        }
+    } else {
+        LogDebug("[HOOK] Camera hooks unavailable: PE/ABI mismatch");
+    }
+
+    // Auto-aplicar preset de skins salvo na injeção
+    if (enableAll == MH_OK && inventoryContract && shared && shared->status > 0) {
+        if (g_cfg.skinsEnabled && g_cfg.inventory.count > 0) {
+            HazzureNativeInventory::Request(g_cfg.inventory);
+            LogDebug("[START] Inventory preset aplicado na injeção (count=%zu)", g_cfg.inventory.count);
+        }
+    }
+
+    // Kiero D3D11 hook
+    if (kiero::init(kiero::RenderType::D3D11) == kiero::Status::Success) {
+        bool presentationReady=InstallPresentationHooks(reinterpret_cast<void**>(kiero::getMethodsTable()));
+        LogDebug("[KIERO] Resident Present/ResizeBuffers ready=%d",presentationReady);
+        Message(presentationReady?"Kiero D3D11 Present/ResizeBuffers residentes ativos":"Aviso: Falha ao instalar Present/ResizeBuffers");
+    } else {
+        LogDebug("[KIERO] [ERRO] Falha ao inicializar Kiero D3D11");
+        Message("Aviso: Falha ao inicializar Kiero D3D11");
+    }
+
+    Message("Draw diagnostic active; effects OFF");
+
+    if (shared) shared->status = 2;
+
+    LogDebug("[START] Start() finalizado com sucesso.");
+    LogDebug("==================================================");
+
+    return 0;
+}

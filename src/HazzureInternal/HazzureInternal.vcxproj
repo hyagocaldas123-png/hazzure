@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D7EFF156-EC96-59B5-87A0-C2474016B7A3}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+    <ProjectName>HazzureInternal</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <NMakeBuildCommandLine>call "$(ProjectDir)build.cmd"</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>$(NMakeBuildCommandLine)</NMakeReBuildCommandLine>
+    <NMakeOutput>$(ProjectDir)build\Hazzure.Internal.dll</NMakeOutput>
+    <NMakeIncludeSearchPath>$(ProjectDir)src;$(ProjectDir)..;$(ProjectDir)..\Compartilhado;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakePreprocessorDefinitions>_WIN64;UNICODE;_UNICODE</NMakePreprocessorDefinitions>
+    <OutDir>$(ProjectDir)build\</OutDir>
+    <IntDir>$(ProjectDir)obj\</IntDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="src\*.cpp" />
+    <ClInclude Include="src\**\*.h" />
+    <None Include="tests\**\*.*" />
+    <None Include="*.cmd" />
+    <None Include="*.ps1" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

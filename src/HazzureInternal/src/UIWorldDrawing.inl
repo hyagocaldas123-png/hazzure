@@ -1,0 +1,633 @@
+static bool ReadLocalAimPunch(uintptr_t localPawn, Vec2* outPunch, int32_t* outShotsFired) {
+    if (!localPawn || !outPunch || !outShotsFired) return false;
+    *outPunch = { 0.f, 0.f };
+    *outShotsFired = 0;
+    SafeRead(localPawn + HazzureOffsets::Schema::m_iShotsFired, outShotsFired);
+    if(HazzureVisual::OriginalPunch(localPawn,outPunch->x,outPunch->y))return true;
+    uintptr_t punchServices = 0;
+    if (SafeRead(localPawn + HazzureOffsets::Schema::m_pAimPunchServices, &punchServices) && punchServices > 0x10000) {
+        Vec2 p{};
+        if (SafeRead(punchServices + HazzureOffsets::Schema::m_predictableBaseAngle, &p) &&
+            std::isfinite(p.x) && std::isfinite(p.y) && (std::fabs(p.x) > 0.001f || std::fabs(p.y) > 0.001f)) {
+            *outPunch = p;
+            return true;
+        }
+        if (SafeRead(punchServices + HazzureOffsets::Schema::m_unpredictableBaseAngle, &p) &&
+            std::isfinite(p.x) && std::isfinite(p.y)) {
+            *outPunch = p;
+            return true;
+        }
+    }
+    return true;
+}
+
+// ==========================================================
+// CROSSHAIR CUSTOMIZADO
+// ==========================================================
+static void RenderCrosshair(ImDrawList* draw, int screenW, int screenH, uintptr_t localPawn) {
+    if (!g_cfg.crosshairEnabled || !draw || screenW <= 0 || screenH <= 0 || !localPawn) return;
+
+    bool menuOpen = g_menuOpen;
+    if (menuOpen) return;
+
+    // Verificar se está scoped (mira de sniper)
+    uint8_t scoped = 0;
+    uintptr_t scopedOffset = HazzureSchema::g_mIsScoped.offset ? HazzureSchema::g_mIsScoped.offset : 0x1EA0;
+    SafeRead(localPawn + scopedOffset, &scoped);
+
+    // Oculta somente a mira personalizada; a mascara nativa permanece.
+    if (g_cfg.hideCustomCrosshairScoped && scoped) return;
+
+    ImVec2 center(static_cast<float>(screenW) * 0.5f, static_cast<float>(screenH) * 0.5f);
+    const float len = 8.0f;
+    const float thick = 1.2f;
+    const float gap = 3.0f;
+
+    ImU32 col32 = IM_COL32(
+        static_cast<int>(g_cfg.crosshairColor[0] * 255.0f),
+        static_cast<int>(g_cfg.crosshairColor[1] * 255.0f),
+        static_cast<int>(g_cfg.crosshairColor[2] * 255.0f),
+        static_cast<int>(g_cfg.crosshairColor[3] * 255.0f)
+    );
+
+    int style = g_cfg.crosshairStyle;
+    if (style < 0) style = 0;
+    if (style > 2) style = 2;
+
+    // Cruz simples (estilo 0) ou base para outros estilos
+    if (style == 0 || style == 1) {
+        draw->AddLine(ImVec2(center.x - len - gap, center.y), ImVec2(center.x - gap, center.y), col32, thick);
+        draw->AddLine(ImVec2(center.x + gap, center.y), ImVec2(center.x + len + gap, center.y), col32, thick);
+        draw->AddLine(ImVec2(center.x, center.y - len - gap), ImVec2(center.x, center.y - gap), col32, thick);
+        draw->AddLine(ImVec2(center.x, center.y + gap), ImVec2(center.x, center.y + len + gap), col32, thick);
+    }
+
+    // Cruz com ponto central (estilo 1)
+    if (style == 1) {
+        draw->AddCircleFilled(center, 1.5f, IM_COL32(255, 255, 255, 200));
+    }
+
+    // Círculo fino (estilo 2)
+    if (style == 2) {
+        draw->AddCircle(center, 4.0f, col32, 32, 1.2f);
+    }
+}
+
+// ==========================================================
+// PARTICULAS DE NEVE PROCEDURAIS & TELEMETRIA HUD
+// ==========================================================
+struct SnowFlake {
+    float x, y, speed, radius, sway, swaySpeed;
+};
+static std::vector<SnowFlake> s_snowFlakes;
+
+static void RenderSnowParticles(ImDrawList* draw, int screenW, int screenH) {
+    if (!g_cfg.snowParticles || screenW <= 0 || screenH <= 0 || !draw) return;
+    if (s_snowFlakes.empty()) {
+        s_snowFlakes.resize(130);
+        for (size_t i = 0; i < s_snowFlakes.size(); ++i) {
+            s_snowFlakes[i].x = static_cast<float>(rand() % screenW);
+            s_snowFlakes[i].y = static_cast<float>(rand() % screenH);
+            s_snowFlakes[i].speed = 28.f + static_cast<float>(rand() % 65);
+            s_snowFlakes[i].radius = 1.0f + static_cast<float>(rand() % 24) / 10.f;
+            s_snowFlakes[i].sway = static_cast<float>(rand() % 100) / 10.f;
+            s_snowFlakes[i].swaySpeed = 1.4f + static_cast<float>(rand() % 20) / 10.f;
+        }
+    }
+    float dt = ImGui::GetIO().DeltaTime;
+    if (dt <= 0.0f || dt > 0.1f) dt = 0.016f;
+    static float s_timeAcc = 0.0f;
+    s_timeAcc += dt;
+
+    for (auto& f : s_snowFlakes) {
+        f.y += f.speed * dt;
+        f.x += std::sin(s_timeAcc * f.swaySpeed + f.sway) * (16.f * dt);
+        if (f.y > static_cast<float>(screenH)) {
+            f.y = -6.f;
+            f.x = static_cast<float>(rand() % screenW);
+        }
+        if (f.x < 0.f) f.x += static_cast<float>(screenW);
+        if (f.x > static_cast<float>(screenW)) f.x -= static_cast<float>(screenW);
+
+        int alpha = static_cast<int>(std::clamp((f.radius / 3.4f) * 190.f + 40.f, 25.f, 220.f));
+        draw->AddCircleFilled(ImVec2(f.x, f.y), f.radius, IM_COL32(245, 248, 255, alpha), 8);
+    }
+}
+
+static void Render3DWeather(ImDrawList* draw, uintptr_t client, const Matrix4& matrix, int screenW, int screenH) {
+    if (!g_cfg.weather3d || !draw || screenW <= 0 || screenH <= 0 || !client) return;
+    const auto now = GetTickCount64();
+
+    HazzureWeather::Settings ws{};
+    ws.enabled = g_cfg.weather3d;
+    ws.kind = g_cfg.weatherKind;
+    ws.count = g_cfg.weatherCount;
+    ws.speed = g_cfg.weatherSpeed;
+    ws.windX = g_cfg.weatherWindX;
+    ws.windY = g_cfg.weatherWindY;
+    auto snapshot = HazzureWeather::Snapshot(now);
+    for (const auto& p : snapshot) {
+        if (!HazzureWeather::Visible(p,now)) continue;
+        Vec2 screenP{};
+        if (!WorldToScreen(p.point, matrix, screenW, screenH, screenP)) continue;
+
+        if (g_cfg.weatherKind == 0) {
+            Vec3 topPoint = { p.point.x - ws.windX * 0.04f, p.point.y - ws.windY * 0.04f, p.point.z + 24.f };
+            Vec2 screenTop{};
+            if (WorldToScreen(topPoint, matrix, screenW, screenH, screenTop)) {
+                draw->AddLine(ImVec2(screenTop.x, screenTop.y), ImVec2(screenP.x, screenP.y), IM_COL32(180, 210, 255, 170), 1.2f);
+            }
+        } else {
+            if (g_cfg.weatherKind == 2) {
+                // Cinza de papel queimado: cada brasa e um losango que se vira no ar (a
+                // largura oscila com o tumbling), com nucleo claro, rastro curto para baixo e
+                // halo. O tamanho vem de um deslocamento em mundo projetado, entao a
+                // perspectiva cuida da distancia sozinha.
+                const float t = static_cast<float>(now) * 0.004f + (p.point.x * 0.02f + p.point.y * 0.02f);
+                const float pulse = 0.5f + 0.5f * std::sin(t);
+                const float tumble = std::sin(t * 0.7f + p.point.z * 0.03f);
+                const float span = 5.f + pulse * 3.f;
+                const Vec3 wide{ p.point.x + span, p.point.y, p.point.z };
+                Vec2 wideScreen{};
+                float px = 3.f + pulse * 2.f;
+                if (WorldToScreen(wide, matrix, screenW, screenH, wideScreen))
+                    px = std::clamp(std::hypot(wideScreen.x - screenP.x, wideScreen.y - screenP.y), 1.2f, 40.f);
+                const float py = px * (0.20f + 0.55f * std::fabs(tumble));
+                const float ang = 0.9f * tumble + 0.35f * pulse;
+                const float ca = std::cos(ang), sa = std::sin(ang);
+                const auto corner = [&](float ax, float ay) {
+                    return ImVec2(screenP.x + (ax * ca - ay * sa) * 0.5f, screenP.y + (ax * sa + ay * ca) * 0.5f);
+                };
+                const int r = 255;
+                const int g = static_cast<int>(52.f + pulse * 128.f);
+                const int b = static_cast<int>(16.f + pulse * 22.f);
+                const int a = static_cast<int>(150.f + pulse * 90.f);
+                draw->AddLine(ImVec2(screenP.x, screenP.y - py * 0.3f), ImVec2(screenP.x, screenP.y + py * 1.9f),
+                              IM_COL32(r, g, b, static_cast<int>(a * 0.20f)), 1.1f);
+                draw->AddCircleFilled(ImVec2(screenP.x, screenP.y), px * 1.9f,
+                                      IM_COL32(r, g, b, static_cast<int>(a * 0.16f)), 10);
+                draw->PathClear();
+                draw->PathLineTo(corner(px, 0.f));
+                draw->PathLineTo(corner(0.f, py));
+                draw->PathLineTo(corner(-px, 0.f));
+                draw->PathLineTo(corner(0.f, -py));
+                draw->PathFillConvex(IM_COL32(r, g, b, a));
+                draw->AddCircleFilled(ImVec2(screenP.x, screenP.y), px * 0.30f,
+                                      IM_COL32(255, 226, 150, static_cast<int>(a * 0.80f)), 8);
+            } else {
+                draw->AddCircleFilled(ImVec2(screenP.x, screenP.y), 2.2f, IM_COL32(245, 248, 255, 210), 6);
+            }
+        }
+    }
+}
+
+// ==========================================================
+// LUA DE SANGUE TSUKUYOMI INFINITO (ORBE 3D ILUMINADO)
+// ==========================================================
+static void RenderTsukuyomiMoonFlat(ImDrawList* draw, const ImVec2& center, float r, float alpha = 1.f) {
+    // Unico caminho quando o device perdeu os shaders: o disco de ImDrawList continua
+    // o fallback legivel, agora na escala angular certa em vez dos 32 px fixos.
+    const auto C = [alpha](int red, int green, int blue, int a) {
+        return IM_COL32(red, green, blue,
+            static_cast<int>(std::clamp(float(a) * alpha, 0.f, 255.f)));
+    };
+    const ImU32 ink = C(6, 1, 3, 250);
+    // Corpo entre #8B0000 (139,0,0) e #B22222 (178,34,34), com o halo de plasma por fora.
+    draw->AddCircleFilled(center, r * 3.2f, C(139, 0, 0, 26), 64);
+    draw->AddCircleFilled(center, r * 2.1f, C(160, 12, 16, 52), 64);
+    draw->AddCircleFilled(center, r * 1.3f, C(178, 34, 34, 104), 64);
+    draw->AddCircleFilled(center, r, C(152, 12, 14, 255), 48);
+    draw->AddCircleFilled(center, r - 1.5f, C(178, 34, 34, 255), 48);
+    draw->AddCircle(center, r * 0.985f, C(120, 6, 8, 210), 48, std::max(1.4f, r * 0.05f));
+
+    // Padrao Rinne medido na referencia: pupila 0.16 r, aneis 0.31/0.55/0.85 r e a borda preta
+    // fechando o disco em 0.90 r. Sobre cada anel, uma triade de tomoe a 120 graus; a calda e um
+    // gancho curto que arqueia para fora, corre no sentido horario da tela e afina ate a ponta.
+    draw->AddCircleFilled(center, r * 0.16f, ink, 24);
+    draw->AddCircle(center, r * 0.95f, ink, 64, std::max(2.f, r * 0.10f));
+    const float ringR[3] = { 0.31f, 0.55f, 0.85f };
+    const float ringA[3] = { 0.52f, 1.05f, 0.0f };
+    const float headR[3] = { 0.050f, 0.060f, 0.070f };
+    for (int ring = 0; ring < 3; ++ring) {
+        draw->AddCircle(center, r * ringR[ring], ink, 64, std::max(1.f, r * 0.011f));
+        const float rr = r * ringR[ring];
+        const float hr = r * headR[ring];
+        for (int k = 0; k < 3; ++k) {
+            const float ak = ringA[ring] + float(k) * (6.2831853f / 3.0f);
+            draw->AddCircleFilled(ImVec2(center.x + std::sin(ak) * rr, center.y + std::cos(ak) * rr),
+                std::max(1.4f, hr), ink, 16);
+            for (int s = 1; s <= 6; ++s) {
+                const float t = float(s) / 6.f;
+                const float a2 = ak + t * 0.85f;
+                const float bow = rr + hr * (0.55f * std::sin(t * 2.4f) - 0.18f * t);
+                const float thick = hr * (0.46f - 0.20f * t) * (1.f - t * t);
+                if (thick < 0.4f) continue;
+                draw->AddCircleFilled(ImVec2(center.x + std::sin(a2) * bow, center.y + std::cos(a2) * bow),
+                    thick, ink, 8);
+            }
+        }
+    }
+}
+
+static void RenderTsukuyomiSky(ImDrawList* draw, uintptr_t client, const Matrix4& matrix, int screenW, int screenH, const HazzureGame::Pawn& local) {
+    if (!g_cfg.tsukuyomiTheme || !draw || screenW <= 0 || screenH <= 0 || !client) return;
+
+    Vec3 eye = local.eye;
+    if (!HazzureGame::Finite(eye) || (eye.x == 0.f && eye.y == 0.f && eye.z == 0.f)) {
+        eye = local.origin;
+        eye.z += 64.f;
+    }
+    if (!HazzureGame::Finite(eye)) return;
+
+    static const Vec3 anchorDirection{ 0.4545f, 0.5454f, 0.7043f };
+    constexpr float skyDist = 12000.f;
+    const float eyePos[3]{ eye.x, eye.y, eye.z }, dirPos[3]{ anchorDirection.x, anchorDirection.y, anchorDirection.z };
+    const float degrees = std::clamp(g_cfg.tsukuyomiMoonSize, 3.f, 20.f);
+    const float angular = degrees * 0.01745329252f;
+
+    // A oclusao e medida no frame hook do jogo; aqui so publica a base da sondagem e le o
+    // ultimo veredito. Pedir mesmo com a lua fora da tela evita sumir ao virar o boneco.
+    // As linhas 0 e 1 da matriz world->clip sao o right e o up da camera em mundo -- os mesmos
+    // eixos que medem o raio em pixels abaixo --, entao a grade sai quadrada na tela.
+    const float* rightRow = matrix.m[0];
+    const float* upRow = matrix.m[1];
+    const float upLength = std::sqrt(upRow[0] * upRow[0] + upRow[1] * upRow[1] + upRow[2] * upRow[2]);
+    const float rightLength = std::sqrt(rightRow[0] * rightRow[0] + rightRow[1] * rightRow[1] + rightRow[2] * rightRow[2]);
+    if (!(upLength > 1e-5f) || !(rightLength > 1e-5f)) return;
+    const float upUnit[3]{ upRow[0] / upLength, upRow[1] / upLength, upRow[2] / upLength };
+    const float rightUnit[3]{ rightRow[0] / rightLength, rightRow[1] / rightLength, rightRow[2] / rightLength };
+    HazzureTsukuyomi::RequestProbe(eyePos, dirPos, rightUnit, upUnit, angular, GetTickCount64());
+    const float visibility = std::clamp(HazzureTsukuyomi::Visibility(), 0.f, 1.f);
+    if (visibility <= 0.02f) return;
+
+    // Fade de angulo do briefing: enquanto a lua se afasta do eixo da camera o alfa cai em
+    // smoothstep ate zero a ~72 graus, ou seja, antes do plano de 90 graus onde a projecao
+    // explode e o disco cortaria de repente. |dot| porque Project() ja garante que o anchor esta
+    // na frente; o sinal do eixo derivado da matriz nao e algo que se queira confiar aqui.
+    const float fwd[3]{ rightUnit[1] * upUnit[2] - rightUnit[2] * upUnit[1],
+                        rightUnit[2] * upUnit[0] - rightUnit[0] * upUnit[2],
+                        rightUnit[0] * upUnit[1] - rightUnit[1] * upUnit[0] };
+    const float fwdLength = std::sqrt(fwd[0] * fwd[0] + fwd[1] * fwd[1] + fwd[2] * fwd[2]);
+    float facing = 1.f;
+    if (fwdLength > 1e-5f) {
+        const float aligned = std::fabs(fwd[0] * dirPos[0] + fwd[1] * dirPos[1] + fwd[2] * dirPos[2]) / fwdLength;
+        const float t = std::clamp(aligned / 0.3f, 0.f, 1.f);
+        facing = t * t * (3.f - 2.f * t);
+    }
+    if (facing <= 0.01f) return;
+
+    const Vec3 anchor{ eye.x + anchorDirection.x * skyDist, eye.y + anchorDirection.y * skyDist,
+                       eye.z + anchorDirection.z * skyDist };
+    Vec2 projected{};
+    if (!WorldToScreen(anchor, matrix, screenW, screenH, projected)) return;
+    const ImVec2 center(projected.x, projected.y);
+
+    // O raio em pixels vem do angulo solido real, medido pela propria projecao: um ponto
+    // deslocado ao longo do up da camera em mundo. Assim o disco acompanha FOV, scope e
+    // resolucao em vez de ser um carimbo de 32 px.
+    const float spanWorld = skyDist * std::tan(angular);
+    const Vec3 lifted{ anchor.x + upUnit[0] * spanWorld, anchor.y + upUnit[1] * spanWorld,
+                       anchor.z + upUnit[2] * spanWorld };
+    Vec2 edge{};
+    float pixelRadius = 0.f;
+    if (WorldToScreen(lifted, matrix, screenW, screenH, edge))
+        pixelRadius = std::hypot(edge.x - projected.x, edge.y - projected.y);
+    if (!std::isfinite(pixelRadius) || pixelRadius < 4.f || pixelRadius > 12000.f) {
+        RenderTsukuyomiMoonFlat(draw, center, 32.f, visibility * facing);
+        return;
+    }
+
+    HazzureTsukuyomi::Input orb{};
+    orb.up[0] = upUnit[0]; orb.up[1] = upUnit[1]; orb.up[2] = upUnit[2];
+    orb.direction[0] = anchorDirection.x; orb.direction[1] = anchorDirection.y; orb.direction[2] = anchorDirection.z;
+    orb.angularRadius = angular;
+    orb.glow = std::clamp(g_cfg.tsukuyomiMoonGlow, 0.f, 2.f);
+    // Polo quase de frente: o padrao Rinne e um disco concentrico, e cada grau de inclinacao
+    // empurra o anel preto para dentro da silhueta de um lado so.
+    orb.tilt = 0.10f;
+    orb.facing = facing;
+    orb.time = static_cast<float>(GetTickCount64() % 86400000ull) * 0.001f;
+
+    float blitScale = 1.25f;
+    auto* texture = HazzureTsukuyomi::Draw(orb, &blitScale);
+    if (!texture || !(blitScale > 1.f)) {
+        // As mensagens sao literais constantes do renderizador, entao comparar ponteiros
+        // registra cada mudanca de estado sem inundar o log quadro a quadro.
+        static const char* lastFailure = "";
+        const char* reason = HazzureTsukuyomi::Status();
+        if (reason && *reason && reason != lastFailure) {
+            lastFailure = reason;
+            LogDebug("[TSUKUYOMI] orbe 3D indisponivel: %s (volta ao disco 2D, r=%.1f px, %.1f graus)",
+                reason, pixelRadius, degrees);
+        }
+        RenderTsukuyomiMoonFlat(draw, center, pixelRadius, visibility * facing);
+        return;
+    }
+    static bool announced = false;
+    if (!announced) {
+        announced = true;
+        LogDebug("[TSUKUYOMI] orbe 3D ativo r=%.1f px escala=%.2f alvo=512 msaa4", pixelRadius, blitScale);
+    }
+    const float half = pixelRadius * blitScale;
+    if (center.x + half < 0.f || center.x - half > static_cast<float>(screenW) ||
+        center.y + half < 0.f || center.y - half > static_cast<float>(screenH)) return;
+    draw->AddImage(reinterpret_cast<ImTextureID>(texture), ImVec2(center.x - half, center.y - half),
+                   ImVec2(center.x + half, center.y + half));
+}
+
+// ==========================================================
+// VINHETA CINEMATOGRAFICA (CINEMATIC VIGNETTE)
+// ==========================================================
+static void RenderVignette(ImDrawList* draw, int screenW, int screenH) {
+    if (!g_cfg.vignetteEnabled || !draw || screenW <= 0 || screenH <= 0) return;
+
+    float w = static_cast<float>(screenW);
+    float h = static_cast<float>(screenH);
+    float bandW = w * 0.36f;
+    float bandH = h * 0.36f;
+
+    float intensity = std::clamp(g_cfg.vignetteIntensity, 0.10f, 1.00f);
+    int alpha = static_cast<int>(intensity * 255.0f);
+    if (alpha <= 0) return;
+
+    ImU32 colEdge = IM_COL32(0, 0, 0, alpha);
+    ImU32 colZero = IM_COL32(0, 0, 0, 0);
+
+    // Bordas superiores e inferiores via AddRectFilledMultiColor
+    draw->AddRectFilledMultiColor(ImVec2(0.f, 0.f), ImVec2(w, bandH), colEdge, colEdge, colZero, colZero);
+    draw->AddRectFilledMultiColor(ImVec2(0.f, h - bandH), ImVec2(w, h), colZero, colZero, colEdge, colEdge);
+
+    // Bordas laterais
+    draw->AddRectFilledMultiColor(ImVec2(0.f, 0.f), ImVec2(bandW, h), colEdge, colZero, colZero, colEdge);
+    draw->AddRectFilledMultiColor(ImVec2(w - bandW, 0.f), ImVec2(w, h), colZero, colEdge, colEdge, colZero);
+
+    // Gradientes suaves nos 4 cantos
+    draw->AddRectFilledMultiColor(ImVec2(0.f, 0.f), ImVec2(bandW, bandH), colEdge, colZero, colZero, colZero);
+    draw->AddRectFilledMultiColor(ImVec2(w - bandW, 0.f), ImVec2(w, bandH), colZero, colEdge, colZero, colZero);
+    draw->AddRectFilledMultiColor(ImVec2(0.f, h - bandH), ImVec2(bandW, h), colZero, colZero, colZero, colEdge);
+    draw->AddRectFilledMultiColor(ImVec2(w - bandW, h - bandH), ImVec2(w, h), colZero, colZero, colEdge, colZero);
+}
+
+static void RenderTelemetryHUD(uintptr_t client, int screenW, int screenH) {
+    if (!g_cfg.showTelemetryHUD || screenW <= 0 || screenH <= 0) return;
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+
+    float framerate = ImGui::GetIO().Framerate;
+    int pingMs = 0;
+    if (client) {
+        uintptr_t localController = 0;
+        if (SafeRead(client + HazzureOffsets::Globals::dwLocalPlayerController, &localController) && localController) {
+            if (HazzureSchema::IsPingValid()) {
+                SafeRead(localController + HazzureSchema::g_mPing.offset, &pingMs);
+            }
+        }
+    }
+    if (pingMs < 0 || pingMs > 999) pingMs = 0;
+
+    float dtMs = ImGui::GetIO().DeltaTime * 1000.0f;
+    if (dtMs < 0.05f || dtMs > 500.0f) dtMs = (framerate > 1.0f) ? (1000.0f / framerate) : 16.6f;
+    static float s_frameTimesMs[120] = {};
+    static int s_frameWriteIdx = 0;
+    static int s_frameFilled = 0;
+    s_frameTimesMs[s_frameWriteIdx] = dtMs;
+    s_frameWriteIdx = (s_frameWriteIdx + 1) % 120;
+    if (s_frameFilled < 120) ++s_frameFilled;
+    float worstFirst = dtMs, worstSecond = dtMs;
+    for (int i = 0; i < s_frameFilled; ++i) {
+        const float v = s_frameTimesMs[i];
+        if (v > worstFirst) { worstSecond = worstFirst; worstFirst = v; }
+        else if (v > worstSecond && v < worstFirst) { worstSecond = v; }
+    }
+    const float p99Ms = (s_frameFilled >= 60) ? worstSecond : worstFirst;
+    const float low1PctFps = (p99Ms > 0.1f) ? (1000.0f / p99Ms) : framerate;
+    char buf[96];
+    sprintf_s(buf, "%.0f FPS (1%% %.0f)  |  %.1f MS  |  %d PING  |  64.0 TICK", framerate, low1PctFps, dtMs, pingMs);
+
+    ImVec2 txtSz = ImGui::CalcTextSize(buf);
+    float padX = 14.f, padY = 5.f;
+    float w = txtSz.x + padX * 2.f;
+    float h = txtSz.y + padY * 2.f;
+    float x = static_cast<float>(screenW) - w - 18.f;
+    float y = 14.f;
+
+    ImVec2 pMin(x, y);
+    ImVec2 pMax(x + w, y + h);
+
+    // Glass pill backdrop com sombra
+    draw->AddRectFilled(ImVec2(pMin.x - 2.f, pMin.y - 2.f), ImVec2(pMax.x + 2.f, pMax.y + 2.f), IM_COL32(0, 0, 0, 80), 6.f);
+    draw->AddRectFilled(pMin, pMax, IM_COL32(11, 11, 15, 215), 5.f);
+    draw->AddRect(pMin, pMax, IM_COL32(38, 38, 48, 220), 5.f, 0, 1.0f);
+    draw->AddText(ImVec2(x + padX, y + padY), IM_COL32(236, 236, 244, 255), buf);
+}
+
+static void RenderGlassBlurBackdrop(ImDrawList* draw, ImVec2 pos, ImVec2 size) {
+    if (!g_cfg.glassBlur || !draw) return;
+    // Multi-pass ambient occlusion / shadow
+    for (int i = 1; i <= 6; ++i) {
+        float spread = static_cast<float>(i * 4);
+        int alpha = 44 / i;
+        draw->AddRectFilled(
+            ImVec2(pos.x - spread, pos.y - spread),
+            ImVec2(pos.x + size.x + spread, pos.y + size.y + spread),
+            IM_COL32(0, 0, 0, alpha),
+            8.f + spread * 0.4f
+        );
+    }
+    auto* image=HazzureBlur::pass.Image();
+    auto display=ImGui::GetIO().DisplaySize;
+    if(image&&display.x>0&&display.y>0){
+        draw->AddImageRounded(reinterpret_cast<ImTextureID>(image),pos,ImVec2(pos.x+size.x,pos.y+size.y),
+            ImVec2(pos.x/display.x,pos.y/display.y),ImVec2((pos.x+size.x)/display.x,(pos.y+size.y)/display.y),IM_COL32_WHITE,8.f);
+    }
+    draw->AddRectFilled(pos,ImVec2(pos.x+size.x,pos.y+size.y),IM_COL32(13,14,18,image?155:242),8.f);
+    // Specular glass refraction edge
+    draw->AddLine(
+        ImVec2(pos.x + 6.f, pos.y + 1.f),
+        ImVec2(pos.x + size.x - 6.f, pos.y + 1.f),
+        IM_COL32(255, 255, 255, 42),
+        1.0f
+    );
+}
+
+// ==========================================================
+// BALISTICA & FISICA PREDITIVA DE GRANADAS
+// ==========================================================
+static void DrawGrenadePreview(ImDrawList* draw, const HazzureGrenade::Result& result, const Matrix4& matrix,
+                               int screenW, int screenH, bool available = true) {
+    const char* label = "Trajetoria: calculando colisao 3D";
+    if (available && result.finish == HazzureGrenade::Finish::Unavailable) label = "Trajetoria: fisica indisponivel";
+    else if (available && result.complete) label = "Trajeto estimado por hull 3D";
+    else if (available && result.count > 1) label = "Trajeto parcial: calculando colisao 3D";
+    else if (result.count > 1) label = "Trajeto anterior (recalculando)";
+    draw->AddText(ImVec2(18.f, screenH - 31.f), IM_COL32(0,0,0,230), label);
+    draw->AddText(ImVec2(17.f, screenH - 32.f), IM_COL32(240,240,245,230), label);
+    // Only skip when the physics layer is genuinely unavailable; a stale/partial
+    // result must still draw so the line never blinks out while recomputing.
+    if (result.finish == HazzureGrenade::Finish::Unavailable) return;
+    for (size_t i = 1; i < result.count; ++i) {
+        Vec2 a{}, b{};
+        if (HazzureCombat::ProjectSegment(result.points[i-1], result.points[i], matrix, screenW, screenH, a, b)) {
+            draw->AddLine(ImVec2(a.x,a.y), ImVec2(b.x,b.y), IM_COL32(5,5,8,210), g_cfg.trajectoryWidth+2.f);
+            float shimmer=g_cfg.trajectoryShimmer?.72f+.28f*std::sin(static_cast<float>(GetTickCount64()%100000)*.004f-i*.28f):1.f;
+            auto color=VisualColour(g_cfg.colTrajectory,g_cfg.trajectoryOpacity*shimmer);
+            if(g_cfg.trajectoryGlow){draw->AddLine({a.x,a.y},{b.x,b.y},VisualAlpha(color,.10f),g_cfg.trajectoryWidth+7.f);
+                draw->AddLine({a.x,a.y},{b.x,b.y},VisualAlpha(color,.22f),g_cfg.trajectoryWidth+3.f);}
+            draw->AddLine(ImVec2(a.x,a.y), ImVec2(b.x,b.y), color, g_cfg.trajectoryWidth);
+        }
+    }
+    for (size_t i = 0; i < result.bounceCount; ++i) {
+        Vec2 point{};
+        if (WorldToScreen(result.bounces[i], matrix, screenW, screenH, point)) {
+            draw->AddCircleFilled(ImVec2(point.x,point.y), g_cfg.trajectoryPointSize, VisualColour(g_cfg.colTrajectoryCollision,g_cfg.trajectoryOpacity), 12);
+            draw->AddCircle(ImVec2(point.x,point.y), g_cfg.trajectoryPointSize+1.f, IM_COL32(10,10,12,230), 12, 1.f);
+        }
+    }
+    // Only settled/timed estimates get an endpoint marker; a budget/horizon/stuck
+    // endpoint must never be presented as the grenade's exact detonation point.
+    if (result.complete && result.count && (result.finish == HazzureGrenade::Finish::RestEstimate ||
+                                           result.finish == HazzureGrenade::Finish::DetonationEstimate)) {
+        Vec2 point{};
+        if (WorldToScreen(result.points[result.count-1], matrix, screenW, screenH, point)) {
+            draw->AddCircleFilled(ImVec2(point.x,point.y), 4.5f, IM_COL32(255,85,75,230), 16);
+            draw->AddCircle(ImVec2(point.x,point.y), 6.f, IM_COL32(255,255,255,220), 16, 1.f);
+        }
+    }
+}
+
+static void RenderGrenadeTrajectory(ImDrawList* draw, uintptr_t localPawn, const Matrix4& matrix, int screenW, int screenH) {
+    if (!g_cfg.showGrenadeTrajectory || !localPawn) { HazzureGrenade::Clear(); return; }
+    uintptr_t client = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"client.dll"));
+    bool left = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    bool right = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    // Key state previews the intended throw; it is not the engine's interpolated release strength.
+    float strength = left && right ? .5f : right ? 0.f : 1.f;
+    HazzureGrenade::Request request{};
+    if (!HazzureGrenade::MakeRequest(client, localPawn, strength, HazzureCombat::roundEpoch.load(), request)) {
+        HazzureGrenade::Clear(); return;
+    }
+    HazzureGrenade::Result result{};
+    bool available = HazzureGrenade::channel.Submit(request, GetTickCount64(), result);
+    DrawGrenadePreview(draw, result, matrix, screenW, screenH, available);
+}
+
+static void RenderSpreadCircle(ImDrawList* draw, uintptr_t localPawn, const Matrix4& matrix, int screenW, int screenH) {
+    if(!g_cfg.showSpreadCircle||!draw||!localPawn||screenW<=0||screenH<=0)return;
+    uintptr_t client=reinterpret_cast<uintptr_t>(GetModuleHandleW(L"client.dll")),list{},services{};uint32_t handle{};
+    if(!client||!HazzureGame::Read(client+HazzureOffsets::Globals::dwEntityList,list)||!list||
+       !HazzureGame::Read(localPawn+HazzureOffsets::Schema::m_pWeaponServices,services)||!services||
+       !HazzureGame::Read(services+HazzureOffsets::Schema::m_hActiveWeapon,handle))return;
+    auto weapon=HazzureGame::Entity(list,handle);auto accuracy=HazzureWeaponAccuracy::Read(localPawn,weapon,handle,GetTickCount64());
+    if(!accuracy.valid)return;
+    // Native spread/inaccuracy are tangent-space offsets. This is the outer cone,
+    // not a uniform probability/hitchance disk; matrix row norms preserve native FOV/aspect.
+    float tangent=accuracy.inaccuracy+accuracy.spread;
+    const auto& x=matrix.m[0];const auto& y=matrix.m[1];
+    float rx=tangent*std::sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2])*screenW*.5f;
+    float ry=tangent*std::sqrt(y[0]*y[0]+y[1]*y[1]+y[2]*y[2])*screenH*.5f;
+    if(!std::isfinite(rx)||!std::isfinite(ry)||rx<0||ry<0||rx>screenW*2.f||ry>screenH*2.f)return;
+    ImVec2 center(screenW*.5f,screenH*.5f),radius(std::max(.5f,rx),std::max(.5f,ry));
+    draw->AddEllipseFilled(center,radius,IM_COL32(122,90,248,25),0,64);
+    draw->AddEllipse(center,radius,IM_COL32(245,245,250,155),0,64,1.2f);
+}
+
+// ==========================================================
+// MINIMAPA 2D (Canto Esquerdo) - Estilo GameSense
+// ==========================================================
+static void RenderMinimap(ImDrawList* draw, int screenW, int screenH, const HazzureGame::Pawn& local) {
+    if (!g_cfg.minimapEnabled || !draw || screenW <= 0 || screenH <= 0) return;
+
+    float size = std::clamp(g_cfg.minimapSize, 80.f, 300.f);
+    float zoom = std::clamp(g_cfg.minimapZoom, 0.5f, 3.0f);
+    float r = size * 0.5f;
+    float x = 30.f;
+    float y = 30.f;
+
+    // Fundo do minimapa (círculo)
+    draw->AddCircleFilled(ImVec2(x + r, y + r), r, IM_COL32(18, 18, 22, 210));
+    draw->AddCircle(ImVec2(x + r, y + r), r, IM_COL32(34, 34, 40, 220), 0, 1.5f);
+
+    // Heading-up: forward is screen-up, right is screen-right.
+    if(!local.anglesValid)return;
+    float yaw=HazzureGame::NormalizeAngle(local.angles.y)*0.01745329252f;
+    float cosYaw=std::cos(yaw),sinYaw=std::sin(yaw);
+    ImVec2 centerPt(x+r,y+r);
+    draw->AddTriangleFilled({centerPt.x,centerPt.y-7.f},{centerPt.x-4.f,centerPt.y+4.f},
+                            {centerPt.x+4.f,centerPt.y+4.f},IM_COL32_WHITE);
+    // Same-frame validated player snapshots from RenderInGameESP, no entity rescan.
+    auto now=GetTickCount64();
+    for(const auto& enemy:HazzureCombat::history.players){
+        if(!enemy.visited||!enemy.pawn||enemy.pawn==local.address||enemy.team==local.team||enemy.health<=0||
+           !enemy.seen||now<enemy.seen||now-enemy.seen>100||!HazzureGame::Finite(enemy.origin))continue;
+        float dx=enemy.origin.x-local.origin.x,dy=enemy.origin.y-local.origin.y;
+        float scale=(r-5.f)*zoom/1500.f;
+        float mapX=centerPt.x+(dx*sinYaw-dy*cosYaw)*scale;
+        float mapY=centerPt.y-(dx*cosYaw+dy*sinYaw)*scale;
+
+        // Clampar dentro do círculo do minimapa
+        float distFromCenter = std::hypot(mapX - centerPt.x, mapY - centerPt.y);
+        if (distFromCenter > r - 4.f) {
+            float clampRatio = (r - 4.f) / std::max(0.001f, distFromCenter);
+            mapX = centerPt.x + (mapX - centerPt.x) * clampRatio;
+            mapY = centerPt.y + (mapY - centerPt.y) * clampRatio;
+        }
+
+        // Ponto vermelho para inimigo
+        draw->AddCircleFilled(ImVec2(mapX, mapY), 3.f, IM_COL32(255, 60, 60, 255), 6);
+    }
+}
+
+// ==========================================================
+// RENDERIZAÇÃO DE FOGO E SMOKE NO CHÃO (Floor Glow Effects)
+// ==========================================================
+// Flat world footprints only. Each triangle is clipped before perspective divide.
+static void RenderFloorDisk(ImDrawList* draw,Vec3 center,float radius,const Matrix4& matrix,int w,int h,ImU32 color){
+    if(!HazzureGame::Finite(center)||!std::isfinite(radius)||radius<=0||radius>512)return;
+    center.z+=2.f;
+    for(int i=0;i<32;++i){
+        float a=i*6.283185307f/32,b=(i+1)*6.283185307f/32;
+        Vec3 triangle[]={center,{center.x+std::cos(a)*radius,center.y+std::sin(a)*radius,center.z},
+            {center.x+std::cos(b)*radius,center.y+std::sin(b)*radius,center.z}};
+        ImVec2 projected[16]{};int count=VisualPolygon(triangle,3,matrix,w,h,projected);
+        if(count>=3){auto flags=draw->Flags;draw->Flags&=~ImDrawListFlags_AntiAliasedFill;
+            draw->AddConvexPolyFilled(projected,count,color);draw->Flags=flags;}
+    }
+}
+static void RenderFireFloor(ImDrawList* draw,const Matrix4& matrix,int w,int h,uint64_t now){
+    if(!draw||!g_cfg.fireGlowEnabled||w<=0||h<=0)return;
+    AcquireSRWLockShared(&HazzureInferno::lock);auto snapshots=HazzureInferno::snapshots;ReleaseSRWLockShared(&HazzureInferno::lock);
+    float pulse=.85f+.15f*std::sin(static_cast<float>(now%100000)*.005f);
+    for(const auto& cells:snapshots){
+        if(!HazzureInferno::Validate(cells)||!cells.time||now<cells.time||now-cells.time>100)continue;
+        for(size_t i=0;i<cells.count;++i){
+            const auto& p=cells.positions[i];float r=cells.halfWidth;
+            Vec3 corners[]={{p.x-r,p.y-r,p.z+2.f},{p.x+r,p.y-r,p.z+2.f},
+                            {p.x+r,p.y+r,p.z+2.f},{p.x-r,p.y+r,p.z+2.f}};
+            VisualFill(draw,corners,matrix,w,h,VisualColour(g_cfg.fireGlowColor,.45f*pulse));
+        }
+    }
+    // The current minimal frame route does not query unreviewed inferno fields.
+    // An event may still supply a bounded, explicitly labelled radius estimate.
+    for(const auto& zone:HazzureZones::Snapshot(now)){
+        if(zone.kind!=HazzureZones::Kind::Fire||!HazzureZones::Alive(zone,now))continue;
+        bool received=false;for(const auto& cells:snapshots)if(cells.id==zone.id&&HazzureInferno::Validate(cells)&&
+            cells.time&&now>=cells.time&&now-cells.time<=100){received=true;break;}
+        if(received)continue;
+        RenderFloorDisk(draw,zone.point,HazzureZones::Radius(zone.kind),matrix,w,h,VisualColour(g_cfg.fireGlowColor,.35f*pulse));
+        Vec2 label{};if(WorldToScreen(zone.point,matrix,w,h,label))
+            draw->AddText({label.x,label.y},VisualColour(g_cfg.fireGlowColor),"Fogo: area estimada (evento)");
+    }
+}
+static void RenderSmokeFloor(ImDrawList* draw,const Matrix4& matrix,int w,int h,uint64_t now){
+    if(!draw||!g_cfg.smokeGlowEnabled||w<=0||h<=0)return;
+    float pulse=.85f+.15f*std::sin(static_cast<float>(now%100000)*.005f);
+    for(const auto& zone:HazzureZones::Snapshot(now)){
+        if(zone.kind!=HazzureZones::Kind::Smoke||!zone.start||!HazzureZones::Alive(zone,now))continue;
+        float growth=std::clamp(static_cast<float>(now-zone.start)/1500.f,.1f,1.f);
+        RenderFloorDisk(draw,zone.point,HazzureZones::Radius(zone.kind)*growth,matrix,w,h,
+                        VisualColour(g_cfg.smokeGlowColor,.35f*pulse));
+    }
+}
+
+// ==========================================================
+// MOVIMENTACAO, BUNNYHOP PROTEGIDO & AUTO-STRAFE REAL
+// ==========================================================

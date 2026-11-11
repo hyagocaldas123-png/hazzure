@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "type": "file",
+      "path": "Inicio.md",
+      "title": "Início do projeto"
+    },
+    {
+      "type": "file",
+      "path": "Distribuicao.canvas",
+      "title": "Mapa de carga"
+    },
+    {
+      "type": "file",
+      "path": "00_Gestao/Fila.md",
+      "title": "Fila priorizada"
+    },
+    {
+      "type": "file",
+      "path": "40_Checkpoints/2026-10-29.md",
+      "title": "Checkpoint vigente"
+    }
+  ]
+}

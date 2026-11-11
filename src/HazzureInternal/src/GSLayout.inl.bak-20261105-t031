@@ -1,0 +1,908 @@
+// GSLayout.inl — Layout Principal Estilo GameSense
+// DrawGSPanel() + DrawGSPanelSection() + roteamento dos 21 cards legados
+
+#pragma once
+// UIState.inl and GSWidgets.inl are included via HazzureUI.h
+// UISettingsCards.inl, InventoryPanel.inl, LineupPanel.inl, SkinSelections.h, UITacticalHud.inl are already included via UIPanel.inl
+
+namespace GSLayout {
+
+using namespace GSWidgets;
+
+// ============================================================================
+// Estado de navegação (static: linkage interna; APENAS Internal.cpp em src inclui HazzureUI.h;
+// testes são binário separado com sua própria cópia. Checkpoint original usava static.)
+// ============================================================================
+static int gs_currentTab = 0;
+static int gs_currentSection[14] = {};
+static int& s_legitSubTab = gs_currentSection[0]; // Uma section por aba principal
+// gs_inventorySubTab movido para InventoryPanel.inl (g_graphicArtSubTab)
+
+// Busca global do painel GS
+static char gs_searchQuery[128] = {};
+static bool gs_searchActive = false;
+static float gs_searchAnim = 0.0f;
+
+// Fixed capacity, owned by this UI context; no per-item storage growth.
+struct NavigationFade {
+    ImGuiContext* context{};
+    int frame = -1;
+    float selected[14]{}, hover[14]{};
+    void BeginFrame() {
+        auto* current = ImGui::GetCurrentContext();
+        const int next = ImGui::GetFrameCount();
+        if (context != current || next < frame) {
+            *this = NavigationFade{}; context = current;
+        }
+        frame = next;
+    }
+};
+static NavigationFade gs_navigationFade;
+
+// Mapeamento de aliases de busca para (tab, section)
+struct SearchAlias { const char* query; int tab; int section; };
+static const SearchAlias gs_searchAliases[] = {
+    // Clima / Weather -> Visuals/World (tab 6, section 1) ou World (tab 7, section 0)
+    { "clima", 6, 1 }, { "tempo", 6, 1 }, { "clima 3d", 6, 1 }, { "weather", 6, 1 }, { "sky", 7, 0 }, { "fog", 7, 3 },
+    // Mira / Crosshair -> Aim Assist (tab 1, section 0) ou View/Camera (tab 8, section 1)
+    { "mira", 0, 0 }, { "mira personalizada", 0, 0 }, { "crosshair", 0, 0 }, { "ponteiro", 0, 0 },
+    // Inventário / Inventory -> Inventory tab (11)
+    { "inventario", 11, 0 }, { "inventário", 11, 0 }, { "inventory", 11, 0 }, { "equipment", 11, 1 }, { "editor", 11, 1 }, { "skins", 11, 0 }, { "itens", 11, 0 },
+    // Visuals ESP
+    { "esp", 6, 0 }, { "players", 2, 0 }, { "jogadores", 2, 0 },
+    // Chams
+    { "chams", 3, 0 }, { "material", 3, 3 },
+    // Legitbot
+    { "legit", 0, 0 }, { "aimbot", 0, 0 }, { "trigger", 0, 1 }, { "recoil", 0, 2 },
+    // World
+    { "world", 7, 0 }, { "skybox", 7, 0 }, { "lighting", 7, 1 }, { "iluminacao", 7, 1 }, { "texturas", 7, 2 }, { "removals", 7, 3 },
+    { "nightmode", 7, 1 }, { "dark world", 7, 1 }, { "tsukuyomi", 7, 1 }, { "vignette", 7, 1 }, { "vinheta", 7, 1 }, { "embers", 7, 1 },
+    // View
+    { "view", 8, 0 }, { "viewmodel", 8, 0 }, { "camera", 8, 1 }, { "aspect", 8, 2 }, { "thirdperson", 8, 3 }, { "terceira pessoa", 8, 3 },
+    // Indicators
+    { "indicators", 9, 0 }, { "overlay", 9, 0 }, { "tipografia", 9, 1 }, { "font", 9, 1 },
+    // Misc
+    { "misc", 10, 0 }, { "radar", 10, 1 }, { "som", 10, 2 }, { "hitsound", 10, 4 }, { "killsound", 10, 5 },
+    // Grenade Helper
+    { "granada", 12, 0 }, { "grenade", 12, 0 }, { "smoke", 12, 1 }, { "incendiary", 12, 2 }, { "fogo", 12, 2 }, { "tracer", 12, 3 },
+    // Configs
+    { "config", 13, 0 }, { "perfil", 13, 1 }, { "profile", 13, 1 }, { "diagnostico", 13, 2 }, { "diagnostics", 13, 2 },
+    // Agents/Skins integrados ao Inventory (tab 11)
+    { "agents", 11, 0 }, { "agentes", 11, 0 }, { "collection", 11, 0 }, { "colecao", 11, 0 },
+};
+
+// 14 Abas principais (Sidebar)
+static const char* const gs_mainTabs[14] = {
+    "Aim Assist",     // 0
+    "Aim Assist",     // 1
+    "Players",        // 2
+    "Chams",          // 3
+    "Agents",         // 4
+    "Items",          // 5
+    "Visuals",        // 6
+    "World",          // 7
+    "View",           // 8
+    "Indicators",     // 9
+    "Miscellaneous",  // 10
+    "Inventory",      // 11
+    "Grenade Helper", // 12
+    "Configs"         // 13
+};
+
+// Contador de sub-abas por aba principal (const: linkage interna por padrão C++; acessada via GSLayout:: qualificado)
+const int gs_mainTabSectionCounts[14] = {
+    4, // Aim Assist: Aim, Accuracy, RCS, Misc
+    2, // Aim Assist: General, Advanced
+    3, // Players: ESP, Glow, Offscreen
+    4, // Chams: Enemy team, Local team, Flags, Customizations
+    1, // Agents
+    1, // Items
+    3, // Visuals: ESP, World, Effects
+    4, // World: Skybox, Lighting, Textures, Removals
+    2, // View: Viewmodel, Camera & Third Person
+    2, // Indicators: existing overlays and supported typography
+    1, // Miscellaneous: supported movement, interface and audio
+    5, // Inventory: Profile, Equipment, Containers, Tools, Graphic Art
+    5, // Grenade Helper: Lineups, Prediction, Smoke, Incendiary, Tracers
+    3  // Configs: General, Profiles, Diagnostics
+};
+
+// Nomes das sub-abas (topbar)
+static const char* const gs_tabSections[14][6] = {
+    // Legitbot
+    { "Aim", "Accuracy", "RCS", "Misc", nullptr, nullptr },
+    // Aim Assist
+    { "General", "Advanced", nullptr, nullptr, nullptr, nullptr },
+    // Players
+    { "ESP", "Glow", "Offscreen", nullptr, nullptr, nullptr },
+    // Chams
+    { "Chams", "Gradient", "Flags", "Materials", nullptr, nullptr },
+    // Skins
+    { "Agents", nullptr, nullptr, nullptr, nullptr, nullptr },
+    // Items
+    { "Collection", nullptr, nullptr, nullptr, nullptr, nullptr },
+    // Visuals
+    { "ESP", "World", "Effects", nullptr, nullptr, nullptr },
+    // World
+    { "Skybox", "Lighting", "Textures", "Removals", nullptr, nullptr },
+    // View
+    { "Viewmodel", "Camera & Third Person", nullptr, nullptr, nullptr, nullptr },
+    // Indicators
+    { "Overlays", "Typography", nullptr, nullptr, nullptr, nullptr },
+    // Miscellaneous
+    { "General", nullptr, nullptr, nullptr, nullptr, nullptr },
+    // Inventory
+    { "Profile", "Editor", nullptr, nullptr, "Graphic Art", nullptr },
+    // Grenade Helper
+    { "Lineups & Helper", "Prediction", "Smoke Timer", "Incendiary", "Tracers", nullptr },
+    // Configs
+    { "General", "Profiles", "Diagnostics", nullptr, nullptr, nullptr }
+};
+
+// Processa a query de busca e navega para a aba/seção correspondente
+// Retorna true se navegou, false caso contrário. NUNCA altera opções de configuração.
+static bool GS_ProcessSearchQuery(const char* query) {
+    if (!query || !*query) return false;
+    using namespace HazzureUI::Workflow;
+    std::string foldedQuery = Fold(query);
+    if (foldedQuery.empty()) return false;
+
+    // 1. Verificar aliases exatos (mapeamento direto)
+    for (const auto& alias : gs_searchAliases) {
+        if (Fold(alias.query) == foldedQuery) {
+            gs_currentTab = alias.tab == 1 ? 0 : alias.tab;
+            gs_currentSection[gs_currentTab] = std::clamp(alias.section, 0, gs_mainTabSectionCounts[gs_currentTab] - 1);
+            if (gs_currentTab == 11 && alias.section == 1) g_inventorySubTab = 1;
+            g_bindingTarget = nullptr;
+            return true;
+        }
+    }
+
+    // 2. Busca por substring nos nomes das abas principais
+    for (int tab = 0; tab < 14; ++tab) {
+        if (Matches(gs_mainTabs[tab], query)) {
+            int targetTab = (tab == 4 || tab == 5) ? 11 : (tab == 1 ? 0 : tab);
+            gs_currentTab = targetTab;
+            gs_currentSection[targetTab] = std::clamp(gs_currentSection[targetTab], 0, gs_mainTabSectionCounts[targetTab] - 1);
+            g_bindingTarget = nullptr;
+            return true;
+        }
+    }
+
+    // 3. Busca por substring nas sub-abas da aba atual
+    int currentTab = (gs_currentTab >= 0 && gs_currentTab < 14) ? gs_currentTab : 0;
+    int sectionCount = gs_mainTabSectionCounts[currentTab];
+    for (int sec = 0; sec < sectionCount; ++sec) {
+        const char* secName = gs_tabSections[currentTab][sec];
+        if (secName && Matches(secName, query)) {
+            gs_currentSection[currentTab] = sec;
+            if (currentTab == 11 && (sec == 0 || sec == 1 || sec == 4)) g_inventorySubTab = sec;
+            g_bindingTarget = nullptr;
+            return true;
+        }
+    }
+
+    // 4. Busca global em todas as sub-abas de todas as abas
+    for (int tab = 0; tab < 14; ++tab) {
+        int count = gs_mainTabSectionCounts[tab];
+        for (int sec = 0; sec < count; ++sec) {
+            const char* secName = gs_tabSections[tab][sec];
+            if (secName && Matches(secName, query)) {
+                int targetTab = (tab == 4 || tab == 5) ? 11 : (tab == 1 ? 0 : tab);
+                gs_currentTab = targetTab;
+                gs_currentSection[targetTab] = (targetTab == 11) ? 0 : sec;
+                if (targetTab == 11 && (sec == 0 || sec == 1 || sec == 4)) g_inventorySubTab = sec;
+                g_bindingTarget = nullptr;
+                return true;
+            }
+        }
+    }
+
+    // 5. Busca nas sub-abas do Inventory (Profile, Equipment, Containers, Tools, Graphic Art)
+    // g_inventoryTabs é definido em InventoryPanel.inl e visível via include order (UIPanel.inl -> InventoryPanel.inl)
+    for (int i = 0; i < 5; ++i) {
+        if (i != 2 && i != 3 && g_inventoryTabs[i] && Matches(g_inventoryTabs[i], query)) {
+            gs_currentTab = 11;
+            g_inventorySubTab = i;
+            gs_currentSection[11] = 0;
+            g_bindingTarget = nullptr;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Widget de busca para o header (pode ser chamado de GSWidgets se preferir)
+static void GS_DrawSearchBar(float x, float y, float width) {
+    ImGui::SetCursorPos({ x, y });
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(GS_DROPDOWN));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(GS_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(GS_TEXT));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+    ImGui::SetNextItemWidth(width);
+    bool changed = ImGui::InputTextWithHint("##gs_search", "Buscar... (clima, mira, inventário)", gs_searchQuery, sizeof(gs_searchQuery));
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(5);
+
+    if (changed && gs_searchQuery[0]) {
+        GS_ProcessSearchQuery(gs_searchQuery);
+        // Não limpamos a query automaticamente; usuário decide quando limpar
+    }
+
+    // Animação de foco
+    gs_searchAnim = GS_Fade(gs_searchAnim, ImGui::IsItemActive() ? 1.f : 0.f, ImGui::GetIO().DeltaTime);
+    gs_searchActive = ImGui::IsItemActive() || gs_searchAnim > .001f;
+
+    // Indicador visual de busca ativa
+    if (gs_searchAnim > 0.001f) {
+        ImDrawList* d = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetItemRectMin();
+        ImVec2 sz = ImGui::GetItemRectSize();
+        ImU32 accentCol = IM_COL_A(GS_ACCENT, gs_searchAnim * 0.5f);
+        d->AddRect(ImVec2(p.x - 1, p.y - 1), ImVec2(p.x + sz.x + 1, p.y + sz.y + 1), accentCol, 4.0f, 0, 1.5f + gs_searchAnim * 1.5f);
+    }
+    GS_Hint("Navega por nome sem alterar opcoes. Exemplos: clima, inventario, diagnostico.");
+}
+
+// ============================================================================
+// Helpers de layout
+// ============================================================================
+struct GSLayoutData {
+    float width = 820.0f;
+    float height = 560.0f;
+    float sidebarW = 200.0f;
+    float headerH = 44.0f;
+    float topbarH = 40.0f;
+    float bodyX = 0.0f;
+    float bodyY = 0.0f;
+    float bodyW = 0.0f;
+    float bodyH = 0.0f;
+    bool twoColumns = true;
+    float columnW = 0.0f;
+};
+
+static GSLayoutData ResolveGSLayout(int screenW, int screenH) {
+    GSLayoutData layout;
+    layout.width = std::max(1.0f, std::min(900.0f, static_cast<float>(screenW) - 16.0f));
+    layout.height = std::max(1.0f, std::min(600.0f, static_cast<float>(screenH) - 16.0f));
+    layout.headerH = 56.0f;
+    layout.topbarH = 52.0f;
+    layout.sidebarW = layout.width >= 860.0f ? 184.0f : (layout.width >= 580.0f ? 160.0f : 56.0f);
+    layout.bodyX = layout.sidebarW + 12.0f;
+    layout.bodyY = layout.headerH + layout.topbarH;
+    layout.bodyW = std::max(1.0f, layout.width - layout.bodyX - 12.0f);
+    layout.bodyH = std::max(1.0f, layout.height - layout.bodyY - 14.0f);
+    layout.twoColumns = layout.bodyW >= 640.0f;
+    layout.columnW = layout.twoColumns ? (layout.bodyW - 16.0f) * 0.5f : layout.bodyW;
+    return layout;
+}
+
+// ============================================================================
+// Desenha header superior: "[Haz]zure", aba atual, busca e Save
+// ============================================================================
+static void DrawGSHeader(const GSLayoutData& layout) {
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    ImVec2 p = ImGui::GetWindowPos();
+    d->AddRectFilled(p, ImVec2(p.x + layout.width, p.y + layout.headerH), IM_COL(GS_SIDEBAR), 3.0f, ImDrawFlags_RoundCornersTop);
+    d->AddLine(ImVec2(p.x, p.y + layout.headerH), ImVec2(p.x + layout.width, p.y + layout.headerH), IM_COL(GS_BORDER));
+
+    float brandEndX = 110.0f;
+    {
+        HazzureTypography::Scope brandFont(HazzureTypography::brand ? HazzureTypography::brand : HazzureTypography::heading);
+        ImVec2 hazSz = ImGui::CalcTextSize("Haz");
+        ImVec2 zureSz = ImGui::CalcTextSize("zure");
+        float badgePadX = 5.0f;
+        float badgePadY = 3.0f;
+        float textY = p.y + (layout.headerH - hazSz.y) * 0.5f;
+        float textX = p.x + 18.0f;
+
+        // White rounded badge for Haz (matching AN0N's reference badge)
+        ImVec2 badgeMin = ImVec2(textX - badgePadX, textY - badgePadY);
+        ImVec2 badgeMax = ImVec2(textX + hazSz.x + badgePadX, textY + hazSz.y + badgePadY);
+        d->AddRectFilled(badgeMin, badgeMax, IM_COL32(255, 255, 255, 255), 4.0f);
+
+        // "Haz" in black text inside white badge
+        d->AddText(ImVec2(textX, textY), IM_COL32(10, 10, 14, 255), "Haz");
+
+        // "zure" in pure white
+        float zureX = badgeMax.x + 5.0f;
+        d->AddText(ImVec2(zureX, textY), IM_COL32(255, 255, 255, 255), "zure");
+
+        brandEndX = (zureX - p.x) + zureSz.x + 20.0f;
+    }
+
+    if (layout.width >= 580) {
+        ImGui::SetCursorPos(ImVec2(brandEndX, (layout.headerH - ImGui::GetFontSize()) * 0.5f));
+        ImGui::TextColored(ImVec4(0.82f, 0.83f, 0.87f, 1.0f), "%s", gs_mainTabs[gs_currentTab]);
+    }
+
+    // Barra de busca no header (lado direito, antes do botão Save)
+    float searchWidth = std::min(250.0f, std::max(150.0f, layout.width * 0.30f));
+    float searchX = layout.width - 88.0f - 12.0f - searchWidth;
+    if (searchX > brandEndX + 80.0f) {
+        GS_DrawSearchBar(searchX, 14.0f, searchWidth);
+    }
+
+    ImGui::SetCursorPos(ImVec2(layout.width - 88, 14));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(242, 242, 246, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(255, 255, 255, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(215, 215, 222, 255));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(12, 12, 16, 255));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    if (ImGui::Button("Save", ImVec2(72, 28))) SaveConfigFile();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(4);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Salvar configuracao em disco");
+}
+
+// Índices de tabs ocultos apenas no render (preservados nos arrays/persistência)
+// 4 = Agents e 5 = Items unificados dentro de Inventory (11)
+static const bool gs_hiddenTabs[14] = {
+    false, true, false, false, true, true,
+    false, false, false, false, false, false, false, false
+};
+
+static void DrawGSSidebar(const GSLayoutData& layout, ImVec2 winPos) {
+    ImDrawList* background = ImGui::GetWindowDrawList();
+    background->AddRectFilled(ImVec2(winPos.x, winPos.y + layout.headerH), ImVec2(winPos.x + layout.sidebarW, winPos.y + layout.height), IM_COL(GS_SIDEBAR), 10.0f, ImDrawFlags_RoundCornersBottomLeft);
+    background->AddLine(ImVec2(winPos.x + layout.sidebarW, winPos.y + layout.headerH), ImVec2(winPos.x + layout.sidebarW, winPos.y + layout.height), IM_COL(GS_BORDER));
+    ImGui::SetCursorPos(ImVec2(8, layout.headerH + 12));
+    ImGui::BeginChild("##gs_sidebar", ImVec2(layout.sidebarW - 16, layout.height - layout.headerH - 44), false);
+    gs_navigationFade.BeginFrame();
+    const char* hints[] = {
+        "Mira, recoil e controles de disparo.", "Assistencia de mira e ajustes avancados.",
+        "Informacoes visuais dos jogadores.", "Materiais e cores dos modelos.",
+        "Selecao visual de agentes.", "Itens da colecao local.",
+        "ESP, clima e efeitos visuais.", "Ceu, iluminacao e ambiente.",
+        "FOV, camera e proporcao da imagem.", "Overlays e tipografia.",
+        "Eventos, radar e sons.", "Criar e organizar variantes locais; sincronizacao separada.",
+        "Previsao de trajetoria e temporizadores.", "Preferencias, perfis e status observado dos recursos."
+    };
+    for (int i = 0; i < 14; ++i) {
+        if (gs_hiddenTabs[i]) continue; // Pular render, mas preservar índice
+        if (layout.sidebarW > 80 && (i == 0 || i == 6 || i == 11)) {
+            if (i) ImGui::Dummy(ImVec2(0, 4));
+            ImGui::TextColored(ImVec4(0.66f, 0.68f, 0.74f, 1.0f), "%s", i == 0 ? "CONTROLS" : i == 6 ? "APPEARANCE" : "WORKSPACE");
+        }
+        ImGui::PushID(i);
+        bool selected = gs_currentTab == i;
+        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0,0,0,0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(0,0,0,0));
+        const float w = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+        if (ImGui::Button("##tab", ImVec2(w, 32))) {gs_currentTab = i; g_bindingTarget = nullptr;}
+        ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+        ImDrawList* d = ImGui::GetWindowDrawList(); // Child clip applies to all navigation visuals.
+        auto& fade = gs_navigationFade;
+        fade.selected[i] = GS_Fade(fade.selected[i], selected ? 1.f : 0.f, ImGui::GetIO().DeltaTime);
+        fade.hover[i] = GS_Fade(fade.hover[i], ImGui::IsItemHovered() ? 1.f : 0.f, ImGui::GetIO().DeltaTime);
+        d->AddRectFilled(a, b, IM_COL_A(GS_ACCENT, .14f * fade.selected[i] + .07f * fade.hover[i]), 3);
+        if (selected) d->AddRectFilled(ImVec2(a.x, a.y + 7), ImVec2(a.x + 3, b.y - 7), IM_COL32(255, 255, 255, 255), 2);
+        d->PushClipRect(a, b, true);
+        ImU32 iconCol = selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(236, 238, 246, 255);
+        ImU32 labelCol = selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(240, 242, 248, 255);
+        GS_NavIcon(d, i, ImVec2(a.x + 8, a.y + 8), iconCol);
+        if (layout.sidebarW > 80) {
+            if (selected && HazzureTypography::heading) {
+                d->AddText(HazzureTypography::heading, HazzureTypography::heading->FontSize, ImVec2(a.x + 32, a.y + 8), labelCol, gs_mainTabs[i]);
+            } else {
+                d->AddText(ImVec2(a.x + 32, a.y + 8), labelCol, gs_mainTabs[i]);
+            }
+        }
+        d->PopClipRect();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ImGui::SetTooltip("%s\n%s", gs_mainTabs[i], hints[i]);
+        ImGui::PopStyleColor(2);ImGui::PopID();
+    }
+    ImGui::EndChild();
+}
+
+static void DrawGSTopbar(const GSLayoutData& layout, ImVec2) {
+    int count = gs_mainTabSectionCounts[gs_currentTab];
+    int& section = gs_currentSection[gs_currentTab];section = std::clamp(section, 0, count - 1);
+    ImGui::SetCursorPos(ImVec2(layout.bodyX, layout.headerH + 8));
+    // Inventory, Legitbot, Aim Assist e Miscellaneous possuem sua própria divisão interna; evita topbar duplicada desconectada.
+    if (gs_currentTab == 0 || gs_currentTab == 1 || gs_currentTab == 10 || gs_currentTab == 11) return;
+    if (count == 1) {
+        ImGui::TextColored(GS_TEXT, "%s", gs_mainTabs[gs_currentTab]);return;
+    }
+    ImGui::BeginChild("##gs_topbar", ImVec2(layout.bodyW, layout.topbarH - 12), false, ImGuiWindowFlags_HorizontalScrollbar);
+    for (int i = 0; i < count; ++i) {
+        if (i) ImGui::SameLine(0, 8);
+        ImGui::PushID(i);
+        const bool active = (section == i);
+        ImGui::PushStyleColor(ImGuiCol_Button, active ? IM_COL32(244, 244, 248, 255) : IM_COL(GS_DROPDOWN));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, active ? IM_COL32(255, 255, 255, 255) : IM_COL(GS_BORDER_HOVER));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, active ? IM_COL32(225, 225, 232, 255) : IM_COL(GS_BORDER_HOVER));
+        ImGui::PushStyleColor(ImGuiCol_Text, active ? ImVec4(0.05f, 0.05f, 0.07f, 1.0f) : ImVec4(0.92f, 0.93f, 0.96f, 1.0f));
+        if (ImGui::Button(gs_tabSections[gs_currentTab][i], ImVec2(0, 28))) {section = i;g_bindingTarget=nullptr;}
+        ImGui::PopStyleColor(4);ImGui::PopID();
+    }
+    ImGui::EndChild();
+}
+
+// ============================================================================
+// Static arrays for GS_Combo (replacing C99 compound literals)
+// ============================================================================
+static const char* const gs_combo_aimPriority[4] = { "Distance", "FOV", "Damage", "Health" };
+static const char* const gs_combo_aimBone[4] = { "Head", "Neck", "Chest", "Pelvis" };
+static const char* const gs_combo_materialStyle[5] = { "Flat", "Metallic/Chrome", "Wireframe", "Fresnel Rim-Glow", "Crystal" };
+static const char* const gs_combo_gloveModel[8] = { "Default", "Bloodhound", "Sporty", "Slick", "Leather", "Motorcycle", "Specialist", "Hydra" };
+static const char* const gs_combo_agentCT[4] = { "Default", "FBI", "ST6", "SWAT" };
+static const char* const gs_combo_agentT[4] = { "Default", "Phoenix", "Elite Crew", "Professionals" };
+static const char* const gs_combo_hitSoundPreset[4] = { "Default", "Bell", "Bubble", "Custom" };
+
+// ============================================================================
+// Tela Legitbot / Aim Assist - Estilo MemeSense fiel ao print do usuario
+// ============================================================================
+static void DrawLegitbotMemeSense(int column, Shared* shared) {
+    (void)shared;
+    if (column == 0) {
+        // Left Column: General
+        GS_SectionHeader("General");
+        GS_Toggle("Enable", &g_cfg.aimActive);
+        GS_Keybind("Aim key", &g_cfg.aimKey);
+        GS_Toggle("Draw FOV", &g_cfg.espFovCircle);
+
+        ImGui::Dummy(ImVec2(0, 4.0f));
+
+        // Sub-tabs: Aim | Accuracy | RCS | Misc
+        const char* subTabs[] = { "Aim", "Accuracy", "RCS", "Misc" };
+        for (int i = 0; i < 4; ++i) {
+            if (i > 0) ImGui::SameLine(0, 16.0f);
+            bool sel = (s_legitSubTab == i);
+            ImGui::PushID(i);
+            ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(255, 255, 255, 10));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(255, 255, 255, 20));
+            ImGui::PushStyleColor(ImGuiCol_Text, sel ? IM_COL32(255, 255, 255, 255) : IM_COL32(110, 114, 126, 255));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            if (ImGui::Button(subTabs[i])) s_legitSubTab = i;
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(4);
+            ImGui::PopID();
+        }
+
+        ImGui::Dummy(ImVec2(0, 4.0f));
+
+        if (s_legitSubTab == 0) { // Aim
+            GS_SliderFloat("Radius", &g_cfg.aimFov, 0.5f, 25.0f, "%.3f°");
+            GS_SliderFloat("Smooth", &g_cfg.aimSmooth, 1.0f, 25.0f, "%.3f");
+            GS_Toggle("Acceleration / deceleration", &g_cfg.aimEase);
+            if (g_cfg.aimEase) GS_SliderFloat("Speed peak", &g_cfg.aimEaseBias, .15f, .65f, "%.2f");
+        } else if (s_legitSubTab == 1) { // Accuracy
+            DrawCombatReactionCard();
+            DrawAccuracyControls();
+        } else if (s_legitSubTab == 2) { // RCS
+            DrawSettingsCard8(shared);
+        } else if (s_legitSubTab == 3) { // Misc
+            GS_Toggle("Auto-Scope AWP / Scout", &g_cfg.autoScope);
+            GS_Toggle("Visible Only", &g_cfg.aimVisibleOnly);
+            GS_Combo("Osso Alvo", &g_cfg.aimBone, gs_combo_aimBone, 4);
+            const char* modes[] = { "Fixed bone", "Closest bone", "Head / visible fallback" };
+            GS_Combo("Selecao de Alvo", &g_cfg.aimTargetMode, modes, 3);
+        }
+    } else {
+        if (s_legitSubTab == 0) DrawCombatTrajectoryCard();
+        else if (s_legitSubTab == 1) DrawTriggerControls();
+        else if (s_legitSubTab == 2) DrawShotStopControls();
+        else {
+            GS_SectionHeader("Target delays");
+            GS_SliderInt("After kill", &g_cfg.aimKillDelayMs, 0, 1000, "%d ms");
+            GS_SliderInt("Target switch", &g_cfg.aimSwitchDelayMs, 0, 1000, "%d ms");
+        }
+    }
+}
+
+// ============================================================================
+// Tela Miscellaneous - Estilo MemeSense fiel ao print do usuario
+// ============================================================================
+static void DrawMiscellaneousMemeSense(int column, Shared* /*shared*/) {
+    if (column == 0) {
+        GS_SectionHeader("Interface");
+        GS_Toggle("In-game radar", &g_cfg.nativeRadar);
+        GS_Toggle("Preserve kill-feed", &g_cfg.killfeedEnabled);
+        GS_SectionHeader("Movement");
+        GS_Toggle("Bhop", &g_cfg.bhopActive);
+        if (ImGui::CollapsingHeader("Movement options")) {
+            DrawMovementBasicCard();
+            DrawAdvancedMovementControls();
+            DrawMovementAutomationCard();
+        }
+    } else {
+        DrawEnvironmentAudioCard();
+        if (ImGui::Button("Unload cheat", ImVec2(ImGui::GetContentRegionAvail().x, 28.0f)))
+            HazzureState::g_unloadRequested.store(true);
+        HAZZURE_OBSERVE_CONTROL("Unload cheat", &HazzureState::g_unloadRequested);
+    }
+}
+
+// ============================================================================
+// Roteador de seções - mapeia cards legados para novas seções GameSense
+// ============================================================================
+static void DrawGSPanelSection(int tab, int section, int column, Shared* shared) {
+    // Validar tab
+    if (tab < 0 || tab >= 14) {
+        GS_Log("[GUI] DrawGSPanelSection: tab inválido=%d", tab);
+        return;
+    }
+
+    // Validar section
+    int sectionCount = gs_mainTabSectionCounts[tab];
+    if (section < 0 || section >= sectionCount) {
+        GS_Log("[GUI] DrawGSPanelSection: section inválido=%d para tab=%d (max=%d)", section, tab, sectionCount - 1);
+        return;
+    }
+
+
+    using namespace HazzureUI;
+
+    switch (tab) {
+        case 0:
+        case 1: { // Legacy Aim Assist route uses the same renderer.
+            DrawLegitbotMemeSense(column, shared);
+            break;
+        }
+        case 2: { // Players
+            if (section == 0) { // ESP
+                if (column == 0) DrawSettingsCard0(shared); // ESP Jogadores
+                else DrawESPSelectionPreview();
+            } else if (section == 1) { // Glow
+                if (column == 0) {
+                    GS_SectionHeader("Glow Settings");
+                    GS_Toggle("Enabled", &g_cfg.glowOutline);
+                    GS_ColorRow("Enemy Color", g_cfg.colEnemy);
+                    GS_ColorRow("Team Color", g_cfg.colTeam);
+                }
+            } else if (section == 2) { // Offscreen
+                if (column == 0) {
+                    GS_SectionHeader("Offscreen Arrows");
+                    GS_Toggle("Enabled", &g_cfg.offScreenArrows);
+                }
+            }
+            break;
+        }
+        case 3: { // Chams
+            if (section == 0) { // Chams
+                if (column == 0) DrawSettingsCard3(shared);
+            } else if (section == 1) { // Gradient
+                if (column == 0) DrawSettingsCard4(shared);
+            } else if (section == 2) { // Flags
+                if (column == 0) {
+                    GS_SectionHeader("Viewmodel flags");
+                    GS_Toggle("Weapon", &g_cfg.chamsWeapon);
+                    GS_Toggle("Dual Layer", &g_cfg.chamsDualLayer);
+                }
+            } else if (section == 3) { // Customizations
+                if (column == 0) DrawVisualsChamsMaterialCard(shared);
+            }
+            break;
+        }
+        case 4: { // Independent agent customization
+            if(column==0)DrawSettingsCard16(shared);
+            break;
+        }
+        case 5: { // Collection entry, no direct cosmetic application
+            if(column==0)ImGui::TextWrapped("Crie e edite armas, facas e luvas na aba Inventory.");
+            break;
+        }
+        case 6: { // Visuals
+            if (section == 0) { // ESP
+                if (column == 0) DrawSettingsCard0(shared);
+                else DrawESPSelectionPreview();
+            } else if (section == 1) { // World
+                if (column == 0) DrawSettingsCard1(shared);
+            } else if (section == 2) { // Effects
+                if (column == 0) {
+                    GS_SectionHeader("Visual Effects");
+                    GS_Toggle("Bullet Tracers", &g_cfg.bulletTracers);
+                    GS_Toggle("Impact Boxes", &g_cfg.impactBoxes);
+                    GS_Toggle("Kill Effects", &g_cfg.killEffects);
+                    GS_Toggle("Sound ESP", &g_cfg.soundEsp);
+                    if(shared&&InterlockedCompareExchange(&shared->audioProtocol,0,0)!=1)
+                        ImGui::TextWrapped("Eventos indisponiveis nesta versao.");
+                    GS_Toggle("Granadas no ar", &g_cfg.grenadeProjectiles);
+                    GS_Toggle("Armas no chao", &g_cfg.droppedWeapons);
+                }
+            }
+            break;
+        }
+        case 7: { // World
+            if (section == 0) { // Skybox
+                if (column == 0) DrawSettingsCard15(shared); // Skybox & Atmosphere
+            } else if (section == 1) { // Lighting
+                if (column == 0) {
+                    GS_SectionHeader("Lighting & Atmosphere");
+
+                    GS_Toggle("Dark World (Nightmode)", &g_cfg.darkWorld);
+                    if (g_cfg.darkWorld || g_cfg.tsukuyomiTheme) {
+                        GS_SliderFloat("Intensidade (Baixa Gama)", &g_cfg.worldBrightness, 0.05f, 1.00f, "%.2f");
+                    }
+                    GS_Toggle("Tsukuyomi Red Atmosphere", &g_cfg.tsukuyomiTheme);
+                    if (g_cfg.tsukuyomiTheme) {
+                        ImGui::TextColored(ImVec4(0.95f, 0.25f, 0.25f, 1.0f), "Domo vermelho + baixa gama + brasas 3D + Lua Tsukuyomi ativos.");
+                    }
+                    GS_Toggle("Cinematic Vignette", &g_cfg.vignetteEnabled);
+                    if (g_cfg.vignetteEnabled) {
+                        GS_SliderFloat("Intensidade da Vinheta", &g_cfg.vignetteIntensity, 0.10f, 1.00f, "%.2f");
+                    }
+                    ImGui::Spacing();
+                    GS_SliderFloat("Sky Brightness", &g_cfg.skyBrightness, 0.05f, 1.0f, "%.2f");
+                    GS_ColorRow("Sky Color", g_cfg.colSky);
+                    GS_ColorRow("Fog Color", g_cfg.colFog);
+                    GS_SliderFloat("Fog Density", &g_cfg.fogDensity, 0.0f, 1.0f, "%.3f");
+                }
+            } else if (section == 2) { // Textures
+                if (column == 0) {
+                    GS_SectionHeader("World Textures");
+                    GS_Toggle("Clean Map", &g_cfg.cleanMap);
+                    GS_Toggle("Remove Weather", &g_cfg.removeOriginalWeather);
+                    if(g_cfg.removeOriginalWeather)ImGui::TextWrapped("Remocao do clima original indisponivel nesta versao.");
+                    GS_Toggle("Snow Particles", &g_cfg.snowParticles);
+                }
+            } else if (section == 3) { // Removals
+                if (column == 0) {
+                    GS_SectionHeader("Removals");
+
+                    GS_Toggle("Hide Custom Crosshair When Scoped", &g_cfg.hideCustomCrosshairScoped);
+                    GS_Toggle("No Flash", &g_cfg.limitFlash);
+                    GS_SliderFloat("Flash Alpha", &g_cfg.flashAlphaLimit, 0.0f, 1.0f, "%.2f");
+                }
+            }
+            break;
+        }
+        case 8: { // View
+            if (section == 0) { // Viewmodel
+                if (column == 0) {
+                    GS_SectionHeader("Viewmodel Offset & FOV");
+                    GS_Toggle("Custom Viewmodel", &g_cfg.customViewmodel);
+                    GS_SliderFloat("X (Eixo Horizontal)", &g_cfg.viewmodelX, -10.0f, 10.0f, "%.2f");
+                    GS_SliderFloat("Y (Profundidade)", &g_cfg.viewmodelY, -10.0f, 10.0f, "%.2f");
+                    GS_SliderFloat("Z (Altura)", &g_cfg.viewmodelZ, -10.0f, 10.0f, "%.2f");
+                    GS_SliderFloat("FOV da Arma", &g_cfg.viewmodelFov, 40.0f, 120.0f, "%.1f deg");
+                } else if (column == 1) {
+                    GS_SectionHeader("Proporcao de Tela");
+                    GS_Toggle("Forcar Proporcao (Aspect)", &g_cfg.aspectRatioOverride);
+                    GS_SliderFloat("Proporcao", &g_cfg.aspectRatio, 0.5f, 2.5f, "%.3f");
+                    if (ImGui::Button("4:3")) g_cfg.aspectRatio = 4.f / 3.f; ImGui::SameLine();
+                    if (ImGui::Button("16:9")) g_cfg.aspectRatio = 16.f / 9.f; ImGui::SameLine();
+                    if (ImGui::Button("16:10")) g_cfg.aspectRatio = 16.f / 10.f; ImGui::SameLine();
+                    if (ImGui::Button("5:4")) g_cfg.aspectRatio = 5.f / 4.f;
+                }
+            } else if (section == 1) { // Camera & Third Person
+                if (column == 0) {
+                    GS_SectionHeader("Camera (World FOV)");
+                    GS_Toggle("Alterar FOV da Camera", &g_cfg.cameraFovOverride);
+                    GS_SliderFloat("FOV Geral (Camera)", &g_cfg.cameraFov, 60.0f, 140.0f, "%.0f deg");
+                    ImGui::TextWrapped("Campo de visao do mundo. O zoom das snipers continua nativo.");
+                    if (g_cfg.cameraFovOverride) {
+                        ImGui::TextWrapped("%s", HazzureCamera::Label(GetTickCount64()));
+                    }
+                } else if (column == 1) {
+                    GS_SectionHeader("Terceira Pessoa (Third Person)");
+                    GS_Toggle("Ativar Terceira Pessoa", &g_cfg.thirdpersonEnabled);
+                    ImGui::TextWrapped("%s", HazzureNativeCamera::Label());
+                    if (g_cfg.thirdpersonEnabled) {
+                        GS_Keybind("Atalho Terceira Pessoa", &g_cfg.thirdpersonKey);
+                        GS_SliderFloat("Distancia da Camera", &g_cfg.thirdpersonDistance, 30.0f, 300.0f, "%.0f u");
+                    }
+                }
+            }
+            break;
+        }
+        case 9: { // Indicators
+            if (section == 0) { // Existing overlay visibility
+                if (column == 0) {
+                    GS_SectionHeader("Overlays");
+                    GS_Toggle("Telemetry HUD", &g_cfg.showTelemetryHUD);
+                    GS_Toggle("Keybinds Overlay", &g_cfg.showKeybindsOverlay);
+                }
+            } else if (section == 1) { // Font Size
+                if (column == 0) {
+                    GS_SectionHeader("Font Size");
+                    GS_SliderFloat("UI Font", &g_cfg.uiFontSize, 12.0f, 18.0f, "%.1f");
+                    GS_SliderFloat("ESP Font", &g_cfg.espFontSize, 11.0f, 18.0f, "%.1f");
+                }
+            }
+            break;
+        }
+        case 10: { // Miscellaneous (Estilo MemeSense fiel ao print do usuario)
+            DrawMiscellaneousMemeSense(column, shared);
+            break;
+        }
+        case 11: { // Inventory
+            // DrawLocalInventory agora gerencia todas as sub-tabs internamente (Profile, Equipment, Containers, Tools, Graphic Art)
+            if (column == 0) DrawLocalInventory(shared);
+            break;
+        }
+        case 12: { // Grenade Helper
+            if (section == 0) { // Lineups & Helper
+                if (column == 0) { uintptr_t clientModule = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"client.dll")); DrawLineupControls(clientModule); }
+            } else if (section == 1) { // Prediction
+                if (column == 0) {
+                    GS_SectionHeader("Grenade Prediction");
+                    GS_Toggle("Enabled", &g_cfg.showGrenadeTrajectory);
+                    GS_Toggle("Trajectory Glow", &g_cfg.trajectoryGlow);
+                    GS_SliderFloat("Width", &g_cfg.trajectoryWidth, 0.5f, 5.0f, "%.1f");
+                }
+            } else if (section == 2) { // Smoke Timer
+                if (column == 0) {
+                    GS_SectionHeader("Smoke Timer");
+                    GS_Toggle("Enabled", &g_cfg.strictSmoke);
+                    GS_Toggle("Smoke Glow", &g_cfg.smokeGlowEnabled);
+                    GS_ColorRow("Smoke Color", g_cfg.smokeGlowColor);
+                }
+            } else if (section == 3) { // Incendiary
+                if (column == 0) {
+                    GS_SectionHeader("Incendiary Timer");
+                    GS_Toggle("Fire Glow", &g_cfg.fireGlowEnabled);
+                    GS_ColorRow("Fire Color", g_cfg.fireGlowColor);
+                }
+            } else if (section == 4) { // Tracers
+                if (column == 0) {
+                    GS_SectionHeader("Grenade Tracers");
+                    GS_Toggle("Enabled", &g_cfg.tracerGlow);
+                    GS_SliderFloat("Width", &g_cfg.tracerWidth, 0.5f, 5.0f, "%.1f");
+                    GS_ColorRow("Color", g_cfg.colTracer);
+                }
+            }
+            break;
+        }
+        case 13: { // Configs
+            if (section == 0) { // General
+                if (column == 0) DrawSettingsCard19(shared);
+            } else if (section == 1) { // Profiles
+                if (column == 0) DrawSettingsCard18(shared);
+            } else if (section == 2) { // Diagnostics
+                if (column == 0) DrawProfilesDiagnosticsCard();
+                else DrawProfilesTelemetryCard(shared);
+            }
+            break;
+        }
+    }
+} // DrawGSPanelSection
+
+// ============================================================================
+// Panel Principal - DrawGSPanel()
+// ============================================================================
+
+static void DrawGSPanel(Shared* shared, bool* pOpen, int screenW, int screenH) {
+    if (!pOpen || !*pOpen || screenW < 240 || screenH < 200) { g_bindingTarget = nullptr; return; }
+
+    // Aplicar o mesmo contrato da persistência antes do header, topbar e roteamento.
+    HazzureUI::ValidateNavigationIndices();
+
+    GSLayoutData layout = ResolveGSLayout(screenW, screenH);
+
+    ImGui::SetNextWindowSize({ layout.width, layout.height }, ImGuiCond_Always);
+    ImGui::SetNextWindowPos({ (screenW - layout.width) * 0.5f, (screenH - layout.height) * 0.5f }, ImGuiCond_FirstUseEver);
+
+    // Estilo GameSense
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL(GS_BG));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Border, IM_COL(GS_BORDER));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL(GS_DROPDOWN));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL(GS_BORDER_HOVER));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL(GS_ACCENT));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL(GS_DROPDOWN));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL(GS_CARD));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL(GS_TEXT));
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, IM_COL(GS_TEXT_MUTED));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, GS_ACCENT);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, GS_ACCENT);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, GS_ACCENT_ALT);
+    ImGui::PushStyleColor(ImGuiCol_NavHighlight, GS_ACCENT);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 });
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 3.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 10, 8 });
+
+    auto flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar;
+
+    if (ImGui::Begin("##HazzureGameSense", pOpen, flags)) {
+        ImVec2 winPos = ImGui::GetWindowPos();
+        winPos.x = std::clamp(winPos.x, 0.f, std::max(0.f, float(screenW) - layout.width));
+        winPos.y = std::clamp(winPos.y, 0.f, std::max(0.f, float(screenH) - layout.height));
+        ImGui::SetWindowPos(winPos);
+        // 1. Header superior
+        DrawGSHeader(layout);
+
+        // 2. Sidebar esquerda
+        DrawGSSidebar(layout, winPos);
+
+        // 3. Topbar de seções
+        DrawGSTopbar(layout, winPos);
+
+        // 4. Área de conteúdo (duas colunas; Legitbot, Aim Assist, Miscellaneous e Inventory usam o topo completo sem topbar duplicada)
+        const bool usesFullTop = (gs_currentTab == 0 || gs_currentTab == 1 || gs_currentTab == 10 || gs_currentTab == 11);
+        const float contentY = usesFullTop ? (layout.headerH + 6.0f) : layout.bodyY;
+        const float contentH = usesFullTop ? (layout.bodyH + layout.topbarH - 6.0f) : layout.bodyH;
+        ImGui::SetCursorPos({ layout.bodyX, contentY });
+
+        // Validar section index
+        int sectionIdx = gs_currentSection[gs_currentTab];
+        int sectionCount = gs_mainTabSectionCounts[gs_currentTab];
+        if (sectionIdx < 0 || sectionIdx >= sectionCount) {
+            sectionIdx = 0;
+            gs_currentSection[gs_currentTab] = 0;
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+        ImGui::PushID(gs_currentTab);
+        ImGui::PushID(sectionIdx);
+
+        if (layout.twoColumns && gs_currentTab != 11) {
+            ImDrawList* d = ImGui::GetWindowDrawList();
+            float divX = winPos.x + layout.bodyX + layout.columnW + 8.0f;
+            d->AddLine(ImVec2(divX, winPos.y + contentY + 6.0f), ImVec2(divX, winPos.y + contentY + contentH - 6.0f), IM_COL(GS_BORDER), 1.0f);
+            for (int column = 0; column < 2; ++column) {
+                if (column) ImGui::SameLine(0, 16.0f);
+                ImGui::PushID(column);
+                ImGui::BeginChild("##gsColumn", { layout.columnW, contentH }, false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+                DrawGSPanelSection(gs_currentTab, sectionIdx, column, shared);
+                ImGui::EndChild();
+                ImGui::PopID();
+            }
+        } else {
+            ImGui::BeginChild("##gsSingleColumn", { layout.bodyW, contentH }, false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+            DrawGSPanelSection(gs_currentTab, sectionIdx, 0, shared);
+            DrawGSPanelSection(gs_currentTab, sectionIdx, 1, shared);
+            ImGui::EndChild();
+        }
+
+        ImGui::PopID();
+        ImGui::PopID();
+
+        ImGui::PopStyleVar();
+    }
+    ImGui::End();
+    if (g_bindingTarget && g_bindingRenderedFrame != ImGui::GetFrameCount()) g_bindingTarget = nullptr;
+
+    ImGui::PopStyleVar(5);
+    ImGui::PopStyleColor(15);
+}
+
+} // namespace GSLayout
+
+// Valida e remapeia índices de navegação persistidos/carregados para valores válidos visíveis
+// Chamado após LoadConfigFile (OverlayPersistence.h) para garantir que nenhum índice oculto/fora de faixa chegue ao render
+// Definição em header (GSLayout.inl) incluído por HazzureUI.h; compilação single-TU por binário (DLL + Test.exe separados)
+// Ligação dos símbolos de navegação: static (linkage interna) pois APENAS Internal.cpp (src) inclui HazzureUI.h;
+// testes são binário separado (Hazzure.Internal.Test.exe) com sua própria cópia. O checkpoint original usava static.
+// Sem inline/static: linkage externa, single-TU por binário garante ausência de ODR violation.
+void ValidateNavigationIndices() {
+    // gs_currentTab: validar faixa e remapear tabs ocultos (Agents=4, Items=5 -> Inventory=11)
+    if (GSLayout::gs_currentTab < 0 || GSLayout::gs_currentTab >= 14 || GSLayout::gs_hiddenTabs[GSLayout::gs_currentTab]) {
+        int remapped = 0;
+        if (GSLayout::gs_currentTab == 4 || GSLayout::gs_currentTab == 5) remapped = 11; // Agents / Items -> Inventory
+        else remapped = 0;
+        GSWidgets::GS_Log("[GUI] ValidateNavigationIndices: gs_currentTab %d inválido/oculto, corrigido para %d", GSLayout::gs_currentTab, remapped);
+        GSLayout::gs_currentTab = remapped;
+    }
+
+    // gs_currentSection por aba: clamp para faixa válida
+    for (int t = 0; t < 14; ++t) {
+        int maxSec = GSLayout::gs_mainTabSectionCounts[t] - 1;
+        if (GSLayout::gs_currentSection[t] < 0 || GSLayout::gs_currentSection[t] > maxSec) {
+            GSWidgets::GS_Log("[GUI] ValidateNavigationIndices: gs_currentSection[%d]=%d fora de faixa (0-%d), corrigido para 0", t, GSLayout::gs_currentSection[t], maxSec);
+            GSLayout::gs_currentSection[t] = 0;
+        }
+    }
+
+    g_graphicArtSubTab = std::clamp(g_graphicArtSubTab, 0, 6);
+
+    // g_inventorySubTab: ocultar Containers(2) e Tools(3), remapear para 0 (Profile)
+    // Valid tabs: 0=Profile, 1=Equipment, 4=Graphic Art
+    if (g_inventorySubTab == 2 || g_inventorySubTab == 3 || g_inventorySubTab < 0 || g_inventorySubTab > 4) {
+        int old = g_inventorySubTab;
+        g_inventorySubTab = 0; // Default para Profile
+        GSWidgets::GS_Log("[GUI] ValidateNavigationIndices: g_inventorySubTab %d oculto/inválido, corrigido para %d", old, g_inventorySubTab);
+    }
+}

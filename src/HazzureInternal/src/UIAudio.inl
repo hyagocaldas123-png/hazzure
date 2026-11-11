@@ -1,0 +1,204 @@
+// ---------- Conversao de Cores IPC (BGRA / RGBA) ----------
+static uint32_t Float4ToIpcCol(const float c[4]) {
+    uint32_t r = static_cast<uint32_t>(c[0] * 255.f) & 0xFF;
+    uint32_t g = static_cast<uint32_t>(c[1] * 255.f) & 0xFF;
+    uint32_t b = static_cast<uint32_t>(c[2] * 255.f) & 0xFF;
+    uint32_t a = static_cast<uint32_t>(c[3] * 255.f) & 0xFF;
+    return b | (g << 8) | (r << 16) | (a << 24);
+}
+
+static void IpcColToFloat4(uint32_t col, float c[4]) {
+    c[2] = ((col) & 0xFF) / 255.f;
+    c[1] = ((col >> 8) & 0xFF) / 255.f;
+    c[0] = ((col >> 16) & 0xFF) / 255.f;
+    c[3] = ((col >> 24) & 0xFF) / 255.f;
+}
+
+static ImU32 Float4ToImU32(const float c[4]) {
+    return IM_COL32((int)(c[0] * 255.f), (int)(c[1] * 255.f), (int)(c[2] * 255.f), (int)(c[3] * 255.f));
+}
+
+// ==========================================================
+// AUDIO & DSP SINTETIZADO EM MEMORIA (ZERO ARQUIVOS)
+// ==========================================================
+#pragma pack(push, 1)
+struct WavPcmHeader {
+    char riff[4] = { 'R', 'I', 'F', 'F' };
+    uint32_t chunkSize = 0;
+    char wave[4] = { 'W', 'A', 'V', 'E' };
+    char fmt[4] = { 'f', 'm', 't', ' ' };
+    uint32_t subchunk1Size = 16;
+    uint16_t audioFormat = 1;
+    uint16_t numChannels = 1;
+    uint32_t sampleRate = 44100;
+    uint32_t byteRate = 44100 * 2;
+    uint16_t blockAlign = 2;
+    uint16_t bitsPerSample = 16;
+    char data[4] = { 'd', 'a', 't', 'a' };
+    uint32_t subchunk2Size = 0;
+};
+#pragma pack(pop)
+
+static std::vector<char> g_hsWav;
+static std::vector<char> g_bodyWav;
+static std::vector<char> g_c4BeepWav;
+static std::vector<char> g_killWav;
+static bool g_audioInitDone = false;
+static std::vector<char> g_hitPresets[5][2];
+static const char* const kHitPresetNames[]={"Original Hazzure","Bell","Bubble","Metal","Laser","Click"};
+
+static std::vector<char> SynthesizePcmTone(float startFreq, float endFreq, float durationSec, float decayRate) {
+    const uint32_t sampleRate = 44100;
+    uint32_t totalSamples = static_cast<uint32_t>(sampleRate * durationSec);
+    uint32_t pcmBytes = totalSamples * sizeof(int16_t);
+
+    std::vector<char> buffer(sizeof(WavPcmHeader) + pcmBytes);
+    const WavPcmHeader initializedHeader{};
+    memcpy(buffer.data(), &initializedHeader, sizeof(initializedHeader));
+    WavPcmHeader* hdr = reinterpret_cast<WavPcmHeader*>(buffer.data());
+    hdr->chunkSize = static_cast<uint32_t>(sizeof(WavPcmHeader) - 8 + pcmBytes);
+    hdr->subchunk2Size = pcmBytes;
+
+    int16_t* samples = reinterpret_cast<int16_t*>(buffer.data() + sizeof(WavPcmHeader));
+    double phase = 0.0;
+    const double twoPi = 6.283185307179586;
+
+    for (uint32_t i = 0; i < totalSamples; ++i) {
+        float t = (float)i / (float)sampleRate;
+        float progress = (float)i / (float)totalSamples;
+        float currentFreq = startFreq + (endFreq - startFreq) * progress;
+        phase += twoPi * currentFreq / sampleRate;
+        if (phase > twoPi) phase -= twoPi;
+
+        float envelope = std::exp(-t * decayRate);
+        float wave = static_cast<float>(std::sin(phase)) * envelope;
+        samples[i] = static_cast<int16_t>(std::clamp(wave * 28000.f, -32767.f, 32767.f));
+    }
+    return buffer;
+}
+
+static void EnsureProceduralAudio() {
+    if (g_audioInitDone) return;
+    g_hsWav = SynthesizePcmTone(1950.f, 1350.f, 0.085f, 22.f);
+    g_bodyWav = SynthesizePcmTone(480.f, 220.f, 0.065f, 28.f);
+    g_c4BeepWav = SynthesizePcmTone(1150.f, 1150.f, 0.038f, 12.f);
+    g_killWav = SynthesizePcmTone(850.f, 1550.f, 0.13f, 18.f);
+    const float presets[5][4]={{1760,1760,.18f,25},{900,180,.09f,35},{3600,2100,.055f,60},{1700,220,.12f,24},{2600,2100,.024f,120}};
+    for(int p=0;p<5;++p)for(int head=0;head<2;++head){const auto& v=presets[p];float pitch=head?1.25f:1.f;
+        g_hitPresets[p][head]=SynthesizePcmTone(v[0]*pitch,v[1]*pitch,v[2],v[3]);}
+    g_audioInitDone = true;
+}
+
+static std::vector<char> g_playbackWav;
+static void PlayPcmBuffer(const std::vector<char>& wav,float volume) {
+    volume=std::isfinite(volume)?std::clamp(volume,0.f,1.f):0.f;
+    if(volume<=0||!HazzureCustomAudio::Canonical(wav))return;
+    // SND_ASYNC retains this buffer. Stop playback before replacing its storage.
+#ifndef INTERNAL_SELF_TEST
+    PlaySoundA(nullptr,nullptr,0);
+#endif
+    HazzureCustomAudio::Gain(wav,volume,g_playbackWav);
+#ifndef INTERNAL_SELF_TEST
+    PlaySoundA(g_playbackWav.data(),nullptr,SND_MEMORY|SND_ASYNC|SND_NODEFAULT);
+#endif
+}
+static HazzureCustomAudio::Cache g_customAudio;
+static const char* CustomSoundPath(HazzureCustomAudio::Kind kind){
+    switch(kind){case HazzureCustomAudio::Kind::Hit:return g_cfg.hitSoundFile;
+    case HazzureCustomAudio::Kind::Headshot:return g_cfg.headshotSoundFile;
+    case HazzureCustomAudio::Kind::Kill:return g_cfg.killSoundFile;default:return "";}
+}
+static bool CustomSoundEnabled(HazzureCustomAudio::Kind kind){
+    switch(kind){case HazzureCustomAudio::Kind::Hit:return g_cfg.customHitSound;
+    case HazzureCustomAudio::Kind::Headshot:return g_cfg.customHeadshotSound;
+    case HazzureCustomAudio::Kind::Kill:return g_cfg.customKillSound;default:return false;}
+}
+static float CustomSoundGain(HazzureCustomAudio::Kind kind){
+    switch(kind){case HazzureCustomAudio::Kind::Hit:return g_cfg.hitSoundGain;
+    case HazzureCustomAudio::Kind::Headshot:return g_cfg.headshotSoundGain;
+    case HazzureCustomAudio::Kind::Kill:return g_cfg.killSoundGain;default:return 0;}
+}
+static const char* const kSoundsDir = "C:\\HazzureKernel\\sounds";
+// Nome simples (hit.wav) resolve para a pasta padrao; caminho absoluto e usado como esta.
+static std::string ResolveSoundPath(HazzureCustomAudio::Kind kind){
+    const char* raw=CustomSoundPath(kind);
+    if(!raw||!*raw)return "";
+    std::string value=raw;
+    auto first=value.find_first_not_of(" \t\r\n");
+    if(first==std::string::npos)return "";
+    auto last=value.find_last_not_of(" \t\r\n");
+    value=value.substr(first,last-first+1);
+    bool absolute=value.find(':')!=std::string::npos||value.find('\\')!=std::string::npos||value.find('/')!=std::string::npos;
+    return absolute?value:std::string(kSoundsDir)+"\\"+value;
+}
+static void RefreshCustomAudio(bool force=false){
+    for(auto kind:{HazzureCustomAudio::Kind::Hit,HazzureCustomAudio::Kind::Headshot,HazzureCustomAudio::Kind::Kill}){
+        g_customAudio.Prepare(kind,CustomSoundEnabled(kind),ResolveSoundPath(kind),force);
+    }
+}
+static const char* CustomAudioStatus(HazzureCustomAudio::Kind kind){return HazzureCustomAudio::Label(g_customAudio.Get(kind).error);}
+static bool PlayCombatSound(HazzureCustomAudio::Kind kind){
+    using HazzureCustomAudio::Kind;if(kind==Kind::None)return false;
+    float volume=g_cfg.soundVolume*std::clamp(CustomSoundGain(kind),0.f,1.f);
+    if(!std::isfinite(volume)||volume<=0)return false;
+    const auto& custom=g_customAudio.Get(kind);
+    if(CustomSoundEnabled(kind)&&custom.enabled&&custom.error==HazzureCustomAudio::Error::None&&custom.sound.Valid()){
+        PlayPcmBuffer(custom.sound.wav,volume);return true;
+    }
+    if(!g_cfg.proceduralAudio)return false;
+    EnsureProceduralAudio();int preset=std::clamp(g_cfg.hitSoundPreset,0,5);
+    const auto& wav=kind==Kind::Kill?g_killWav:preset?g_hitPresets[preset-1][kind==Kind::Headshot?1:0]:kind==Kind::Headshot?g_hsWav:g_bodyWav;
+    PlayPcmBuffer(wav,volume);return true;
+}
+static bool TestCustomAudio(HazzureCustomAudio::Kind kind){
+    g_customAudio.Prepare(kind,CustomSoundEnabled(kind),ResolveSoundPath(kind),true);
+    return PlayCombatSound(kind);
+}
+static void PlayProceduralHit(bool headshot, float volume) {
+    if (!g_cfg.proceduralAudio) return;
+    EnsureProceduralAudio();
+    const auto& wav = headshot ? g_hsWav : g_bodyWav;
+    if (!wav.empty()) {
+        PlayPcmBuffer(wav,volume);
+    }
+}
+
+inline void PlayProceduralC4Beep() {
+    (void)g_c4BeepWav;
+}
+
+static ULONGLONG g_hitmarkerExpiry = 0;
+static bool g_hitmarkerHeadshot = false;
+
+static void TriggerHitmarker(bool headshot,bool playAudio=true) {
+    g_hitmarkerHeadshot = headshot;
+    g_hitmarkerExpiry = GetTickCount64() + 320;
+    if (playAudio&&g_cfg.hitSound) {
+        PlayCombatSound(headshot?HazzureCustomAudio::Kind::Headshot:HazzureCustomAudio::Kind::Hit);
+    }
+}
+static void DispatchCombatAudio(bool headshot,bool hit,bool kill){
+    if(headshot||hit)TriggerHitmarker(headshot,false);
+    auto event=HazzureCustomAudio::SelectEvent(headshot,hit,kill,g_cfg.hitSound,g_cfg.killSound);
+    PlayCombatSound(event);
+}
+
+static void RenderHitmarker(ImDrawList* draw, int screenW, int screenH) {
+    ULONGLONG now = GetTickCount64();
+    if (now >= g_hitmarkerExpiry) return;
+
+    float remain = (float)(g_hitmarkerExpiry - now) / 320.0f;
+    int alpha = std::clamp((int)(remain * 255.f), 0, 255);
+
+    ImVec2 c((float)screenW * 0.5f, (float)screenH * 0.5f);
+    ImU32 col = g_hitmarkerHeadshot ? IM_COL32(255, 55, 55, alpha) : IM_COL32(245, 245, 250, alpha);
+
+    const float l1 = 4.f;
+    const float l2 = 11.f;
+
+    draw->AddLine(ImVec2(c.x - l2, c.y - l2), ImVec2(c.x - l1, c.y - l1), col, 1.8f);
+    draw->AddLine(ImVec2(c.x + l2, c.y + l2), ImVec2(c.x + l1, c.y + l1), col, 1.8f);
+    draw->AddLine(ImVec2(c.x - l2, c.y + l2), ImVec2(c.x - l1, c.y + l1), col, 1.8f);
+    draw->AddLine(ImVec2(c.x + l2, c.y - l2), ImVec2(c.x + l1, c.y - l1), col, 1.8f);
+}
+
